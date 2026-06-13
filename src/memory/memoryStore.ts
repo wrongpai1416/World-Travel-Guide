@@ -257,7 +257,17 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
 
   initMemoryRuntime: (bankId = '') => {
     // 始终创建新的运行时，防止跨存档污染
-    set({ memoryRuntime: createDefaultMemoryRuntime(bankId) });
+    set({
+      memoryRuntime: createDefaultMemoryRuntime(bankId),
+      vectorMemory: [],
+      lastCompiledContext: null,
+      lastRuntimeFlow: null,
+      lastRetrievePlan: null,
+      writeDebugLogs: [],
+      retrieveDebugLogs: [],
+      compileDebugLogs: [],
+      runtimeVersion: 0,
+    });
   },
 
   getMemoryRuntime: () => {

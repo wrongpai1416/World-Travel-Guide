@@ -77,11 +77,18 @@ function ensureMermaidInit() {
 //  工具函数
 // ============================================================
 
-function getNodeKeyFromDomId(domId: string): string {
+function getNodeKeyFromDomId(domId: string, nodeDetails: Record<string, NodeDetail>): string {
   const safeDomId = String(domId || '').trim();
   if (!safeDomId) return '';
-  // Mermaid 生成的 ID 有时带 LCR# 前缀或数字后缀
-  return safeDomId.replace(/^flowchart-/, '').replace(/-\d+$/, '').replace(/_[\d]+$/, '');
+
+  // 先检查原始 ID
+  if (nodeDetails[safeDomId]) return safeDomId;
+
+  // 再检查处理后的 ID（移除 flowchart- 前缀和数字后缀）
+  const dataId = safeDomId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+  if (nodeDetails[dataId]) return dataId;
+
+  return '';
 }
 
 // ============================================================
@@ -283,7 +290,7 @@ export function MermaidGraphPanel({
       const nodeElements = svgContainerRef.current.querySelectorAll('g.node');
       nodeElements.forEach(el => {
         const domId = el.id || el.getAttribute('data-id') || '';
-        const key = getNodeKeyFromDomId(domId);
+        const key = getNodeKeyFromDomId(domId, nodeDetails);
         if (nodeDetails[key]) {
           (el as HTMLElement).style.cursor = 'pointer';
           el.classList.add('interactive-node');
@@ -388,7 +395,7 @@ export function MermaidGraphPanel({
       const nodeEl = target.closest('g.node') as HTMLElement;
       if (nodeEl) {
         const domId = nodeEl.id || nodeEl.getAttribute('data-id') || '';
-        const key = getNodeKeyFromDomId(domId);
+        const key = getNodeKeyFromDomId(domId, nodeDetails);
         if (nodeDetails[key]) {
           setSelectedNodeId(key);
           setNodeDetailPopup({
