@@ -335,6 +335,14 @@ button:focus:not(:focus-visible) {
   color: var(--success);
 }
 
+/* 主区域 */
+.wizard-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 右侧内容区 */
 .wizard-content {
   flex: 1;
@@ -763,6 +771,76 @@ button:focus:not(:focus-visible) {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1em 0;
+}
+
+/* 行动选项容器 */
+.message-html-content .action-options-container {
+  margin-top: 20px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8faff 0%, #ffffff 100%);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.06);
+}
+.message-html-content .action-options-header {
+  padding: 12px 18px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--accent);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08), transparent);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  letter-spacing: 0.5px;
+}
+.message-html-content .action-options-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 单个行动选项 */
+.message-html-content .action-option-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(59, 130, 246, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+}
+.message-html-content .action-option-item:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06) 0%, rgba(59, 130, 246, 0.02) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  transform: translateX(4px);
+}
+.message-html-content .action-option-item:active {
+  transform: translateX(2px) scale(0.99);
+}
+.message-html-content .action-option-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.message-html-content .action-option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* 移动端行动选项适配 */
+@media (max-width: 768px) {
+  .message-html-content .action-options-container {
+    margin-top: 16px;
+    border-radius: 12px;
+  }
+  .message-html-content .action-option-item {
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
 }
 
 /* ═══════════════════════════════════════════════

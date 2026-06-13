@@ -61,6 +61,36 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     promptOnly: false,
   },
   {
+    id: 'builtin_display_option_start',
+    scriptName: '行动选项-开始',
+    findRegex: '\\[OPTION_START\\]',
+    replaceString: '<div class="action-options-container"><div class="action-options-header">✦ 建议行动</div><div class="action-options-list">',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
+  {
+    id: 'builtin_display_option_item',
+    scriptName: '行动选项-选项',
+    findRegex: '\\[OPTION\\]\\s*\\{(?=[\\s\\S]*?"t"\\s*:\\s*"([^"]*)")(?=[\\s\\S]*?"d"\\s*:\\s*"([^"]*)")[\\s\\S]*?\\}',
+    replaceString: '<span class="action-option-item" data-option-text="$1" data-fill-input="1"><span class="action-option-title">$1</span><span class="action-option-desc">$2</span></span>',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
+  {
+    id: 'builtin_display_option_end',
+    scriptName: '行动选项-结束',
+    findRegex: '\\[OPTION_END\\]',
+    replaceString: '</div></div>',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
+  {
     id: 'builtin_display_strip_meta',
     scriptName: '去除AI元数据标签',
     // 匹配所有已知闭合标签及其内容、details/summary 嵌套块、未闭合标签、孤立标签、元数据行
@@ -383,32 +413,36 @@ const PROMPT_INTEGRITY_STATEMENT = `<integrity>
 const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 【强制输出格式 - 缺一不可】
 
-你必须严格按照以下格式输出，每次回复都必须包含全部三个标签块，顺序固定：
+你必须严格按照以下格式输出，每次回复都必须包含以下内容，顺序固定：
 
 第一块：<thinking>你的思考过程</thinking>
 第二块：<contenttext>正文回复内容</contenttext>
-第三块：<action_options>
-- 选项1
-- 选项2
-- 选项3
-- 选项4
-</action_options>
+第三块：行动选项（必须在正文末尾输出）
 
 ⚠️ 重要警告：
-- <action_options> 标签是必须的，缺少此标签会导致系统无法解析你的回复
-- 必须提供3-5个行动选项，每行一个，用 "- " 开头
+- 行动选项是必须的，缺少选项会导致系统无法解析你的回复
+- 必须提供3-5个行动选项
 - 选项应当涵盖：继续推进主线、探索/调查、与NPC互动、休息/准备、自由行动等不同方向
 - 即使剧情到了关键节点，也必须提供选项，不能省略
+
+【行动选项格式】
+在正文末尾按以下格式输出行动选项：
+
+[OPTION_START]
+[OPTION]{t: "选项标题", d: "选项详细描述"}
+[OPTION]{t: "选项标题", d: "选项详细描述"}
+[OPTION]{t: "选项标题", d: "选项详细描述"}
+[OPTION_END]
 
 【正确示例】
 <thinking>分析当前剧情走向...</thinking>
 <contenttext>正文内容...</contenttext>
-<action_options>
-- 继续前进
-- 与NPC对话
-- 检查周围环境
-- 休息恢复
-</action_options>
+[OPTION_START]
+[OPTION]{t: "继续前进", d: "沿着道路继续探索未知区域"}
+[OPTION]{t: "与NPC对话", d: "和旁边的村民交谈获取信息"}
+[OPTION]{t: "检查周围环境", d: "仔细搜索附近是否有隐藏的宝箱"}
+[OPTION]{t: "休息恢复", d: "找个安全的地方休息恢复体力"}
+[OPTION_END]
 </OutputFormat>`;
 
 // ── 结构化条目数组 ──

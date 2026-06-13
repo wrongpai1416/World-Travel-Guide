@@ -157,12 +157,19 @@ function collectAllMemories(runtime: NarrativeMemoryRuntime): MemoryEntry[] {
   return memories;
 }
 
+import { waitForRateLimit } from '../api/rateLimiter';
+
 async function callAI(
   apiConfig: { baseUrl: string; apiKey: string; model: string },
   systemPrompt: string,
   userContent: string,
   temperature = 0.3,
 ) {
+  console.log('[callAI] 开始调用，准备限流...');
+  // 限流保护
+  await waitForRateLimit();
+  console.log('[callAI] 限流通过，开始请求 API...');
+
   const { requestCompletion } = await import('../api/client');
   const result = await requestCompletion(
     { ...apiConfig, provider: 'openai' },

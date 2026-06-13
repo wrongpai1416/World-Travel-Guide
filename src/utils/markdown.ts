@@ -268,6 +268,32 @@ export interface ParsedContentResult {
 }
 
 /**
+ * 处理内联选项标记
+ * 将 [选项文本] 或 【选项文本】 转换为可点击的 span 元素
+ */
+function processInlineOptions(html: string): string {
+  // 匹配 [选项] 或 【选项】 格式，排除 markdown 链接语法 [...](...)
+  // 选项内容不能包含换行符，长度限制在 100 字符以内
+  return html.replace(
+    /(?<!!)\[(?!\])([^\[\]]{1,100})\](?!\()/g,
+    (match, optionText) => {
+      const trimmed = optionText.trim()
+      if (!trimmed) return match
+      // 排除纯数字（可能是脚注引用）
+      if (/^\d+$/.test(trimmed)) return match
+      return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
+    }
+  ).replace(
+    /【([^【】]{1,100})】/g,
+    (match, optionText) => {
+      const trimmed = optionText.trim()
+      if (!trimmed) return match
+      return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
+    }
+  )
+}
+
+/**
  * 解析内容并返回渲染结果
  */
 export function parseContent(text: string, options: ParseContentOptions = {}): ParsedContentResult {
@@ -321,6 +347,9 @@ export function parseContent(text: string, options: ParseContentOptions = {}): P
     // 5. 使用 DOMPurify 清理 HTML（防止 XSS，但保留安全的 HTML 标签）
     html = DOMPurify.sanitize(html, PURIFY_CONFIG)
     html = applyTextColorizationToHtml(html, textColorizationRules)
+
+    // 6. 处理内联选项（在 DOMPurify 之后，因为需要保留 data 属性）
+    html = processInlineOptions(html)
 
     return {
       type: 'html',

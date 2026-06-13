@@ -17,9 +17,10 @@ interface Props {
   onResend: (id: string) => void;
   onResendFromHere: (id: string) => void;
   onCopy: (text: string) => void;
+  onOptionClick?: (optionText: string) => void;
 }
 
-export default function MessageBubble({ message, onDelete, onEdit, onResend, onResendFromHere, onCopy }: Props) {
+export default function MessageBubble({ message, onDelete, onEdit, onResend, onResendFromHere, onCopy, onOptionClick }: Props) {
   const [showThinking, setShowThinking] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -241,6 +242,17 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                     }}
+                    onClick={(e) => {
+                      // 处理行动选项点击
+                      const target = e.target as HTMLElement
+                      const optionEl = target.closest('.action-option-item') as HTMLElement
+                      if (optionEl && onOptionClick) {
+                        const optionText = optionEl.getAttribute('data-option-text')
+                        if (optionText) {
+                          onOptionClick(optionText)
+                        }
+                      }
+                    }}
                   />
                 ) : message.streaming && !message.content ? (
                   <span style={{ opacity: 0.5 }}>{t('chat.thinking')}</span>
@@ -251,22 +263,6 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
               </>
             )}
 
-            {/* 行动选项 */}
-            {message.actionOptions && message.actionOptions.length > 0 && (
-              <div style={{
-                marginTop: '0.75rem',
-                paddingTop: '0.5rem',
-                borderTop: '1px solid var(--border)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.25rem',
-              }}>
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{t('chat.actions')}</span>
-                {message.actionOptions.map((opt, i) => (
-                  <span key={i} style={{ fontSize: 'var(--font-size-md)', color: 'var(--accent)' }}>• {opt}</span>
-                ))}
-              </div>
-            )}
           </>
         )}
 

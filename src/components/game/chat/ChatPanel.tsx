@@ -20,8 +20,18 @@ interface Props {
 
 export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus }: Props) {
   const [showMonitor, setShowMonitor] = useState(false);
+  const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { settings, t } = useUISettings();
+
+  // 处理内联选项点击
+  const handleOptionClick = (optionText: string) => {
+    setInputText(prev => {
+      const trimmed = prev.trim()
+      if (!trimmed) return optionText
+      return `${trimmed} ${optionText}`
+    })
+  };
 
   // 自动滚动到底部（受设置控制）
   useEffect(() => {
@@ -98,6 +108,7 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
             onResend={onResend}
             onResendFromHere={onResendFromHere}
             onCopy={handleCopy}
+            onOptionClick={handleOptionClick}
           />
         ))}
       </div>
@@ -110,6 +121,8 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
         actionOptions={latestActionOptions}
         pipelineStatus={pipelineStatus ?? null}
         onOpenMonitor={() => setShowMonitor(true)}
+        externalText={inputText}
+        onExternalTextChange={() => setInputText('')}
       />
 
       {/* 管线监控弹窗 */}

@@ -12,6 +12,8 @@ export interface ApiConfig {
   stream?: boolean;
   contextSize?: number;
   reasoningEffort?: string;
+  /** API 调用限流间隔（毫秒），默认 10000 */
+  rateLimitMs?: number;
 }
 
 export interface Message {

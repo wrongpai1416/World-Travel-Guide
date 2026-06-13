@@ -81,6 +81,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
       name: presetName.trim(),
       config: { ...config },
       createdAt: Date.now(),
+      rateLimitMs: config.rateLimitMs,
     };
     const next = [...presets, preset];
     setPresets(next);
@@ -340,7 +341,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
           </div>
 
           {/* 推理强度 */}
-          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+          <div style={rowStyle}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>推理强度 (Reasoning Effort)</div>
             </div>
@@ -355,6 +356,77 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
             >
               {REASONING_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
+          </div>
+
+          {/* API 限流间隔 */}
+          <div style={{ ...rowStyle, flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>API 限流间隔</div>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  每次 API 调用之间的最小间隔，避免触发 429 限流错误
+                </div>
+              </div>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--accent)', fontWeight: '600' }}>
+                {config.rateLimitMs ?? 10000}ms
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="range"
+                min="1000"
+                max="30000"
+                step="1000"
+                value={config.rateLimitMs ?? 10000}
+                onChange={e => set('rateLimitMs', parseInt(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <button
+                onClick={async () => {
+                  // 自动调试
+                  const { detectOptimalRateLimit } = await import('../../api/rateLimiter');
+                  const { requestCompletion } = await import('../../api/client');
+
+                  const testCall = async () => {
+                    await requestCompletion(
+                      { ...config, provider: 'openai' },
+                      [{ role: 'user', content: 'Hi' }],
+                      { maxTokens: 5 }
+                    );
+                  };
+
+                  const recommended = await detectOptimalRateLimit(testCall, (msg) => {
+                    console.log('[限流调试]', msg);
+                  });
+
+                  set('rateLimitMs', recommended);
+                }}
+                style={{
+                  padding: '5px 12px', fontSize: 'var(--font-size-sm)', whiteSpace: 'nowrap',
+                  border: '1px solid var(--accent)', borderRadius: '6px', cursor: 'pointer',
+                  background: 'var(--accent-dim)', color: 'var(--accent)',
+                }}
+              >
+                自动调试
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {[1000, 2000, 5000, 10000, 15000, 20000].map(ms => (
+                <button
+                  key={ms}
+                  onClick={() => set('rateLimitMs', ms)}
+                  style={{
+                    padding: '3px 10px', fontSize: 'var(--font-size-xs)',
+                    border: `1px solid ${(config.rateLimitMs ?? 10000) === ms ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: '12px', cursor: 'pointer',
+                    background: (config.rateLimitMs ?? 10000) === ms ? 'var(--accent-dim)' : 'var(--bg-primary)',
+                    color: (config.rateLimitMs ?? 10000) === ms ? 'var(--accent)' : 'var(--text-muted)',
+                  }}
+                >
+                  {ms >= 1000 ? `${ms / 1000}s` : `${ms}ms`}
+                </button>
+              ))}
+            </div>
           </div>
 
         </div>

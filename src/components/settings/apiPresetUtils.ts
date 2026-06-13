@@ -8,6 +8,8 @@ export interface ApiPreset {
   name: string;
   config: ApiConfig;
   createdAt: number;
+  /** API 调用限流间隔（毫秒） */
+  rateLimitMs?: number;
 }
 
 export function loadPresets(): ApiPreset[] {

@@ -2,6 +2,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
+import { setRateLimitInterval } from '../api/rateLimiter';
 import { parseResponse } from './responseExtractor';
 import { VariableManager } from './variableManager';
 import { eventBus, EVENTS } from './eventBus';
@@ -57,6 +58,13 @@ export function useGameEngine(
   useEffect(() => { playerProfileRef.current = playerProfile ?? null; }, [playerProfile]);
   useEffect(() => { characterHistoryRef.current = characterHistory ?? ''; }, [characterHistory]);
   useEffect(() => { onAutoSaveRef.current = onAutoSave; }, [onAutoSave]);
+
+  // API 限流间隔同步
+  useEffect(() => {
+    if (apiConfig?.rateLimitMs) {
+      setRateLimitInterval(apiConfig.rateLimitMs);
+    }
+  }, [apiConfig?.rateLimitMs]);
 
   // 管线状态持久化到 sessionStorage
   useEffect(() => {
@@ -635,9 +643,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label = '操作'): Prom
   ]);
 }
 
-// 记忆系统 AI 调用限流保护
-let lastMemoryAICallTime = 0;
-const MEMORY_AI_CALL_INTERVAL = 2000; // 2 秒间隔，避免 429
+import { waitForRateLimit } from '../api/rateLimiter';
 
 async function callMemoryAI(
   apiConfig: { baseUrl: string; apiKey: string; model: string },
@@ -646,15 +652,8 @@ async function callMemoryAI(
   temperature = 0.3,
   timeoutMs = 120000,
 ): Promise<string> {
-  // 限流保护：确保两次调用之间有足够间隔
-  const now = Date.now();
-  const timeSinceLastCall = now - lastMemoryAICallTime;
-  if (timeSinceLastCall < MEMORY_AI_CALL_INTERVAL) {
-    const waitTime = MEMORY_AI_CALL_INTERVAL - timeSinceLastCall;
-    console.log(`[记忆AI] 限流保护，等待 ${waitTime}ms`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  }
-  lastMemoryAICallTime = Date.now();
+  // 限流保护
+  await waitForRateLimit();
 
   console.log('[记忆AI] 调用开始', { model: apiConfig.model });
   try {

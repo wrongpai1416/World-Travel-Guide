@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Palette, Cpu, BarChart3, Brain, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../context/GameContext';
@@ -14,7 +14,14 @@ import { type ApiPreset, loadPresets, VARIABLE_ENABLED_KEY } from './settings/ap
 
 type SettingsTab = 'general' | 'api' | 'variable' | 'memory';
 
-const TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
+// 主页设置：只有通常设置和 API 设置
+const HOME_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
+  { id: 'general', icon: Palette, label: '通常设置' },
+  { id: 'api', icon: Cpu, label: 'API 设置' },
+];
+
+// 游戏内设置：全部 4 个 tab
+const GAME_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
   { id: 'general', icon: Palette, label: '通常设置' },
   { id: 'api', icon: Cpu, label: 'API 设置' },
   { id: 'variable', icon: BarChart3, label: '变量系统' },
@@ -23,6 +30,7 @@ const TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
 
 export default function SettingsScreen() {
   const { goBack, engine } = useGame();
+  const isInGame = !!engine; // 判断是否在游戏中
   const { t } = useUISettings();
   const isMobile = useIsMobile(768);
   const apiConfig = useConfigStore(s => s.apiConfig);
@@ -33,6 +41,14 @@ export default function SettingsScreen() {
   const setAuxiliaryConfig = useConfigStore(s => s.setAuxiliaryConfig);
   const [tab, setTab] = useState<SettingsTab>('general');
   const presets = loadPresets();
+
+  // 确保当前 tab 在可用的 tab 列表中
+  const availableTabs = isInGame ? GAME_TABS : HOME_TABS;
+  useEffect(() => {
+    if (!availableTabs.find(t => t.id === tab)) {
+      setTab('general');
+    }
+  }, [isInGame, tab, availableTabs]);
 
   const apiRef = useRef<ApiSettingsRef>(null);
   const varRef = useRef<VariableSettingsRef>(null);
@@ -135,7 +151,7 @@ export default function SettingsScreen() {
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}>
-          {TABS.map(t => {
+          {(isInGame ? GAME_TABS : HOME_TABS).map(t => {
             const TabIcon = t.icon;
             return (
               <button
@@ -184,7 +200,7 @@ export default function SettingsScreen() {
             borderRight: '1px solid var(--border)',
             background: 'var(--bg-secondary)',
           }}>
-            {TABS.map(t => {
+            {(isInGame ? GAME_TABS : HOME_TABS).map(t => {
               const TabIcon = t.icon;
               return (
                 <button

@@ -207,7 +207,7 @@ src/
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 更新日志
 
-### v1.2.0 — 移动端适配 (2026-06-13)
+### v1.5.0 — 管线重构 + 移动端适配 + 限流配置 (2026-06-13)
 
 全面的移动端响应式适配，支持手机和平板设备流畅使用。
 

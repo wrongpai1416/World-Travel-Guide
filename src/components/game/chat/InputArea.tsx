@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useUISettings } from '../../../context/UISettingsContext';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { Activity, Send, StopCircle } from 'lucide-react';
@@ -11,13 +11,25 @@ interface Props {
   actionOptions?: string[];
   pipelineStatus?: PipelineStatusType | null;
   onOpenMonitor?: () => void;
+  externalText?: string;
+  onExternalTextChange?: () => void;
 }
 
-export default function InputArea({ onSend, onCancel, isGenerating, actionOptions, pipelineStatus, onOpenMonitor }: Props) {
+export default function InputArea({ onSend, onCancel, isGenerating, actionOptions, pipelineStatus, onOpenMonitor, externalText, onExternalTextChange }: Props) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { t } = useUISettings();
   const isMobile = useIsMobile(640);
+
+  // 处理外部文本变化
+  useEffect(() => {
+    if (externalText !== undefined && externalText !== text) {
+      setText(externalText)
+      onExternalTextChange?.()
+      // 聚焦到输入框
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
+  }, [externalText])
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
