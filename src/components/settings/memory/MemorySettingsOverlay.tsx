@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Brain, Repeat, ArrowLeft, Check, Download, Upload, AlertTriangle, X } from 'lucide-react';
+import { Brain, Repeat, ArrowLeft, Check, Download, AlertTriangle, X } from 'lucide-react';
 import { useMemoryStore } from '../../../memory/memoryStore';
 import { loadPresets } from '../apiPresetUtils';
 import { Section, SettingRow, Select } from '../SettingsUIComponents';
@@ -45,9 +45,6 @@ export function MemorySettingsOverlay({ visible, onClose, onSave, mode = 'overla
   const [rawEditorSaving, setRawEditorSaving] = useState(false);
   const [rawEditorError, setRawEditorError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Escape 键关闭 ───
   useEffect(() => {
@@ -134,33 +131,6 @@ export function MemorySettingsOverlay({ visible, onClose, onSave, mode = 'overla
     const next = isSimple ? 'full' : 'simple';
     updateConfig({ memoryMode: next });
   }, [isSimple, updateConfig]);
-
-  // ─── 导入 ───
-  const handleImportClick = useCallback(() => {
-    if (isImporting || isExporting) return;
-    importInputRef.current?.click();
-  }, [isImporting, isExporting]);
-
-  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsImporting(true);
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      if (data?.runtime) {
-        store.fromJSON(data.runtime);
-      } else {
-        store.fromJSON(data);
-      }
-      alert('导入成功！');
-    } catch (err) {
-      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsImporting(false);
-      if (importInputRef.current) importInputRef.current.value = '';
-    }
-  }, [store, isImporting]);
 
   // ─── 编辑器 ───
   const openRawEditor = useCallback((tabKey: string) => {
@@ -358,9 +328,7 @@ export function MemorySettingsOverlay({ visible, onClose, onSave, mode = 'overla
           onOpenEditor={openRawEditor}
           onOpenExportPicker={() => setExportPickerVisible(true)}
           onOpenVectorExtract={() => setVectorExtractVisible(true)}
-          onImportClick={handleImportClick}
           isExporting={isExporting}
-          isImporting={isImporting}
         />
       </div>
 
@@ -406,13 +374,6 @@ export function MemorySettingsOverlay({ visible, onClose, onSave, mode = 'overla
   /* ─── 弹窗层（两种模式共用） ─── */
   const dialogs = (
     <>
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".json,.png,application/json,image/png"
-        className="ms-hidden-input"
-        onChange={handleImportFile}
-      />
       {exportPickerVisible && (
         <ExportPickerDialog
           onClose={() => setExportPickerVisible(false)}

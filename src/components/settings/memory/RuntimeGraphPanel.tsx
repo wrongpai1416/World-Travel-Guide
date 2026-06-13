@@ -27,9 +27,7 @@ interface Props {
   onOpenEditor: (tabKey: string) => void;
   onOpenExportPicker: () => void;
   onOpenVectorExtract: () => void;
-  onImportClick: () => void;
   isExporting: boolean;
-  isImporting: boolean;
 }
 
 const RUNTIME_TABS = [
@@ -45,7 +43,6 @@ const RUNTIME_TABS = [
   { key: 'summary', label: '摘要' },
   { key: 'mutations', label: '变更' },
   { key: 'checkpoints', label: '检查点' },
-  { key: 'logs', label: '日志' },
 ];
 
 function formatDateTime(ts: number | null | undefined): string {
@@ -77,8 +74,8 @@ const metaLineStyle: React.CSSProperties = {
 export function RuntimeGraphPanel({
   config, memoryRuntime, vectorMemory, stats, search, activeTab,
   onSearchChange, onTabChange, onOpenEditor,
-  onOpenExportPicker, onOpenVectorExtract, onImportClick,
-  isExporting, isImporting,
+  onOpenExportPicker, onOpenVectorExtract,
+  isExporting,
 }: Props) {
   const rt = memoryRuntime;
   const isSimple = config.memoryMode === 'simple';
@@ -174,11 +171,8 @@ export function RuntimeGraphPanel({
           <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: '600' }}>运行态图谱</span>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button disabled={isExporting || isImporting} onClick={onOpenExportPicker} icon={<Download size={12} />}>
+          <Button disabled={isExporting} onClick={onOpenExportPicker} icon={<Download size={12} />}>
             导出记忆
-          </Button>
-          <Button disabled={isExporting || isImporting} onClick={onImportClick} icon={<Upload size={12} />}>
-            导入记忆
           </Button>
         </div>
       </div>

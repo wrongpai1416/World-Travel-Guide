@@ -68,6 +68,15 @@ export interface MemoryPipelineContext {
   _rerankResult?: ReturnType<typeof parseRerankResult>;
   _selectedEntries?: MemoryEntry[];
   _compiledContext?: string;
+  /** 查询改写阶段数据 */
+  _retrievalKeywords?: string[];
+  _semanticQuery?: string;
+  /** 检索规划阶段数据 */
+  _finalSelectedTitles?: string[];
+  _candidateList?: string;
+  _allMemories?: MemoryEntry[];
+  /** 命中详情 */
+  _hitDetails?: Array<{ title: string; hitRate: number; matchedKeywords: string[] }>;
 }
 
 export interface MemorySystemHook {
@@ -80,16 +89,24 @@ export interface MemorySystemHook {
   initMemory: (bankId?: string) => void;
   resetMemory: () => void;
 
-  // ─── 5 个管线阶段 ───
+  // ─── 8 个管线阶段 ───
   /** 阶段1: 叙事记忆写入（热态对象提取 + 冲突裁决） */
   pipelineWrite: (ctx: MemoryPipelineContext) => Promise<void>;
   /** 阶段2: 摘要保存（3类记忆） */
   pipelineSummary: (ctx: MemoryPipelineContext) => Promise<MemoryEntry[]>;
-  /** 阶段3: 检索规划（查询改写 → AI规划 → 多轮补充 → 精排） */
-  pipelineRetrieve: (ctx: MemoryPipelineContext) => Promise<RetrieveResult>;
-  /** 阶段4: 上下文编译（组装注入文本） */
+  /** 阶段3: 查询改写 */
+  pipelineQueryRewrite: (ctx: MemoryPipelineContext) => Promise<void>;
+  /** 阶段4: 检索规划（AI规划） */
+  pipelineRetrievePlan: (ctx: MemoryPipelineContext) => Promise<void>;
+  /** 阶段5: 多轮补充 */
+  pipelineMultiRound: (ctx: MemoryPipelineContext) => Promise<void>;
+  /** 阶段6: 精排 */
+  pipelineRerank: (ctx: MemoryPipelineContext) => Promise<void>;
+  /** 阶段7: 检索收尾（本地匹配 + 去重） */
+  pipelineRetrieveFinalize: (ctx: MemoryPipelineContext) => Promise<RetrieveResult>;
+  /** 阶段8: 上下文编译（组装注入文本） */
   pipelineCompile: (ctx: MemoryPipelineContext) => Promise<string>;
-  /** 阶段5: 向量事实提取（vectorExtract + vectorQueryRewrite + vectorRerank） */
+  /** 阶段9: 向量事实提取（vectorExtract + vectorQueryRewrite + vectorRerank） */
   pipelineVector: (ctx: MemoryPipelineContext) => Promise<VectorFact[]>;
 
   toJSON: () => unknown;
@@ -285,47 +302,62 @@ export function useMemorySystem(): MemorySystemHook {
   }, [store]);
 
   // ═══════════════════════════════════════════
-  // 阶段3: 检索规划（queryRewrite → planner → multiRound → rerank）
+  // 阶段3: 查询改写
   // ═══════════════════════════════════════════
 
-  const pipelineRetrieve = useCallback(async (ctx: MemoryPipelineContext): Promise<RetrieveResult> => {
-    const emptyResult: RetrieveResult = { entries: [], retrievalKeywords: [], compiledContext: '', hitDetails: [] };
-    if (!store.config.enabled) return emptyResult;
+  const pipelineQueryRewrite = useCallback(async (ctx: MemoryPipelineContext): Promise<void> => {
+    if (!store.config.enabled) return;
+
+    const templates = store.config.narrativePromptTemplates;
+    const retrievalConfig = store.config.retrieval;
+
+    if (!retrievalConfig.useQueryRewrite) return;
+
+    try {
+      store.setLoading(true, '正在查询改写...');
+
+      const qrPrompt = templates.queryRewrite
+        .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+        .replace(/\{\{inputText\}\}/g, ctx.inputText)
+        .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-800))
+        .replace(/\{\{entityTerms\}\}/g, '')
+        .replace(/\{\{timeTerms\}\}/g, '');
+
+      const qrRaw = await callAI(ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
+      const qrResult = parseVectorQueryRewriteResult(qrRaw);
+      ctx._queryRewriteResult = qrResult;
+      ctx._retrievalKeywords = qrResult.retrievalKeywords;
+      ctx._semanticQuery = qrResult.semanticQuery || ctx.inputText;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '查询改写失败';
+      console.warn('[记忆系统] 查询改写失败:', message);
+      // 失败时使用原始输入
+      ctx._retrievalKeywords = [];
+      ctx._semanticQuery = ctx.inputText;
+    } finally {
+      store.setLoading(false);
+    }
+  }, [store]);
+
+  // ═══════════════════════════════════════════
+  // 阶段4: 检索规划
+  // ═══════════════════════════════════════════
+
+  const pipelineRetrievePlan = useCallback(async (ctx: MemoryPipelineContext): Promise<void> => {
+    if (!store.config.enabled) return;
 
     const runtime = store.getMemoryRuntime();
     const allMemories = collectAllMemories(runtime);
     const templates = store.config.narrativePromptTemplates;
     const retrievalConfig = store.config.retrieval;
 
-    if (allMemories.length === 0) return emptyResult;
+    if (allMemories.length === 0) return;
 
     try {
-      store.setLoading(true, '正在检索记忆...');
+      store.setLoading(true, '正在检索规划...');
 
-      // ── 步骤1: 查询改写（queryRewrite）──
-      let retrievalKeywords: string[] = [];
-      let semanticQuery = ctx.inputText;
+      const semanticQuery = ctx._semanticQuery || ctx.inputText;
 
-      if (retrievalConfig.useQueryRewrite) {
-        try {
-          const qrPrompt = templates.queryRewrite
-            .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
-            .replace(/\{\{inputText\}\}/g, ctx.inputText)
-            .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-800))
-            .replace(/\{\{entityTerms\}\}/g, '')
-            .replace(/\{\{timeTerms\}\}/g, '');
-
-          const qrRaw = await callAI(ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
-          const qrResult = parseVectorQueryRewriteResult(qrRaw);
-          ctx._queryRewriteResult = qrResult;
-          retrievalKeywords = qrResult.retrievalKeywords;
-          semanticQuery = qrResult.semanticQuery || ctx.inputText;
-        } catch {
-          // 查询改写失败，用原始输入
-        }
-      }
-
-      // ── 步骤2: 检索规划（retrievePlanner）──
       const candidateList = allMemories
         .slice(0, retrievalConfig.plannerCandidateLimit)
         .map((m, i) => `[${i}] ${m.title}（关键词：${m.keywords.join('、')}）`)
@@ -344,54 +376,101 @@ export function useMemorySystem(): MemorySystemHook {
       const plannerRaw = await callAI(ctx.apiConfig, plannerPrompt, '请规划需要注入的记忆，输出 JSON。');
       const plannerResult = parseNarrativeRetrievePlannerResult(plannerRaw);
       ctx._plannerResult = plannerResult;
+      ctx._finalSelectedTitles = [...plannerResult.items.map(i => i.title)];
+      ctx._candidateList = candidateList;
+      ctx._allMemories = allMemories;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '检索规划失败';
+      store.appendRetrieveDebugLog({ kind: 'retrieve', message, mode: 'error' });
+      console.warn('[记忆系统] 检索规划失败:', message);
+      ctx._plannerResult = null;
+      ctx._finalSelectedTitles = [];
+    } finally {
+      store.setLoading(false);
+    }
+  }, [store]);
 
-      // 合并检索关键词
-      const allKeywords = [...new Set([...retrievalKeywords, ...plannerResult.retrievalKeywords])];
+  // ═══════════════════════════════════════════
+  // 阶段5: 多轮补充
+  // ═══════════════════════════════════════════
 
-      // ── 步骤3: 多轮补充（multiRound，可选）──
-      let finalSelectedTitles = [...plannerResult.items.map(i => i.title)];
+  const pipelineMultiRound = useCallback(async (ctx: MemoryPipelineContext): Promise<void> => {
+    if (!store.config.enabled) return;
 
-      if (retrievalConfig.multiRoundEnabled) {
-        const maxRounds = retrievalConfig.multiRoundMaxRounds;
-        let previousResults = plannerResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
+    const runtime = store.getMemoryRuntime();
+    const templates = store.config.narrativePromptTemplates;
+    const retrievalConfig = store.config.retrieval;
 
-        for (let round = 2; round <= maxRounds; round++) {
-          try {
-            const isLast = round === maxRounds;
-            const multiPrompt = isLast
-              ? templates.multiRoundRetrievePlannerFinal
-              : templates.multiRoundRetrievePlanner;
+    if (!retrievalConfig.multiRoundEnabled || !ctx._plannerResult) return;
 
-            const multiFilled = multiPrompt
-              .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
-              .replace(/\{\{currentRound\}\}/g, String(round))
-              .replace(/\{\{maxRounds\}\}/g, String(maxRounds))
-              .replace(/\{\{inputText\}\}/g, ctx.inputText)
-              .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-600))
-              .replace(/\{\{compiledNarrativeContext\}\}/g, '无')
-              .replace(/\{\{compiledNarrativeSections\}\}/g, '无')
-              .replace(/\{\{semanticAnalysis\}\}/g, semanticQuery)
-              .replace(/\{\{summaryHistory\}\}/g, `共 ${runtime.summarySaveHistory.length} 条摘要`)
-              .replace(/\{\{memoryCandidates\}\}/g, candidateList || '无候选')
-              .replace(/\{\{previousResults\}\}/g, previousResults);
+    try {
+      store.setLoading(true, '正在多轮补充...');
 
-            const multiRaw = await callAI(ctx.apiConfig, multiFilled, '请补充遗漏的记忆，输出 JSON。');
-            const multiResult = parseNarrativeRetrievePlannerResult(multiRaw);
+      const semanticQuery = ctx._semanticQuery || ctx.inputText;
+      const candidateList = ctx._candidateList || '';
+      const maxRounds = retrievalConfig.multiRoundMaxRounds;
+      let previousResults = ctx._plannerResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
 
-            const multiTitles = multiResult.items.map(i => i.title);
-            if (multiTitles.length === 0) break; // 没有新内容，提前退出
+      for (let round = 2; round <= maxRounds; round++) {
+        try {
+          const isLast = round === maxRounds;
+          const multiPrompt = isLast
+            ? templates.multiRoundRetrievePlannerFinal
+            : templates.multiRoundRetrievePlanner;
 
-            finalSelectedTitles.push(...multiTitles);
-            allKeywords.push(...multiResult.retrievalKeywords);
-            previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
-          } catch {
-            break;
-          }
+          const multiFilled = multiPrompt
+            .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+            .replace(/\{\{currentRound\}\}/g, String(round))
+            .replace(/\{\{maxRounds\}\}/g, String(maxRounds))
+            .replace(/\{\{inputText\}\}/g, ctx.inputText)
+            .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-600))
+            .replace(/\{\{compiledNarrativeContext\}\}/g, '无')
+            .replace(/\{\{compiledNarrativeSections\}\}/g, '无')
+            .replace(/\{\{semanticAnalysis\}\}/g, semanticQuery)
+            .replace(/\{\{summaryHistory\}\}/g, `共 ${runtime.summarySaveHistory.length} 条摘要`)
+            .replace(/\{\{memoryCandidates\}\}/g, candidateList || '无候选')
+            .replace(/\{\{previousResults\}\}/g, previousResults);
+
+          const multiRaw = await callAI(ctx.apiConfig, multiFilled, '请补充遗漏的记忆，输出 JSON。');
+          const multiResult = parseNarrativeRetrievePlannerResult(multiRaw);
+
+          const multiTitles = multiResult.items.map(i => i.title);
+          if (multiTitles.length === 0) break; // 没有新内容，提前退出
+
+          ctx._finalSelectedTitles.push(...multiTitles);
+          previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
+        } catch {
+          break;
         }
       }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '多轮补充失败';
+      console.warn('[记忆系统] 多轮补充失败:', message);
+    } finally {
+      store.setLoading(false);
+    }
+  }, [store]);
 
-      // ── 步骤4: 标题匹配 + 关键词命中率筛选 + 去重 + 排序 ──
-      const uniqueKeywords = [...new Set(allKeywords)];
+  // ═══════════════════════════════════════════
+  // 阶段6: 精排
+  // ═══════════════════════════════════════════
+
+  const pipelineRerank = useCallback(async (ctx: MemoryPipelineContext): Promise<void> => {
+    if (!store.config.enabled) return;
+
+    const templates = store.config.narrativePromptTemplates;
+    const retrievalConfig = store.config.retrieval;
+    const allMemories = ctx._allMemories || collectAllMemories(store.getMemoryRuntime());
+    const finalSelectedTitles = ctx._finalSelectedTitles || [];
+
+    if (!retrievalConfig.useRerank || allMemories.length === 0) return;
+
+    try {
+      store.setLoading(true, '正在精排...');
+
+      const retrievalKeywords = ctx._retrievalKeywords || [];
+      const plannerKeywords = ctx._plannerResult?.retrievalKeywords || [];
+      const allKeywords = [...new Set([...retrievalKeywords, ...plannerKeywords])];
 
       // 标题匹配
       const titleSelected = allMemories.filter(m =>
@@ -402,7 +481,92 @@ export function useMemorySystem(): MemorySystemHook {
       const threshold = retrievalConfig.keywordRecallThreshold / 100;
       const keywordSelected = allMemories.filter(m => {
         if (titleSelected.some(t => t.id === m.id)) return false;
-        const { hitRate } = computeKeywordHitRate(m.keywords, uniqueKeywords);
+        const { hitRate } = computeKeywordHitRate(m.keywords, allKeywords);
+        return hitRate >= threshold;
+      });
+
+      // 去重 + 排序
+      const combined = [...titleSelected, ...keywordSelected];
+      const deduped = deduplicateByTitle(combined);
+      const sorted = sortByFloorAsc(deduped);
+
+      // 精排
+      const rerankPrompt = templates.rerank
+        .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+        .replace(/\{\{query\}\}/g, ctx.inputText)
+        .replace(/\{\{candidates\}\}/g,
+          sorted.map((m, i) => `[${i}] ${m.title}: ${m.summary}`).join('\n'));
+
+      const rerankRaw = await callAI(ctx.apiConfig, rerankPrompt, '请对候选记忆精排打分，输出 JSON。');
+      const rerankResult = parseRerankResult(rerankRaw);
+      ctx._rerankResult = rerankResult;
+
+      // 按精排分数重新排序
+      const scoreMap = new Map(rerankResult.rankings.map(r => [r.index, r.score]));
+      const finalEntries = [...sorted]
+        .map((entry, index) => ({ entry, score: scoreMap.get(index) ?? 0 }))
+        .sort((a, b) => b.score - a.score)
+        .map(({ entry }) => entry);
+
+      ctx._selectedEntries = finalEntries;
+
+      // 命中详情
+      const hitDetails = finalEntries.map(m => {
+        const { hitRate, matchedKeywords } = computeKeywordHitRate(m.keywords, allKeywords);
+        return { title: m.title, hitRate, matchedKeywords };
+      });
+      ctx._hitDetails = hitDetails;
+
+      // 缓存检索规划
+      store.setRetrievePlan({
+        plannedAt: Date.now(),
+        candidates: allMemories.map(m => ({ title: m.title })),
+        selectedTitles: finalEntries.map(m => m.title),
+        selectedModes: finalEntries.map(() => 'keyword_hit'),
+        strategy: `查询改写 + AI规划 ${ctx._plannerResult?.items.length ?? 0} 条 + 关键词补充 ${keywordSelected.length} 条 + 精排 → ${finalEntries.length} 条`,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '精排失败';
+      console.warn('[记忆系统] 精排失败:', message);
+      // 精排失败，使用原始排序
+      ctx._selectedEntries = allMemories.filter(m =>
+        finalSelectedTitles.some(title => title === m.title || m.title.includes(title) || title.includes(m.title))
+      );
+    } finally {
+      store.setLoading(false);
+    }
+  }, [store]);
+
+  // ═══════════════════════════════════════════
+  // 阶段7: 检索收尾（本地匹配 + 去重）
+  // ═══════════════════════════════════════════
+
+  const pipelineRetrieveFinalize = useCallback(async (ctx: MemoryPipelineContext): Promise<RetrieveResult> => {
+    const emptyResult: RetrieveResult = { entries: [], retrievalKeywords: [], compiledContext: '', hitDetails: [] };
+    if (!store.config.enabled) return emptyResult;
+
+    const runtime = store.getMemoryRuntime();
+    const allMemories = collectAllMemories(runtime);
+    const retrievalConfig = store.config.retrieval;
+
+    if (allMemories.length === 0) return emptyResult;
+
+    try {
+      const finalSelectedTitles = ctx._finalSelectedTitles || [];
+      const retrievalKeywords = ctx._retrievalKeywords || [];
+      const plannerKeywords = ctx._plannerResult?.retrievalKeywords || [];
+      const allKeywords = [...new Set([...retrievalKeywords, ...plannerKeywords])];
+
+      // 标题匹配
+      const titleSelected = allMemories.filter(m =>
+        finalSelectedTitles.some(title => title === m.title || m.title.includes(title) || title.includes(m.title))
+      );
+
+      // 关键词命中率补充
+      const threshold = retrievalConfig.keywordRecallThreshold / 100;
+      const keywordSelected = allMemories.filter(m => {
+        if (titleSelected.some(t => t.id === m.id)) return false;
+        const { hitRate } = computeKeywordHitRate(m.keywords, allKeywords);
         return hitRate >= threshold;
       });
 
@@ -413,55 +577,28 @@ export function useMemorySystem(): MemorySystemHook {
 
       // 命中详情
       const hitDetails = sorted.map(m => {
-        const { hitRate, matchedKeywords } = computeKeywordHitRate(m.keywords, uniqueKeywords);
+        const { hitRate, matchedKeywords } = computeKeywordHitRate(m.keywords, allKeywords);
         return { title: m.title, hitRate, matchedKeywords };
       });
 
-      // ── 步骤5: 精排（rerank，可选）──
-      let finalEntries = sorted;
-
-      if (retrievalConfig.useRerank && sorted.length > 2) {
-        try {
-          const rerankPrompt = templates.rerank
-            .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
-            .replace(/\{\{query\}\}/g, ctx.inputText)
-            .replace(/\{\{candidates\}\}/g,
-              sorted.map((m, i) => `[${i}] ${m.title}: ${m.summary}`).join('\n'));
-
-          const rerankRaw = await callAI(ctx.apiConfig, rerankPrompt, '请对候选记忆精排打分，输出 JSON。');
-          const rerankResult = parseRerankResult(rerankRaw);
-          ctx._rerankResult = rerankResult;
-
-          // 按精排分数重新排序
-          const scoreMap = new Map(rerankResult.rankings.map(r => [r.index, r.score]));
-          finalEntries = [...sorted]
-            .map((entry, index) => ({ entry, score: scoreMap.get(index) ?? 0 }))
-            .sort((a, b) => b.score - a.score)
-            .map(({ entry }) => entry);
-        } catch {
-          // 精排失败，用原始排序
-        }
-      }
-
-      ctx._selectedEntries = finalEntries;
+      ctx._selectedEntries = sorted;
+      ctx._hitDetails = hitDetails;
 
       // 缓存检索规划
       store.setRetrievePlan({
         plannedAt: Date.now(),
         candidates: allMemories.map(m => ({ title: m.title })),
-        selectedTitles: finalEntries.map(m => m.title),
-        selectedModes: finalEntries.map(() => 'keyword_hit'),
-        strategy: `查询改写 + AI规划 ${plannerResult.items.map(i => i.title).length} 条 + 关键词补充 ${keywordSelected.length} 条${retrievalConfig.useRerank ? ' + 精排' : ''} → ${finalEntries.length} 条`,
+        selectedTitles: sorted.map(m => m.title),
+        selectedModes: sorted.map(() => 'keyword_hit'),
+        strategy: `查询改写 + AI规划 ${ctx._plannerResult?.items.length ?? 0} 条 + 关键词补充 ${keywordSelected.length} 条 → ${sorted.length} 条`,
       });
 
-      return { entries: finalEntries, retrievalKeywords: uniqueKeywords, compiledContext: '', hitDetails };
+      return { entries: sorted, retrievalKeywords: allKeywords, compiledContext: '', hitDetails };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '检索失败';
       store.appendRetrieveDebugLog({ kind: 'retrieve', message, mode: 'error' });
       console.warn('[记忆系统] 检索失败:', message);
       return emptyResult;
-    } finally {
-      store.setLoading(false);
     }
   }, [store]);
 
@@ -661,7 +798,11 @@ export function useMemorySystem(): MemorySystemHook {
     resetMemory,
     pipelineWrite,
     pipelineSummary,
-    pipelineRetrieve,
+    pipelineQueryRewrite,
+    pipelineRetrievePlan,
+    pipelineMultiRound,
+    pipelineRerank,
+    pipelineRetrieveFinalize,
     pipelineCompile,
     pipelineVector,
     toJSON,

@@ -6,7 +6,11 @@ export type PipelineTaskId =
   | 'main'              // 正文生成
   | 'memory_write'      // 叙事记忆写入（热态对象提取）
   | 'memory_summary'    // 摘要保存（3类记忆）
-  | 'memory_retrieve'   // 检索规划（查询改写 → AI规划 → 多轮 → 精排）
+  | 'memory_query_rewrite'    // 查询改写
+  | 'memory_retrieve_plan'    // 检索规划（AI规划）
+  | 'memory_multi_round'      // 多轮补充
+  | 'memory_rerank'           // 精排
+  | 'memory_retrieve_finalize' // 检索收尾（本地匹配 + 去重）
   | 'memory_compile'    // 上下文编译（组装注入文本）
   | 'memory_vector'     // 向量事实提取
   | 'variable';         // 变量提取（最后执行）
@@ -55,14 +59,22 @@ export interface PipelineConfig {
  * 默认执行顺序
  * 1. main — 正文生成（必须先完成，后续阶段依赖它的输出）
  * 2. memory_write + memory_summary + memory_vector — 三者可并行
- * 3. memory_retrieve — 检索规划（依赖摘要结果）
- * 4. memory_compile — 编译注入（依赖检索结果）
- * 5. variable — 变量提取（最后执行）
+ * 3. memory_query_rewrite — 查询改写
+ * 4. memory_retrieve_plan — 检索规划
+ * 5. memory_multi_round — 多轮补充
+ * 6. memory_rerank — 精排
+ * 7. memory_retrieve_finalize — 检索收尾
+ * 8. memory_compile — 编译注入（依赖检索结果）
+ * 9. variable — 变量提取（最后执行）
  */
 export const DEFAULT_EXECUTION_ORDER: PipelineTaskId[][] = [
   ['main'],
   ['memory_write', 'memory_summary', 'memory_vector'],
-  ['memory_retrieve'],
+  ['memory_query_rewrite'],
+  ['memory_retrieve_plan'],
+  ['memory_multi_round'],
+  ['memory_rerank'],
+  ['memory_retrieve_finalize'],
   ['memory_compile'],
   ['variable'],
 ];
@@ -72,7 +84,11 @@ export const STAGE_LABELS: Record<PipelineTaskId, string> = {
   main: '正文生成',
   memory_write: '记忆写入',
   memory_summary: '摘要保存',
-  memory_retrieve: '检索规划',
+  memory_query_rewrite: '查询改写',
+  memory_retrieve_plan: '检索规划',
+  memory_multi_round: '多轮补充',
+  memory_rerank: '精排',
+  memory_retrieve_finalize: '检索收尾',
   memory_compile: '上下文编译',
   memory_vector: '向量提取',
   variable: '变量提取',
@@ -86,9 +102,13 @@ export function createPipelineStatus(round: number): PipelineStatus {
       main: { status: 'pending', label: STAGE_LABELS.main },
       memory_write: { status: 'pending', label: STAGE_LABELS.memory_write },
       memory_summary: { status: 'pending', label: STAGE_LABELS.memory_summary },
-      memory_retrieve: { status: 'pending', label: STAGE_LABELS.memory_retrieve },
-      memory_compile: { status: 'pending', label: STAGE_LABELS.memory_compile },
       memory_vector: { status: 'pending', label: STAGE_LABELS.memory_vector },
+      memory_query_rewrite: { status: 'pending', label: STAGE_LABELS.memory_query_rewrite },
+      memory_retrieve_plan: { status: 'pending', label: STAGE_LABELS.memory_retrieve_plan },
+      memory_multi_round: { status: 'pending', label: STAGE_LABELS.memory_multi_round },
+      memory_rerank: { status: 'pending', label: STAGE_LABELS.memory_rerank },
+      memory_retrieve_finalize: { status: 'pending', label: STAGE_LABELS.memory_retrieve_finalize },
+      memory_compile: { status: 'pending', label: STAGE_LABELS.memory_compile },
       variable: { status: 'pending', label: STAGE_LABELS.variable },
     },
     startTime: Date.now(),

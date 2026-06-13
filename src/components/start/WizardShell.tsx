@@ -93,7 +93,7 @@ export default function WizardShell({
       </div>
 
       {/* ── 主区域：左侧步骤栏 + 右侧内容 ── */}
-      <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+      <div className="wizard-main" style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
         {/* 左侧步骤栏 */}
         <aside className="wizard-sidebar">
           {STEP_LABELS.map((label, i) => {

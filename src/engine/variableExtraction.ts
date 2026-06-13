@@ -60,7 +60,10 @@ export async function runVariableExtraction(params: {
   // 选择 API 配置：优先辅助API，fallback 到主API
   const effectiveConfig = auxiliaryConfig ?? mainApiConfig;
 
-  await sleep(delayMs);
+  // 等待一段时间，让记忆系统的 API 调用完成，避免 429 限流
+  const totalDelay = delayMs + 3000; // 额外等待 3 秒
+  console.log(`[变量提取] 等待 ${totalDelay}ms，避免与记忆系统 API 冲突`);
+  await sleep(totalDelay);
 
   let lastError: unknown = null;
 

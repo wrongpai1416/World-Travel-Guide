@@ -53,45 +53,52 @@ export default function PipelineMonitorModal({ status, onClose }: Props) {
           </div>
         </div>
 
-        {/* 流程可视化 */}
-        <div style={styles.flowBar}>
-          {stages.map(({ id, stage }, i) => {
-            const meta = STAGE_META[id];
-            const isRunning = stage.status === 'running';
-            const isSuccess = stage.status === 'success';
-            const isSkipped = stage.status === 'skipped';
-            const isError = stage.status === 'error';
+        {/* 流程可视化（横向滑动） */}
+        <div style={{
+          ...styles.flowBar,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content' }}>
+            {stages.map(({ id, stage }, i) => {
+              const meta = STAGE_META[id];
+              const isRunning = stage.status === 'running';
+              const isSuccess = stage.status === 'success';
+              const isSkipped = stage.status === 'skipped';
+              const isError = stage.status === 'error';
 
-            return (
-              <div key={id} style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '6px 8px', borderRadius: 'var(--radius-md)',
-                  border: `1.5px solid ${isRunning ? meta.color : isSuccess ? `${meta.color}88` : 'var(--border)'}`,
-                  background: isSuccess ? `${meta.color}11` : isError ? 'rgba(244,67,54,0.08)' : isRunning ? `${meta.color}11` : 'var(--bg-primary)',
-                  minWidth: '52px', position: 'relative',
-                }}>
-                  {isRunning && (
-                    <div style={{
-                      position: 'absolute', inset: '-2px', borderRadius: 'var(--radius-md)',
-                      border: `2px solid ${meta.color}44`,
-                      animation: 'pipeline-pulse 1.5s ease-in-out infinite',
-                    }} />
+              return (
+                <div key={id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '6px 8px', borderRadius: 'var(--radius-md)',
+                    border: `1.5px solid ${isRunning ? meta.color : isSuccess ? `${meta.color}88` : 'var(--border)'}`,
+                    background: isSuccess ? `${meta.color}11` : isError ? 'rgba(244,67,54,0.08)' : isRunning ? `${meta.color}11` : 'var(--bg-primary)',
+                    minWidth: '52px', position: 'relative',
+                  }}>
+                    {isRunning && (
+                      <div style={{
+                        position: 'absolute', inset: '-2px', borderRadius: 'var(--radius-md)',
+                        border: `2px solid ${meta.color}44`,
+                        animation: 'pipeline-pulse 1.5s ease-in-out infinite',
+                      }} />
+                    )}
+                    <span style={{ display: 'flex', marginBottom: '2px', color: meta.color }}><meta.icon size={16} /></span>
+                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: isRunning || isSuccess ? meta.color : 'var(--text-muted)' }}>
+                      {STAGE_LABELS[id]}
+                    </span>
+                    <span style={{ fontSize: 'var(--font-size-xs)', color: STATUS_CONFIG[stage.status]?.color || '#666', marginTop: '1px' }}>
+                      {isRunning ? '...' : isSuccess ? `✓${formatMs(stage.startTime && stage.endTime ? stage.endTime - stage.startTime : undefined)}` : isSkipped ? '-' : isError ? '✕' : '○'}
+                    </span>
+                  </div>
+                  {i < stages.length - 1 && (
+                    <div style={{ width: '6px', height: '2px', background: isSuccess ? `${meta.color}44` : 'var(--border)' }} />
                   )}
-                  <span style={{ display: 'flex', marginBottom: '2px', color: meta.color }}><meta.icon size={16} /></span>
-                  <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: isRunning || isSuccess ? meta.color : 'var(--text-muted)' }}>
-                    {STAGE_LABELS[id]}
-                  </span>
-                  <span style={{ fontSize: 'var(--font-size-xs)', color: STATUS_CONFIG[stage.status]?.color || '#666', marginTop: '1px' }}>
-                    {isRunning ? '...' : isSuccess ? `✓${formatMs(stage.startTime && stage.endTime ? stage.endTime - stage.startTime : undefined)}` : isSkipped ? '-' : isError ? '✕' : '○'}
-                  </span>
                 </div>
-                {i < stages.length - 1 && (
-                  <div style={{ width: '6px', height: '2px', background: isSuccess ? `${meta.color}44` : 'var(--border)' }} />
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* 详情列表 */}

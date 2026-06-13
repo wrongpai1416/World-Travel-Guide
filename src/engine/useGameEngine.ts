@@ -304,9 +304,25 @@ export function useGameEngine(
           vector: memConfig.vectorEnabled ? async () => {
             await executeMemoryVector(memStore, memCtx);
           } : undefined,
-          // 检索：查询改写 → AI规划 → 多轮 → 精排
-          retrieve: async () => {
-            await executeMemoryRetrieve(memStore, memCtx);
+          // 查询改写
+          queryRewrite: async () => {
+            await executeMemoryQueryRewrite(memStore, memCtx);
+          },
+          // 检索规划
+          retrievePlan: async () => {
+            await executeMemoryRetrievePlan(memStore, memCtx);
+          },
+          // 多轮补充
+          multiRound: async () => {
+            await executeMemoryMultiRound(memStore, memCtx);
+          },
+          // 精排
+          rerank: async () => {
+            await executeMemoryRerank(memStore, memCtx);
+          },
+          // 检索收尾
+          retrieveFinalize: async () => {
+            await executeMemoryRetrieveFinalize(memStore, memCtx);
           },
           // 编译：组装注入文本
           compile: async () => {
@@ -618,6 +634,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label = '操作'): Prom
   ]);
 }
 
+// 记忆系统 AI 调用限流保护
+let lastMemoryAICallTime = 0;
+const MEMORY_AI_CALL_INTERVAL = 2000; // 2 秒间隔，避免 429
+
 async function callMemoryAI(
   apiConfig: { baseUrl: string; apiKey: string; model: string },
   systemPrompt: string,
@@ -625,10 +645,19 @@ async function callMemoryAI(
   temperature = 0.3,
   timeoutMs = 120000,
 ): Promise<string> {
+  // 限流保护：确保两次调用之间有足够间隔
+  const now = Date.now();
+  const timeSinceLastCall = now - lastMemoryAICallTime;
+  if (timeSinceLastCall < MEMORY_AI_CALL_INTERVAL) {
+    const waitTime = MEMORY_AI_CALL_INTERVAL - timeSinceLastCall;
+    console.log(`[记忆AI] 限流保护，等待 ${waitTime}ms`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  lastMemoryAICallTime = Date.now();
+
   console.log('[记忆AI] 调用开始', { model: apiConfig.model });
   try {
     // 非流式调用，加大超时到 120 秒
-    // 注意：参考项目明确不使用 responseFormat: 'json'，因为某些 API 对非流式响应很慢
     const result = await withTimeout(
       requestCompletion(
         { ...apiConfig, provider: 'openai' },
@@ -813,39 +842,52 @@ async function executeMemoryVector(memStore: MemoryStore, ctx: MemoryPipelineCon
   }
 }
 
-// ─── 阶段4: 检索规划 ───
+// ─── 阶段4: 查询改写 ───
 
-async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
+async function executeMemoryQueryRewrite(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
+  const rConfig = memStore.config.retrieval;
+  if (!rConfig.useQueryRewrite) return;
+
+  const templates = memStore.config.narrativePromptTemplates;
+  memStore.setLoading(true, '正在查询改写...');
+
+  try {
+    const qrPrompt = templates.queryRewrite
+      .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+      .replace(/\{\{inputText\}\}/g, ctx.inputText)
+      .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-800))
+      .replace(/\{\{entityTerms\}\}/g, '').replace(/\{\{timeTerms\}\}/g, '');
+    const qrRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
+    const qrResult = parseVectorQueryRewriteResult(qrRaw);
+    ctx._retrievalKeywords = qrResult.retrievalKeywords;
+    ctx._semanticQuery = qrResult.semanticQuery || ctx.inputText;
+    console.log('[查询改写] 完成, 关键词:', ctx._retrievalKeywords.length, '个');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '查询改写失败';
+    console.warn('[查询改写] 失败:', message);
+    ctx._retrievalKeywords = [];
+    ctx._semanticQuery = ctx.inputText;
+  } finally {
+    memStore.setLoading(false);
+  }
+}
+
+// ─── 阶段5: 检索规划 ───
+
+async function executeMemoryRetrievePlan(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
   const runtime = memStore.getMemoryRuntime();
   const allMemories = collectAllMemoriesFromRuntime(runtime);
-  console.log('[记忆检索] 开始, 已有记忆:', allMemories.length, '条, summaryHistory:', runtime.summarySaveHistory.length);
   if (allMemories.length === 0) {
-    console.log('[记忆检索] 无记忆可检索, 跳过');
+    console.log('[检索规划] 无记忆可检索, 跳过');
     return;
   }
 
   const templates = memStore.config.narrativePromptTemplates;
   const rConfig = memStore.config.retrieval;
-  memStore.setLoading(true, '正在检索记忆...');
+  memStore.setLoading(true, '正在检索规划...');
 
   try {
-    // 查询改写
-    let retrievalKeywords: string[] = [];
-    if (rConfig.useQueryRewrite) {
-      try {
-        const qrPrompt = templates.queryRewrite
-          .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
-          .replace(/\{\{inputText\}\}/g, ctx.inputText)
-          .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-800))
-          .replace(/\{\{entityTerms\}\}/g, '').replace(/\{\{timeTerms\}\}/g, '');
-        const qrRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
-        retrievalKeywords = parseVectorQueryRewriteResult(qrRaw).retrievalKeywords;
-        // 添加延迟，避免 429 错误（增加到 3 秒）
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      } catch { /* 失败用原始输入 */ }
-    }
-
-    // AI 检索规划
+    const semanticQuery = ctx._semanticQuery || ctx.inputText;
     const candidateList = allMemories.slice(0, rConfig.plannerCandidateLimit)
       .map((m, i) => `[${i}] ${m.title}（关键词：${m.keywords.join('、')}）`).join('\n');
 
@@ -855,35 +897,160 @@ async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineC
       .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-600))
       .replace(/\{\{compiledNarrativeContext\}\}/g, '无')
       .replace(/\{\{compiledNarrativeSections\}\}/g, '无')
-      .replace(/\{\{semanticAnalysis\}\}/g, '')
+      .replace(/\{\{semanticAnalysis\}\}/g, semanticQuery)
       .replace(/\{\{summaryHistory\}\}/g, `共 ${runtime.summarySaveHistory.length} 条摘要`)
       .replace(/\{\{memoryCandidates\}\}/g, candidateList || '无候选');
 
-    // 添加重试机制，避免 429 错误
-    let plannerRaw = '';
-    let plannerResult = { items: [] as Array<{ title: string; reason?: string }>, retrievalKeywords: [] as string[] };
-    const maxRetries = 3;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const plannerRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, plannerPrompt, '请规划需要注入的记忆，输出 JSON。');
+    const plannerResult = parseNarrativeRetrievePlannerResult(plannerRaw);
+    ctx._plannerResult = plannerResult;
+    ctx._finalSelectedTitles = [...plannerResult.items.map(i => i.title)];
+    ctx._candidateList = candidateList;
+    ctx._allMemories = allMemories;
+    console.log('[检索规划] 完成, 选中:', ctx._finalSelectedTitles.length, '条');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '检索规划失败';
+    console.warn('[检索规划] 失败:', message);
+    ctx._plannerResult = null;
+    ctx._finalSelectedTitles = [];
+  } finally {
+    memStore.setLoading(false);
+  }
+}
+
+// ─── 阶段6: 多轮补充 ───
+
+async function executeMemoryMultiRound(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
+  const rConfig = memStore.config.retrieval;
+  if (!rConfig.multiRoundEnabled || !ctx._plannerResult) return;
+
+  const runtime = memStore.getMemoryRuntime();
+  const templates = memStore.config.narrativePromptTemplates;
+  memStore.setLoading(true, '正在多轮补充...');
+
+  try {
+    const semanticQuery = ctx._semanticQuery || ctx.inputText;
+    const candidateList = ctx._candidateList || '';
+    const maxRounds = rConfig.multiRoundMaxRounds;
+    let previousResults = ctx._plannerResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
+
+    for (let round = 2; round <= maxRounds; round++) {
       try {
-        plannerRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, plannerPrompt, '请规划需要注入的记忆，输出 JSON。', 0.3, 60000);
-        plannerResult = parseNarrativeRetrievePlannerResult(plannerRaw);
-        break; // 成功，退出重试循环
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.warn(`[检索规划] 第 ${attempt}/${maxRetries} 次尝试失败:`, errorMessage);
-        if (attempt < maxRetries && errorMessage.includes('429')) {
-          // 429 错误，等待后重试
-          await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
-        } else {
-          throw err; // 非 429 错误或最后一次重试失败，抛出异常
-        }
+        const isLast = round === maxRounds;
+        const multiPrompt = isLast ? templates.multiRoundRetrievePlannerFinal : templates.multiRoundRetrievePlanner;
+
+        const multiFilled = multiPrompt
+          .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+          .replace(/\{\{currentRound\}\}/g, String(round))
+          .replace(/\{\{maxRounds\}\}/g, String(maxRounds))
+          .replace(/\{\{inputText\}\}/g, ctx.inputText)
+          .replace(/\{\{recentContext\}\}/g, ctx.recentContext.slice(-600))
+          .replace(/\{\{compiledNarrativeContext\}\}/g, '无')
+          .replace(/\{\{compiledNarrativeSections\}\}/g, '无')
+          .replace(/\{\{semanticAnalysis\}\}/g, semanticQuery)
+          .replace(/\{\{summaryHistory\}\}/g, `共 ${runtime.summarySaveHistory.length} 条摘要`)
+          .replace(/\{\{memoryCandidates\}\}/g, candidateList || '无候选')
+          .replace(/\{\{previousResults\}\}/g, previousResults);
+
+        const multiRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, multiFilled, '请补充遗漏的记忆，输出 JSON。');
+        const multiResult = parseNarrativeRetrievePlannerResult(multiRaw);
+
+        const multiTitles = multiResult.items.map(i => i.title);
+        if (multiTitles.length === 0) break;
+
+        ctx._finalSelectedTitles.push(...multiTitles);
+        previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
+        console.log(`[多轮补充] 第 ${round} 轮, 新增 ${multiTitles.length} 条`);
+      } catch {
+        break;
       }
     }
-    const allKeywords = [...new Set([...retrievalKeywords, ...plannerResult.retrievalKeywords])];
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '多轮补充失败';
+    console.warn('[多轮补充] 失败:', message);
+  } finally {
+    memStore.setLoading(false);
+  }
+}
 
-    // 标题匹配 + 关键词命中率
-    const finalTitles = plannerResult.items.map(i => i.title);
-    const titleSelected = allMemories.filter(m => finalTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title)));
+// ─── 阶段7: 精排 ───
+
+async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
+  const rConfig = memStore.config.retrieval;
+  if (!rConfig.useRerank) {
+    console.log('[精排] 跳过，useRerank 未启用');
+    return;
+  }
+
+  const allMemories = ctx._allMemories || collectAllMemoriesFromRuntime(memStore.getMemoryRuntime());
+  const finalSelectedTitles = ctx._finalSelectedTitles || [];
+  console.log('[精排] 检查条件:', { allMemoriesCount: allMemories.length, selectedTitlesCount: finalSelectedTitles.length });
+  if (allMemories.length === 0 || finalSelectedTitles.length === 0) {
+    console.log('[精排] 跳过，无记忆或无选中标题');
+    return;
+  }
+
+  const templates = memStore.config.narrativePromptTemplates;
+  memStore.setLoading(true, '正在精排...');
+
+  try {
+    // 先做本地匹配
+    const titleSelected = allMemories.filter(m =>
+      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+    );
+
+    const rerankPrompt = templates.rerank
+      .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+      .replace(/\{\{query\}\}/g, ctx.inputText)
+      .replace(/\{\{candidates\}\}/g, titleSelected.map((m, i) => `[${i}] ${m.title}: ${m.summary}`).join('\n'));
+
+    const rerankRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, rerankPrompt, '请对候选记忆精排打分，输出 JSON。');
+    const rerankResult = parseRerankResult(rerankRaw);
+    ctx._rerankResult = rerankResult;
+
+    // 按精排分数重新排序
+    const scoreMap = new Map(rerankResult.rankings.map(r => [r.index, r.score]));
+    const sortedEntries = [...titleSelected]
+      .map((entry, index) => ({ entry, score: scoreMap.get(index) ?? 0 }))
+      .sort((a, b) => b.score - a.score)
+      .map(({ entry }) => entry);
+
+    ctx._selectedEntries = sortedEntries;
+    console.log('[精排] 完成, 排序后:', sortedEntries.length, '条');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '精排失败';
+    console.warn('[精排] 失败:', message);
+    // 精排失败，使用原始排序
+    const titleSelected = allMemories.filter(m =>
+      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+    );
+    ctx._selectedEntries = titleSelected;
+  } finally {
+    memStore.setLoading(false);
+  }
+}
+
+// ─── 阶段8: 检索收尾 ───
+
+async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
+  const runtime = memStore.getMemoryRuntime();
+  const allMemories = collectAllMemoriesFromRuntime(runtime);
+  const rConfig = memStore.config.retrieval;
+  console.log('[检索收尾] 开始, 已有记忆:', allMemories.length, '条, 选中标题:', ctx._finalSelectedTitles?.length ?? 0, '条');
+  memStore.setLoading(true, '正在检索收尾...');
+
+  try {
+    const finalSelectedTitles = ctx._finalSelectedTitles || [];
+    const retrievalKeywords = ctx._retrievalKeywords || [];
+    const plannerKeywords = ctx._plannerResult?.retrievalKeywords || [];
+    const allKeywords = [...new Set([...retrievalKeywords, ...plannerKeywords])];
+
+    // 标题匹配
+    const titleSelected = allMemories.filter(m =>
+      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+    );
+
+    // 关键词命中率补充
     const threshold = rConfig.keywordRecallThreshold / 100;
     const keywordSelected = allMemories.filter(m => {
       if (titleSelected.some(t => t.id === m.id)) return false;
@@ -909,8 +1076,9 @@ async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineC
       candidates: allMemories.map(m => ({ title: m.title })),
       selectedTitles: deduped.map(m => m.title),
       selectedModes: deduped.map(() => 'keyword_hit'),
-      strategy: `AI规划 + 关键词匹配 → ${deduped.length} 条`,
+      strategy: `AI规划 ${ctx._plannerResult?.items.length ?? 0} 条 + 关键词补充 ${keywordSelected.length} 条 → ${deduped.length} 条`,
     });
+    console.log('[检索收尾] 完成, 最终:', deduped.length, '条');
   } finally {
     memStore.setLoading(false);
   }

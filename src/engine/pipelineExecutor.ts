@@ -29,8 +29,16 @@ export interface MemoryTasks {
   write?: () => Promise<void>;
   /** 摘要保存 */
   summary?: () => Promise<void>;
+  /** 查询改写 */
+  queryRewrite?: () => Promise<void>;
   /** 检索规划 */
-  retrieve?: () => Promise<void>;
+  retrievePlan?: () => Promise<void>;
+  /** 多轮补充 */
+  multiRound?: () => Promise<void>;
+  /** 精排 */
+  rerank?: () => Promise<void>;
+  /** 检索收尾 */
+  retrieveFinalize?: () => Promise<void>;
   /** 上下文编译 */
   compile?: () => Promise<void>;
   /** 向量事实提取 */
@@ -151,8 +159,16 @@ export class PipelineExecutor {
         return this.executeMemoryTask('memory_write', config.memoryEnabled, memoryTasks?.write, memoryTasks?.debugLogger);
       case 'memory_summary':
         return this.executeMemoryTask('memory_summary', config.memoryEnabled, memoryTasks?.summary, memoryTasks?.debugLogger);
-      case 'memory_retrieve':
-        return this.executeMemoryTask('memory_retrieve', config.memoryEnabled, memoryTasks?.retrieve, memoryTasks?.debugLogger);
+      case 'memory_query_rewrite':
+        return this.executeMemoryTask('memory_query_rewrite', config.memoryEnabled, memoryTasks?.queryRewrite, memoryTasks?.debugLogger);
+      case 'memory_retrieve_plan':
+        return this.executeMemoryTask('memory_retrieve_plan', config.memoryEnabled, memoryTasks?.retrievePlan, memoryTasks?.debugLogger);
+      case 'memory_multi_round':
+        return this.executeMemoryTask('memory_multi_round', config.memoryEnabled, memoryTasks?.multiRound, memoryTasks?.debugLogger);
+      case 'memory_rerank':
+        return this.executeMemoryTask('memory_rerank', config.memoryEnabled, memoryTasks?.rerank, memoryTasks?.debugLogger);
+      case 'memory_retrieve_finalize':
+        return this.executeMemoryTask('memory_retrieve_finalize', config.memoryEnabled, memoryTasks?.retrieveFinalize, memoryTasks?.debugLogger);
       case 'memory_compile':
         return this.executeMemoryTask('memory_compile', config.memoryEnabled, memoryTasks?.compile, memoryTasks?.debugLogger);
       case 'memory_vector':

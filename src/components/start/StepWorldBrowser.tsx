@@ -1,14 +1,15 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, Globe, ScrollText, MapPin, Clock, Cloud,
   Swords, AlertTriangle, DollarSign, Flag, User,
   Sparkles, ChevronRight, Layers, Shield, Users,
   Calendar, Heart, Zap, Target, BarChart3,
-  Compass, BookOpen, Star, Upload,
+  Compass, BookOpen, Star, Upload, ArrowLeft,
 } from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
 import WorldCard, { CreateWorldCard, getWorldIcon } from './WorldCard';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // ── 难度筛选 ──
 const DIFFICULTY_FILTERS = [
@@ -50,9 +51,18 @@ export default function StepWorldBrowser({
   const [diffFilter, setDiffFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [importError, setImportError] = useState('');
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile(768);
 
   const selected = allWorlds.find(w => w.id === selectedWorld);
+
+  // 移动端：选择世界后自动显示详情
+  useEffect(() => {
+    if (isMobile && selectedWorld) {
+      setShowMobileDetail(true);
+    }
+  }, [selectedWorld, isMobile]);
 
   // ── 导入世界 ──
   const handleImportClick = () => {
@@ -92,6 +102,75 @@ export default function StepWorldBrowser({
       return true;
     });
   }, [allWorlds, search, diffFilter]);
+
+  // 移动端详情覆盖层
+  const renderMobileDetailOverlay = () => {
+    if (!isMobile || !showMobileDetail || !selected) return null;
+    return (
+      <div className="mobile-detail-overlay">
+        <div className="mobile-detail-header">
+          <button className="mobile-detail-back" onClick={() => setShowMobileDetail(false)}>
+            <ArrowLeft size={20} />
+            <span>返回</span>
+          </button>
+          <button
+            className="btn-primary mobile-detail-next"
+            onClick={onNext}
+            disabled={!selectedWorld}
+          >
+            下一步 <ChevronRight size={16} />
+          </button>
+        </div>
+        <div className="mobile-detail-content">
+          <div className="world-detail">
+            {(() => {
+              const DetailIcon = getWorldIcon(selected);
+              return (
+                <div
+                  className="world-detail-header"
+                  style={{ '--cover-color': selected.coverColor ?? 'var(--accent)' } as React.CSSProperties}
+                >
+                  <DetailIcon size={32} strokeWidth={1.5} />
+                  <div>
+                    <h2 className="world-detail-title">{selected.name}</h2>
+                    <p className="world-detail-desc">{selected.description}</p>
+                    <div className="world-detail-meta">
+                      {selected.tags?.map(tag => (
+                        <span key={tag} className="world-card-tag">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="world-tabs">
+              {TABS.map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    <Icon size={14} strokeWidth={2} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="world-tab-content">
+              {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
+              {activeTab === 'systems' && <SystemsTab world={selected} />}
+              {activeTab === 'economy' && <EconomyTab world={selected} />}
+              {activeTab === 'characters' && <CharactersTab world={selected} />}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="world-browser">
@@ -150,78 +229,99 @@ export default function StepWorldBrowser({
           {importError && <div style={{ gridColumn: '1 / -1', color: '#ef4444', fontSize: 'var(--font-size-sm)', textAlign: 'center' }}>{importError}</div>}
         </div>
         <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportFile} />
-      </div>
 
-      {/* ── 右侧：详情面板 ── */}
-      <div className="world-browser-right">
-        {selected ? (
-          <div className="world-detail">
-            {/* 头部 */}
-            {(() => {
-              const DetailIcon = getWorldIcon(selected);
-              return (
-            <div
-              className="world-detail-header"
-              style={{ '--cover-color': selected.coverColor ?? 'var(--accent)' } as React.CSSProperties}
+        {/* 移动端：下一步按钮 */}
+        {isMobile && (
+          <div className="world-browser-nav mobile">
+            <button
+              className="btn-primary"
+              onClick={() => {
+                if (selected) setShowMobileDetail(true);
+              }}
+              disabled={!selectedWorld}
+              title={!selectedWorld ? '请先选择一个世界' : ''}
             >
-              <DetailIcon size={32} strokeWidth={1.5} />
-              <div>
-                <h2 className="world-detail-title">{selected.name}</h2>
-                <p className="world-detail-desc">{selected.description}</p>
-                <div className="world-detail-meta">
-                  {selected.tags?.map(tag => (
-                    <span key={tag} className="world-card-tag">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-              );
-            })()}
-
-            {/* Tab 栏 */}
-            <div className="world-tabs">
-              {TABS.map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
-                    onClick={() => setActiveTab(tab.key)}
-                  >
-                    <Icon size={14} strokeWidth={2} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Tab 内容 */}
-            <div className="world-tab-content">
-              {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
-              {activeTab === 'systems' && <SystemsTab world={selected} />}
-              {activeTab === 'economy' && <EconomyTab world={selected} />}
-              {activeTab === 'characters' && <CharactersTab world={selected} />}
-            </div>
-          </div>
-        ) : (
-          <div className="world-detail-empty">
-            <Globe size={48} strokeWidth={1} style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
-            <p>选择一个世界查看详情</p>
+              查看详情 <ChevronRight size={16} />
+            </button>
           </div>
         )}
-
-        {/* 下一步按钮 */}
-        <div className="world-browser-nav">
-          <button
-            className="btn-primary"
-            onClick={onNext}
-            disabled={!selectedWorld}
-            title={!selectedWorld ? '请先选择一个世界' : ''}
-          >
-            下一步 <ChevronRight size={16} />
-          </button>
-        </div>
       </div>
+
+      {/* ── 右侧：详情面板（桌面端） ── */}
+      {!isMobile && (
+        <div className="world-browser-right">
+          {selected ? (
+            <div className="world-detail">
+              {/* 头部 */}
+              {(() => {
+                const DetailIcon = getWorldIcon(selected);
+                return (
+              <div
+                className="world-detail-header"
+                style={{ '--cover-color': selected.coverColor ?? 'var(--accent)' } as React.CSSProperties}
+              >
+                <DetailIcon size={32} strokeWidth={1.5} />
+                <div>
+                  <h2 className="world-detail-title">{selected.name}</h2>
+                  <p className="world-detail-desc">{selected.description}</p>
+                  <div className="world-detail-meta">
+                    {selected.tags?.map(tag => (
+                      <span key={tag} className="world-card-tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+                );
+              })()}
+
+              {/* Tab 栏 */}
+              <div className="world-tabs">
+                {TABS.map(tab => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.key}
+                      className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
+                      onClick={() => setActiveTab(tab.key)}
+                    >
+                      <Icon size={14} strokeWidth={2} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab 内容 */}
+              <div className="world-tab-content">
+                {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
+                {activeTab === 'systems' && <SystemsTab world={selected} />}
+                {activeTab === 'economy' && <EconomyTab world={selected} />}
+                {activeTab === 'characters' && <CharactersTab world={selected} />}
+              </div>
+            </div>
+          ) : (
+            <div className="world-detail-empty">
+              <Globe size={48} strokeWidth={1} style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
+              <p>选择一个世界查看详情</p>
+            </div>
+          )}
+
+          {/* 下一步按钮 */}
+          <div className="world-browser-nav">
+            <button
+              className="btn-primary"
+              onClick={onNext}
+              disabled={!selectedWorld}
+              title={!selectedWorld ? '请先选择一个世界' : ''}
+            >
+              下一步 <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 移动端详情覆盖层 */}
+      {renderMobileDetailOverlay()}
     </div>
   );
 }

@@ -315,7 +315,7 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
   const ext = npc as any;
   const rd = npc.关系数据 ?? { 好感度: 0, 信任度: 0, 关系类型: '未知', 印象标签: [] as string[], 核心锚点: [] as any[] };
   const sj = npc.社会身份 ?? { 职业: '', 所属势力: '', 社会地位: '' };
-  const pi = npc.个人信息 ?? { 价值观: { 喜好: [], 厌恶: [], 雷区: '' }, 心理创伤: '', 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '', 持有物品: '', 过往经历: [], 备注: '' };
+  const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
   const _交互记忆 = npc.交互记忆 || {};
   const 交互记忆 = {
     未完成约定: Array.isArray(_交互记忆.未完成约定) ? _交互记忆.未完成约定 : [],

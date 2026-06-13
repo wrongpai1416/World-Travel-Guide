@@ -101,37 +101,44 @@ export default function PipelineStatusPanel({ status }: { status: PipelineStatus
       fontSize: 'var(--font-size-sm)',
       userSelect: 'none',
     }}>
-      {/* ── 流程可视化 ── */}
+      {/* ── 流程可视化（横向滑动） ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '8px 12px 4px', gap: '4px', flexWrap: 'wrap',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        padding: '8px 12px 4px',
       }}>
-        {/* 主链 */}
-        {mainStage.map((s, i) => (
-          <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast={false} />
-        ))}
-
-        {/* 分隔 */}
         <div style={{
-          width: '1px', height: '28px', background: 'var(--border)',
-          margin: '0 4px', flexShrink: 0,
-        }} />
+          display: 'flex', alignItems: 'center',
+          gap: '4px', minWidth: 'max-content',
+        }}>
+          {/* 主链 */}
+          {mainStage.map((s, i) => (
+            <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast={false} />
+          ))}
 
-        {/* 记忆链 */}
-        {memoryStages.map((s, i) => (
-          <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast={i === memoryStages.length - 1} />
-        ))}
+          {/* 分隔 */}
+          <div style={{
+            width: '1px', height: '28px', background: 'var(--border)',
+            margin: '0 4px', flexShrink: 0,
+          }} />
 
-        {/* 分隔 */}
-        <div style={{
-          width: '1px', height: '28px', background: 'var(--border)',
-          margin: '0 4px', flexShrink: 0,
-        }} />
+          {/* 记忆链 */}
+          {memoryStages.map((s, i) => (
+            <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast={i === memoryStages.length - 1} />
+          ))}
 
-        {/* 变量 */}
-        {varStage.map((s) => (
-          <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast />
-        ))}
+          {/* 分隔 */}
+          <div style={{
+            width: '1px', height: '28px', background: 'var(--border)',
+            margin: '0 4px', flexShrink: 0,
+          }} />
+
+          {/* 变量 */}
+          {varStage.map((s) => (
+            <StageNode key={s.id} taskId={s.id} stage={s.stage} isLast />
+          ))}
+        </div>
       </div>
 
       {/* ── 折叠头部 ── */}

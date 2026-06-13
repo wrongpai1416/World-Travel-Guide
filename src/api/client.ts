@@ -236,7 +236,7 @@ export async function requestCompletionStream(
 }
 
 // 重试包装
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, baseDelay = 800): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
@@ -244,7 +244,8 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, baseDelay = 80
       const status = err?.message?.match(/API (\d+)/)?.[1];
       const retryable = ['408', '429', '500', '502', '503', '504'].includes(status);
       if (attempt < maxRetries && retryable) {
-        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 200;
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+        console.warn(`[API] 请求失败 (${status})，${attempt + 1}/${maxRetries} 次重试，等待 ${Math.round(delay)}ms...`);
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
