@@ -29,8 +29,8 @@ const GAME_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
 ];
 
 export default function SettingsScreen() {
-  const { goBack, engine } = useGame();
-  const isInGame = !!engine; // 判断是否在游戏中
+  const { goBack, engine, state } = useGame();
+  const isInGame = state.currentScreen === 'game'; // 判断是否从游戏内进入设置
   const { t } = useUISettings();
   const isMobile = useIsMobile(768);
   const apiConfig = useConfigStore(s => s.apiConfig);
