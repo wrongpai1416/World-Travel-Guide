@@ -50,6 +50,8 @@ export default function StepCharacterHistory({
 }: StepCharacterHistoryProps) {
   const [activeId, setActiveId] = useState(segmentDefs[0]?.id ?? '');
   const hasContent = Object.values(segments).some(v => v.trim().length > 0);
+  // 验证所有阶段是否都已填写
+  const allSegmentsFilled = segmentDefs.every(def => segments[def.id]?.trim().length > 0);
 
   const activeDef = segmentDefs.find(d => d.id === activeId);
   const activeContent = segments[activeId] || '';
@@ -149,7 +151,13 @@ export default function StepCharacterHistory({
       {/* ── 底部导航 ── */}
       <div className="history-nav">
         <button className="btn-secondary" onClick={onPrev} style={{ padding: '10px 24px' }}>← 上一步</button>
-        <button className="btn-primary" onClick={onStartGame} style={{ padding: '10px 32px', fontSize: 'var(--font-size-lg)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button
+          className="btn-primary"
+          onClick={onStartGame}
+          style={{ padding: '10px 32px', fontSize: 'var(--font-size-lg)', display: 'flex', alignItems: 'center', gap: '6px' }}
+          disabled={!allSegmentsFilled}
+          title={!allSegmentsFilled ? '请填写所有人生阶段的内容' : ''}
+        >
           <Play size={16} /> 下一步
         </button>
       </div>

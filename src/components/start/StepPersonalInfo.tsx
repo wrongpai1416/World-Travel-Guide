@@ -254,7 +254,15 @@ export default function StepPersonalInfo({
       {/* 导航按钮 */}
       <div className="personal-info-nav">
         <button className="btn-secondary" onClick={onPrev} style={{ padding: '10px 24px' }}>← 上一步</button>
-        <button className="btn-primary" onClick={onNext} style={{ padding: '10px 32px', fontSize: 'var(--font-size-lg)' }} disabled={!personalInfo.name.trim()}>下一步 →</button>
+        <button
+          className="btn-primary"
+          onClick={onNext}
+          style={{ padding: '10px 32px', fontSize: 'var(--font-size-lg)' }}
+          disabled={!personalInfo.name.trim() || !personalInfo.gender || !personalInfo.age.trim()}
+          title={!personalInfo.name.trim() || !personalInfo.gender || !personalInfo.age.trim() ? '请填写姓名、性别和年龄' : ''}
+        >
+          下一步 →
+        </button>
       </div>
 
       {npcEditorOpen && (

@@ -1,22 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Save, Clock, CheckCircle, Layers, Menu, PanelRightOpen } from 'lucide-react';
+import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
-import { useSaveStore } from '../../stores/saveStore';
 import { useConfigStore } from '../../stores/configStore';
-import { useMemoryStore } from '../../memory/memoryStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import ChatPanel from './chat/ChatPanel';
 import ProfilePanel from './panels/ProfilePanel';
 import CharacterGrid from './panels/CharacterGrid';
 import NotebookPanel from './panels/NotebookPanel';
 import RightPanel from './panels/RightPanel';
-import { VariableSettingsOverlay } from './VariableSettingsOverlay';
 import MobileOverlay from './MobileOverlay';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
-type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'save';
+type OverlayPanel = null | 'profile' | 'notebook' | 'characters';
 
 interface NavButton {
   id: OverlayPanel | 'home';
@@ -26,7 +23,6 @@ interface NavButton {
 
 const navButtons: NavButton[] = [
   { id: 'home', icon: Home, labelKey: 'nav.home' },
-  { id: 'save', icon: Save, labelKey: 'nav.save' },
   { id: 'profile', icon: User, labelKey: 'nav.profile' },
   { id: 'characters', icon: Users, labelKey: 'nav.characters' },
   { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook' },
@@ -136,9 +132,6 @@ function DrawerPanel({
 
 export default function GameScreen() {
   const { state, navigate, engine } = useGame();
-  const savesMeta = useSaveStore(s => s.savesMeta);
-  const currentSaveId = useSaveStore(s => s.currentSaveId);
-  const saveGame = useSaveStore(s => s.saveGame);
   const { t } = useUISettings();
   const isMobile = useIsMobile(900);
 
@@ -149,12 +142,10 @@ export default function GameScreen() {
   // 移动端状态
   const [showLeftOverlay, setShowLeftOverlay] = useState(false);
   const [showRightOverlay, setShowRightOverlay] = useState(false);
-  const [mobileActivePanel, setMobileActivePanel] = useState<'save' | 'profile' | 'characters' | 'notebook' | 'variables' | null>(null);
+  const [mobileActivePanel, setMobileActivePanel] = useState<'profile' | 'characters' | 'notebook' | null>(null);
 
   const [stateVersion, setStateVersion] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'done'>('idle');
-  const [showVariables, setShowVariables] = useState(false);
 
   // 窄视口自动折叠右侧面板
   useEffect(() => {
@@ -202,113 +193,20 @@ export default function GameScreen() {
     return ok;
   }, [engine, apiConfig]);
 
-  const handleManualSave = async () => {
-    setSaveStatus('saving');
-    try {
-      await saveGame(() => {
-        const saveId = useSaveStore.getState().currentSaveId;
-        if (!saveId || engine.messages.length === 0) return null;
-        const cfg = useConfigStore.getState();
-        const memStore = useMemoryStore.getState();
-        const memData = memStore.toJSON();
-        return {
-          id: saveId,
-          name: useSaveStore.getState().currentSaveName || state.personalInfo?.name || '未命名存档',
-          timestamp: Date.now(),
-          messages: [...engine.messages],
-          gameState: engine.variableManager.getState(),
-          apiConfig: cfg.apiConfig,
-          apiMode: cfg.apiMode,
-          worldId: state.selectedWorld,
-          personalInfo: state.personalInfo ?? undefined,
-          characterHistory: state.characterHistory || undefined,
-          memoryRuntime: memData.memoryRuntime,
-          memoryConfig: memData.config,
-          vectorMemory: memData.vectorMemory,
-        };
-      });
-      setSaveStatus('done');
-      setTimeout(() => setSaveStatus('idle'), 1500);
-    } catch {
-      setSaveStatus('idle');
-      setNotification('保存失败');
-      setTimeout(() => setNotification(null), 3000);
-    }
-  };
+  const handleUpdateChronicles = useCallback((npcId: string, chronicles: string[]) => {
+    const state = engine.variableManager.getState();
+    const npc = state.人物档案?.[npcId];
+    if (!npc) return;
+    (npc as any).人物事迹 = chronicles;
+    engine.variableManager.setState(state);
+    setStateVersion(v => v + 1);
+  }, [engine]);
 
   const renderOverlayContent = () => {
     switch (overlay) {
       case 'profile': return <ProfilePanel gameState={gameState} />;
-      case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} />;
+      case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
-      case 'save': {
-        const currentMeta = savesMeta.find(m => m.id === currentSaveId);
-        return (
-          <div style={{ padding: '16px 20px' }}>
-            {/* 当前存档信息 */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '8px' }}>当前存档</div>
-              <div style={{ padding: '12px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '4px' }}>
-                  {currentMeta?.name || state.personalInfo?.name || '未命名存档'}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-                  <Clock size={12} />
-                  {currentMeta ? new Date(currentMeta.timestamp).toLocaleString() : '未保存'}
-                </div>
-              </div>
-            </div>
-
-            {/* 保存按钮 */}
-            <button
-              onClick={handleManualSave}
-              disabled={saveStatus === 'saving'}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid var(--accent)',
-                borderRadius: 'var(--radius-md)',
-                background: saveStatus === 'done' ? 'var(--accent-dim)' : 'var(--bg-secondary)',
-                color: saveStatus === 'done' ? 'var(--accent)' : 'var(--text-primary)',
-                cursor: saveStatus === 'saving' ? 'wait' : 'pointer',
-                fontSize: 'var(--font-size-md)',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-              }}
-            >
-              {saveStatus === 'saving' ? (
-                <><Save size={16} className="spin" /> 保存中...</>
-              ) : saveStatus === 'done' ? (
-                <><CheckCircle size={16} /> 已保存</>
-              ) : (
-                <><Save size={16} /> 保存游戏</>
-              )}
-            </button>
-
-            {/* 存档管理跳转 */}
-            <button
-              onClick={() => { setOverlay(null); navigate('start'); }}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginTop: '8px',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: 'var(--font-size-md)',
-              }}
-            >
-              存档管理
-            </button>
-          </div>
-        );
-      }
       default: return null;
     }
   };
@@ -316,11 +214,9 @@ export default function GameScreen() {
   // 移动端导航菜单项
   const mobileNavItems = [
     { id: 'home', icon: Home, labelKey: 'nav.home', action: () => { setShowLeftOverlay(false); navigate('start'); } },
-    { id: 'save', icon: Save, labelKey: 'nav.save', action: () => { setShowLeftOverlay(false); setMobileActivePanel('save'); } },
     { id: 'profile', icon: User, labelKey: 'nav.profile', action: () => { setShowLeftOverlay(false); setMobileActivePanel('profile'); } },
     { id: 'characters', icon: Users, labelKey: 'nav.characters', action: () => { setShowLeftOverlay(false); setMobileActivePanel('characters'); } },
     { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook', action: () => { setShowLeftOverlay(false); setMobileActivePanel('notebook'); } },
-    { id: 'variables', icon: Layers, labelKey: 'nav.variables', action: () => { setShowLeftOverlay(false); setShowVariables(true); } },
     { id: 'settings', icon: Settings, labelKey: 'nav.settings', action: () => { setShowLeftOverlay(false); navigate('settings'); } },
   ];
 
@@ -330,79 +226,9 @@ export default function GameScreen() {
       case 'profile':
         return <ProfilePanel gameState={gameState} />;
       case 'characters':
-        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} />;
+        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} />;
       case 'notebook':
         return <NotebookPanel gameState={gameState} />;
-      case 'save': {
-        const currentMeta = savesMeta.find(m => m.id === currentSaveId);
-        return (
-          <div style={{ padding: '16px 20px' }}>
-            {/* 当前存档信息 */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '8px' }}>当前存档</div>
-              <div style={{ padding: '12px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '4px' }}>
-                  {currentMeta?.name || state.personalInfo?.name || '未命名存档'}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-                  <Clock size={12} />
-                  {currentMeta ? new Date(currentMeta.timestamp).toLocaleString() : '未保存'}
-                </div>
-              </div>
-            </div>
-
-            {/* 保存按钮 */}
-            <button
-              onClick={handleManualSave}
-              disabled={saveStatus === 'saving'}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid var(--accent)',
-                borderRadius: 'var(--radius-md)',
-                background: saveStatus === 'done' ? 'var(--accent-dim)' : 'var(--bg-secondary)',
-                color: saveStatus === 'done' ? 'var(--accent)' : 'var(--text-primary)',
-                cursor: saveStatus === 'saving' ? 'wait' : 'pointer',
-                fontSize: 'var(--font-size-md)',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-                minHeight: 'var(--touch-min)',
-              }}
-            >
-              {saveStatus === 'saving' ? (
-                <><Save size={16} className="spin" /> 保存中...</>
-              ) : saveStatus === 'done' ? (
-                <><CheckCircle size={16} /> 已保存</>
-              ) : (
-                <><Save size={16} /> 保存游戏</>
-              )}
-            </button>
-
-            {/* 存档管理跳转 */}
-            <button
-              onClick={() => { setMobileActivePanel(null); navigate('start'); }}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginTop: '8px',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: 'var(--font-size-md)',
-                minHeight: 'var(--touch-min)',
-              }}
-            >
-              存档管理
-            </button>
-          </div>
-        );
-      }
       default:
         return null;
     }
@@ -411,7 +237,6 @@ export default function GameScreen() {
   // 移动端左侧面板标题
   const getMobilePanelTitle = () => {
     switch (mobileActivePanel) {
-      case 'save': return t('nav.save');
       case 'profile': return t('nav.profile');
       case 'characters': return t('nav.characters');
       case 'notebook': return t('nav.notebook');
@@ -502,29 +327,6 @@ export default function GameScreen() {
               </button>
             );
           })}
-
-          {/* 变量管理按钮 */}
-          <button
-            onClick={() => setShowVariables(true)}
-            title="变量管理"
-            style={{
-              width: '38px',
-              height: '38px',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              background: showVariables ? 'var(--accent-dim)' : 'transparent',
-              color: showVariables ? 'var(--accent)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-dim)'}
-            onMouseLeave={e => { if (!showVariables) e.currentTarget.style.background = 'transparent'; }}
-          >
-            <Layers size={18} strokeWidth={1.5} />
-          </button>
 
           <div style={{ flex: 1 }} />
 
@@ -717,16 +519,6 @@ export default function GameScreen() {
           {notification}
         </div>
       )}
-
-      {/* 变量管理全屏面板 */}
-      <VariableSettingsOverlay
-        visible={showVariables}
-        onClose={() => setShowVariables(false)}
-        messages={engine.messages}
-        varMgr={engine.variableManager}
-        onRestoreSnapshot={() => setStateVersion(v => v + 1)}
-        onSave={() => setStateVersion(v => v + 1)}
-      />
     </div>
   );
 }

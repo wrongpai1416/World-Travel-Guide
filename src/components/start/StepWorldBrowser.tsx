@@ -212,7 +212,12 @@ export default function StepWorldBrowser({
 
         {/* 下一步按钮 */}
         <div className="world-browser-nav">
-          <button className="btn-primary" onClick={onNext}>
+          <button
+            className="btn-primary"
+            onClick={onNext}
+            disabled={!selectedWorld}
+            title={!selectedWorld ? '请先选择一个世界' : ''}
+          >
             下一步 <ChevronRight size={16} />
           </button>
         </div>

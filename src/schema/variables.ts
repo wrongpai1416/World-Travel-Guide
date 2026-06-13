@@ -85,7 +85,8 @@ export interface NPCData {
   };
   个人信息: {
     价值观: { 喜好: string[]; 厌恶: string[]; 雷区: string };
-    执念与目标: string;
+    /** @deprecated 已废弃，保留兼容性 */
+    执念与目标?: string;
     心理创伤: string;
     外貌: string;
     表性格: string;

@@ -158,16 +158,16 @@ export function ensureNpcStructureDefaults(state: GameState): void {
     if (!npc || typeof npc !== 'object') continue;
     const n = npc as any;
 
-    // 基础字段默认值
+    // 基础字段默认值 — 缺失时填有意义的值而非空字符串
     if (n.年龄 === undefined) n.年龄 = '';
-    if (n.背景 === undefined) n.背景 = '';
-    if (n.性格 === undefined) n.性格 = '';
-    if (n.穿着 === undefined) n.穿着 = '';
-    if (n.外貌 === undefined && n.个人信息) n.外貌 = n.个人信息.外貌 ?? '';
-    if (n.当前行动 === undefined) n.当前行动 = '';
-    if (n.短期目标 === undefined) n.短期目标 = '';
-    if (n.长期目标 === undefined) n.长期目标 = '';
-    if (n.内心想法 === undefined) n.内心想法 = '';
+    if (n.背景 === undefined) n.背景 = '未知';
+    if (n.性格 === undefined) n.性格 = '未知';
+    if (n.穿着 === undefined) n.穿着 = '未知';
+    if (n.外貌 === undefined && n.个人信息) n.外貌 = n.个人信息.外貌 ?? '未知';
+    if (n.当前行动 === undefined) n.当前行动 = '未知';
+    if (n.短期目标 === undefined) n.短期目标 = '未知';
+    if (n.长期目标 === undefined) n.长期目标 = '未知';
+    if (n.内心想法 === undefined) n.内心想法 = '暂无';
     if (n.种族描述 === undefined) n.种族描述 = '';
     if (n.种族效果 === undefined) n.种族效果 = '';
     if (n.种族特性 === undefined) n.种族特性 = [];
@@ -182,7 +182,11 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       n.生存状态 = { 血量: 100, 体力值: 100 };
     }
     if (!n.社会身份 || typeof n.社会身份 !== 'object') {
-      n.社会身份 = { 职业: '', 所属势力: '', 社会地位: '' };
+      n.社会身份 = { 职业: '未知', 所属势力: '无', 社会地位: '普通' };
+    } else {
+      if (n.社会身份.职业 === undefined || n.社会身份.职业 === '') n.社会身份.职业 = '未知';
+      if (n.社会身份.所属势力 === undefined || n.社会身份.所属势力 === '') n.社会身份.所属势力 = '无';
+      if (n.社会身份.社会地位 === undefined || n.社会身份.社会地位 === '') n.社会身份.社会地位 = '普通';
     }
     if (!n.关系数据 || typeof n.关系数据 !== 'object') {
       n.关系数据 = { 好感度: 0, 信任度: 0, 关系类型: '陌生人', 印象标签: [], 核心锚点: [] };
@@ -195,12 +199,23 @@ export function ensureNpcStructureDefaults(state: GameState): void {
     if (!n.个人信息 || typeof n.个人信息 !== 'object') {
       n.个人信息 = {
         价值观: { 喜好: [], 厌恶: [], 雷区: '' },
-        执念与目标: '', 心理创伤: '', 外貌: '', 表性格: '', 里性格: '',
-        当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '',
-        持有物品: '', 过往经历: [], 备注: '',
+        心理创伤: '无', 外貌: '未知', 表性格: '未知', 里性格: '未知',
+        当前想法: '暂无', 特殊能力: '无', 当前穿着: '未知', 当前位置: '未知', 当前状态: '未知',
+        持有物品: '无', 过往经历: [], 备注: '',
       };
     } else {
       if (!Array.isArray(n.个人信息.过往经历)) n.个人信息.过往经历 = [];
+      // 补全空字符串字段为有意义的默认值
+      if (n.个人信息.外貌 === '') n.个人信息.外貌 = '未知';
+      if (n.个人信息.表性格 === '') n.个人信息.表性格 = '未知';
+      if (n.个人信息.里性格 === '') n.个人信息.里性格 = '未知';
+      if (n.个人信息.当前想法 === '') n.个人信息.当前想法 = '暂无';
+      if (n.个人信息.当前状态 === '') n.个人信息.当前状态 = '未知';
+      if (n.个人信息.当前穿着 === '') n.个人信息.当前穿着 = '未知';
+      if (n.个人信息.当前位置 === '') n.个人信息.当前位置 = '未知';
+      if (n.个人信息.特殊能力 === '') n.个人信息.特殊能力 = '无';
+      if (n.个人信息.心理创伤 === '') n.个人信息.心理创伤 = '无';
+      if (n.个人信息.持有物品 === '') n.个人信息.持有物品 = '无';
     }
     if (!n.交互记忆 || typeof n.交互记忆 !== 'object') {
       n.交互记忆 = { 未完成约定: [], 共同秘密: [], 赠礼记录: [] };
@@ -212,8 +227,8 @@ export function ensureNpcStructureDefaults(state: GameState): void {
     if (!Array.isArray(n.近期事件)) n.近期事件 = [];
     if (!Array.isArray(n.重要经历)) n.重要经历 = [];
     if (n.重要NPC === undefined) n.重要NPC = false;
-    if (n.婚姻状态 === undefined) n.婚姻状态 = '';
-    if (n.联系方式 === undefined) n.联系方式 = '';
+    if (n.婚姻状态 === undefined || n.婚姻状态 === '') n.婚姻状态 = '未知';
+    if (n.联系方式 === undefined || n.联系方式 === '') n.联系方式 = '无';
   }
 }
 
@@ -259,14 +274,26 @@ export function createPromptSafeNpcSnapshot(npc: NPCData | Record<string, unknow
 
   const category = getNpcCategoryValue(npc);
   const rawName = getNpcDisplayName(npc, npcId) || '未知NPC';
+  const chronicles = normalizeNpcChronicles(
+    (npc as any).人物事迹 ?? (npc as any).characterDeeds ?? (npc as any).deeds ?? (npc as any).经历列表
+  );
 
+  // 离场 NPC 精简快照：只保留姓名、分类、最近3条事迹、位置
+  if (category === '离场') {
+    return {
+      姓名: rawName,
+      人物分类: '离场',
+      人物事迹: chronicles.slice(-3),
+      个人信息: { 当前位置: (npc as any).个人信息?.当前位置 ?? '未知' },
+    };
+  }
+
+  // 在场/重点 NPC 完整快照
   const snapshot = _.cloneDeep(npc) as any;
   snapshot.姓名 = rawName;
   if (snapshot.name !== undefined) snapshot.name = rawName;
   snapshot.人物分类 = category;
-  snapshot.人物事迹 = normalizeNpcChronicles(
-    snapshot.人物事迹 ?? snapshot.characterDeeds ?? snapshot.deeds ?? snapshot.经历列表
-  );
+  snapshot.人物事迹 = chronicles;
   return snapshot;
 }
 

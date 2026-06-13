@@ -3,6 +3,7 @@ import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
   BarChart3, Tag, Anchor, Briefcase, MapPin, Sparkles,
   Brain, Dna, MessageSquare, Zap, Backpack, Shield,
+  FileText, Edit3, Trash2, Plus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from '../../shared/Avatar';
@@ -13,15 +14,16 @@ import { ExcelRow } from '../../shared/ExcelRow';
 interface Props {
   gameState: GameState;
   onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
+  onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
 }
 
-type DetailTab = 'overview' | 'background' | 'abilities' | 'chronicles';
+type DetailTab = 'overview' | 'dossier' | 'skills' | 'items';
 
 const DETAIL_TABS: { id: DetailTab; icon: LucideIcon; label: string }[] = [
   { id: 'overview', icon: User, label: '概览' },
-  { id: 'background', icon: BookOpen, label: '背景' },
-  { id: 'abilities', icon: Swords, label: '能力' },
-  { id: 'chronicles', icon: ScrollText, label: '事迹' },
+  { id: 'dossier', icon: FileText, label: '档案' },
+  { id: 'skills', icon: Swords, label: '技能列表' },
+  { id: 'items', icon: Backpack, label: '物品列表' },
 ];
 
 function favorClass(v: number) {
@@ -170,19 +172,150 @@ function ListOrRecord({ data, emptyText }: { data: string[] | Record<string, unk
   return null;
 }
 
+// 事迹弹窗组件
+function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, onUpdate, onSummarize }: {
+  npcId: string; npcName: string; chronicles: string[];
+  onClose: () => void; onUpdate: (npcId: string, chronicles: string[]) => void;
+  onSummarize?: (npcId: string) => Promise<boolean>;
+}) {
+  const [chronicles, setChronicles] = useState<string[]>(initialChronicles);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addText, setAddText] = useState('');
+  const [summarizing, setSummarizing] = useState(false);
+
+  const handleSave = (idx: number) => {
+    const updated = [...chronicles];
+    updated[idx] = editText.trim();
+    setChronicles(updated);
+    onUpdate(npcId, updated);
+    setEditingIndex(null);
+  };
+
+  const handleDelete = (idx: number) => {
+    const updated = chronicles.filter((_, i) => i !== idx);
+    setChronicles(updated);
+    onUpdate(npcId, updated);
+  };
+
+  const handleAdd = () => {
+    if (!addText.trim()) return;
+    const updated = [...chronicles, addText.trim()];
+    setChronicles(updated);
+    onUpdate(npcId, updated);
+    setAddText('');
+    setAdding(false);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1100, animation: 'fadeIn 0.15s ease',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)',
+        width: '90%', maxWidth: '520px', maxHeight: '75vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: 'var(--shadow-lg)',
+      }}>
+        {/* 头部 */}
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ fontWeight: '600', fontSize: 'var(--font-size-lg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ScrollText size={16} />人物事迹
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', fontWeight: '400' }}>
+              {chronicles.length > 0 ? `共 ${chronicles.length} 条` : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {chronicles.length > 5 && onSummarize && (
+              <button onClick={async () => { setSummarizing(true); try { await onSummarize(npcId); } finally { setSummarizing(false); } }}
+                disabled={summarizing} style={{
+                  border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
+                  background: summarizing ? 'var(--bg-tertiary)' : 'var(--accent-dim)',
+                  color: summarizing ? 'var(--text-muted)' : 'var(--accent)', cursor: summarizing ? 'wait' : 'pointer', fontWeight: '500',
+                }}>{summarizing ? '总结中...' : '总结事迹'}</button>
+            )}
+            <button onClick={onClose} style={{ border: 'none', background: 'var(--bg-tertiary)', width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+          </div>
+        </div>
+
+        {/* 内容 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+          {chronicles.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {chronicles.map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)', flexShrink: 0, marginTop: '2px' }}>{i + 1}.</span>
+                  {editingIndex === i ? (
+                    <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
+                      <textarea value={editText} onChange={e => setEditText(e.target.value)} style={{
+                        flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)',
+                        resize: 'vertical', minHeight: '60px', fontFamily: 'inherit',
+                      }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <button onClick={() => handleSave(i)} style={{ border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: 'var(--font-size-sm)', background: 'var(--accent-dim)', color: 'var(--accent)', cursor: 'pointer' }}>保存</button>
+                        <button onClick={() => setEditingIndex(null)} style={{ border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: 'var(--font-size-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer' }}>取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span style={{ flex: 1, fontSize: 'var(--font-size-sm)', lineHeight: '1.5' }}>{c}</span>
+                      <button onClick={() => { setEditingIndex(i); setEditText(c); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', flexShrink: 0 }} title="编辑"><Edit3 size={13} /></button>
+                      <button onClick={() => handleDelete(i)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', flexShrink: 0 }} title="删除"><Trash2 size={13} /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon={ScrollText} message="暂无事迹记录" />
+          )}
+        </div>
+
+        {/* 底部添加 */}
+        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          {adding ? (
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <textarea value={addText} onChange={e => setAddText(e.target.value)} placeholder="输入新事迹..." style={{
+                flex: 1, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)',
+                resize: 'vertical', minHeight: '50px', fontFamily: 'inherit',
+              }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <button onClick={handleAdd} style={{ border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: 'var(--font-size-sm)', background: 'var(--accent-dim)', color: 'var(--accent)', cursor: 'pointer' }}>添加</button>
+                <button onClick={() => { setAdding(false); setAddText(''); }} style={{ border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: 'var(--font-size-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer' }}>取消</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)} style={{
+              width: '100%', padding: '8px', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 'var(--font-size-sm)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+            }}><Plus size={14} /> 添加事迹</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // NPC 详情弹窗
-function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
+function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronicles }: {
   npc: NPCData; npcId: string; onClose: () => void;
   onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
+  onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
 }) {
   const [tab, setTab] = useState<DetailTab>('overview');
-  const [summarizing, setSummarizing] = useState(false);
-  const chronicles = (npc as any).人物事迹 as string[] | undefined;
+  const [showDeeds, setShowDeeds] = useState(false);
+  const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
   const rd = npc.关系数据 ?? { 好感度: 0, 信任度: 0, 关系类型: '未知', 印象标签: [] as string[], 核心锚点: [] as any[] };
   const sj = npc.社会身份 ?? { 职业: '', 所属势力: '', 社会地位: '' };
-  const pi = npc.个人信息 ?? { 价值观: { 喜好: [], 厌恶: [], 雷区: '' }, 执念与目标: '', 心理创伤: '', 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '', 持有物品: '', 过往经历: [], 备注: '' };
+  const pi = npc.个人信息 ?? { 价值观: { 喜好: [], 厌恶: [], 雷区: '' }, 心理创伤: '', 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '', 持有物品: '', 过往经历: [], 备注: '' };
   const _交互记忆 = npc.交互记忆 || {};
   const 交互记忆 = {
     未完成约定: Array.isArray(_交互记忆.未完成约定) ? _交互记忆.未完成约定 : [],
@@ -319,8 +452,8 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
               </div>
             )}
 
-            {/* Tab 2: 背景 */}
-            {tab === 'background' && (
+            {/* Tab 2: 档案 */}
+            {tab === 'dossier' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <Section icon={Sparkles} title="外貌与性格">
                   <ExcelRow label="外貌" value={pi.外貌} />
@@ -334,7 +467,6 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
                   <ExcelRow label="当前行动" value={ext.当前行动} />
                   <ExcelRow label="短期目标" value={ext.短期目标} />
                   <ExcelRow label="长期目标" value={ext.长期目标} />
-                  <ExcelRow label="执念与目标" value={pi.执念与目标} />
                 </Section>
 
                 {(ext.种族描述 || ext.种族效果 || (ext.种族特性 && ext.种族特性.length > 0)) && (
@@ -378,11 +510,31 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
                     <div style={{ fontSize: 'var(--font-size-sm)', lineHeight: '1.5', color: 'var(--text-secondary)' }}>{pi.备注}</div>
                   </Section>
                 )}
+
+                {/* 人物事迹入口 */}
+                <Section icon={ScrollText} title="人物事迹">
+                  <button onClick={() => setShowDeeds(true)} style={{
+                    width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-primary)', color: 'var(--text-primary)', cursor: 'pointer',
+                    fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    transition: 'all 0.15s',
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ScrollText size={14} />查看人物事迹
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)' }}>
+                      {chronicles && chronicles.length > 0 ? `${chronicles.length} 条` : '暂无'}
+                    </span>
+                  </button>
+                </Section>
               </div>
             )}
 
-            {/* Tab 3: 能力 */}
-            {tab === 'abilities' && (
+            {/* Tab 3: 技能列表 */}
+            {tab === 'skills' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {pi.特殊能力 && (
                   <Section icon={Sparkles} title="特殊能力">
@@ -408,6 +560,15 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
                   </Section>
                 )}
 
+                {!pi.特殊能力 && !ext.属性 && !ext.天赋 && !ext.技能列表 && (
+                  <EmptyState icon={Swords} message="暂无技能数据" />
+                )}
+              </div>
+            )}
+
+            {/* Tab 4: 物品列表 */}
+            {tab === 'items' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {ext.物品列表 && (
                   <Section icon={Backpack} title="物品列表">
                     <ListOrRecord data={ext.物品列表} emptyText="暂无物品" />
@@ -420,57 +581,26 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles }: {
                   </Section>
                 )}
 
-                {/* 如果什么能力数据都没有 */}
-                {!pi.特殊能力 && !ext.属性 && !ext.天赋 && !ext.技能列表 && !ext.物品列表 && !ext.装备列表 && (
-                  <EmptyState icon={Swords} message="暂无能力数据" />
-                )}
-              </div>
-            )}
-
-            {/* Tab 4: 事迹 */}
-            {tab === 'chronicles' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={{ fontWeight: '600', fontSize: 'var(--font-size-base)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ScrollText size={15} />人物事迹
-                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', fontWeight: '400' }}>
-                      {chronicles?.length ? `共 ${chronicles.length} 条` : ''}
-                    </span>
-                  </div>
-                  {chronicles && chronicles.length > 5 && onSummarizeChronicles && (
-                    <button
-                      onClick={async () => {
-                        setSummarizing(true);
-                        try { await onSummarizeChronicles(npcId); } finally { setSummarizing(false); }
-                      }}
-                      disabled={summarizing}
-                      style={{
-                        border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
-                        background: summarizing ? 'var(--bg-tertiary)' : 'var(--accent-dim)',
-                        color: summarizing ? 'var(--text-muted)' : 'var(--accent)',
-                        cursor: summarizing ? 'wait' : 'pointer', fontWeight: '500',
-                      }}
-                    >
-                      {summarizing ? '总结中...' : '总结事迹'}
-                    </button>
-                  )}
-                </div>
-                {chronicles && chronicles.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {chronicles.map((c, i) => (
-                      <div key={i} style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-sm)', lineHeight: '1.5' }}>
-                        <span style={{ color: 'var(--text-muted)', marginRight: '6px', fontSize: 'var(--font-size-sm)' }}>{i + 1}.</span>{c}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState icon={ScrollText} message="暂无事迹记录" />
+                {!ext.物品列表 && !ext.装备列表 && (
+                  <EmptyState icon={Backpack} message="暂无物品数据" />
                 )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* 事迹弹窗 */}
+      {showDeeds && (
+        <DeedsModal
+          npcId={npcId}
+          npcName={npc.姓名 || npcId}
+          chronicles={chronicles}
+          onClose={() => setShowDeeds(false)}
+          onUpdate={onUpdateChronicles ?? (() => {})}
+          onSummarize={onSummarizeChronicles}
+        />
+      )}
     </div>
   );
 }
@@ -486,7 +616,7 @@ function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: str
   );
 }
 
-export default function CharacterGrid({ gameState, onSummarizeChronicles }: Props) {
+export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpdateChronicles }: Props) {
   const npcs = gameState.人物档案;
   const [selected, setSelected] = useState<{ id: string; data: NPCData } | null>(null);
 
@@ -502,7 +632,7 @@ export default function CharacterGrid({ gameState, onSummarizeChronicles }: Prop
       {sorted.length === 0 && (
         <EmptyState icon={Users} message="暂无人物档案" />
       )}
-      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onSummarizeChronicles={onSummarizeChronicles} />}
+      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onSummarizeChronicles={onSummarizeChronicles} onUpdateChronicles={onUpdateChronicles} />}
     </div>
   );
 }
