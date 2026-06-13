@@ -840,6 +840,8 @@ async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineC
           .replace(/\{\{entityTerms\}\}/g, '').replace(/\{\{timeTerms\}\}/g, '');
         const qrRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
         retrievalKeywords = parseVectorQueryRewriteResult(qrRaw).retrievalKeywords;
+        // 添加延迟，避免 429 错误
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch { /* 失败用原始输入 */ }
     }
 

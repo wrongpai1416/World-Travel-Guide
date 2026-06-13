@@ -5,7 +5,46 @@ import { useConfigStore } from '../../stores/configStore';
 import {
   X, Cpu, Pencil, Sparkles, Loader, ClipboardList, ScrollText,
   Swords, DollarSign, Flag, User, Save,
+  Globe, Compass, BookOpen, Flame, Mountain, Ship, Castle, Skull, Crown,
+  Rocket, Star, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon,
+  Wind, Waves, Anchor, Eye, Heart, Target, Wand2, Fish, Bug,
+  Flower, TreePine, Cloud, Sunrise, Eclipse, Hexagon, Diamond, Atom,
+  type LucideIcon,
 } from 'lucide-react';
+
+// 内置图标列表（30个）
+const WORLD_ICONS: Array<{ name: string; icon: LucideIcon }> = [
+  { name: 'Globe', icon: Globe },
+  { name: 'Compass', icon: Compass },
+  { name: 'BookOpen', icon: BookOpen },
+  { name: 'Flame', icon: Flame },
+  { name: 'Mountain', icon: Mountain },
+  { name: 'Ship', icon: Ship },
+  { name: 'Castle', icon: Castle },
+  { name: 'Skull', icon: Skull },
+  { name: 'Crown', icon: Crown },
+  { name: 'Rocket', icon: Rocket },
+  { name: 'Star', icon: Star },
+  { name: 'Shield', icon: Shield },
+  { name: 'Zap', icon: Zap },
+  { name: 'Brain', icon: Brain },
+  { name: 'Gem', icon: Gem },
+  { name: 'Ghost', icon: Ghost },
+  { name: 'Snowflake', icon: Snowflake },
+  { name: 'Sun', icon: Sun },
+  { name: 'Moon', icon: Moon },
+  { name: 'Wind', icon: Wind },
+  { name: 'Waves', icon: Waves },
+  { name: 'Anchor', icon: Anchor },
+  { name: 'Eye', icon: Eye },
+  { name: 'Heart', icon: Heart },
+  { name: 'Target', icon: Target },
+  { name: 'Wand2', icon: Wand2 },
+  { name: 'Fish', icon: Fish },
+  { name: 'Flower', icon: Flower },
+  { name: 'TreePine', icon: TreePine },
+  { name: 'Cloud', icon: Cloud },
+];
 
 interface WorldEditorFormProps {
   initialWorld: WorldDef | null;
@@ -94,17 +133,19 @@ export default function WorldEditorForm({
   const [editorMode, setEditorMode] = useState<'manual' | 'ai'>(isEditing ? 'manual' : 'ai');
 
   const handleAIGenerate = async () => {
-    if (!aiGenName.trim()) { setGenError('请输入世界名称'); return; }
+    if (!aiGenName.trim()) { setGenError('请输入世界描述'); return; }
     if (!apiConfig) { setGenError('请先在设置中配置API'); return; }
     setGenError(''); setIsGeneratingWorld(true);
     const ctrl = new AbortController(); aiAbortRef.current = ctrl;
-    const sysPrompt = `你是一位专业的世界观架构师。请根据用户给出的世界名称，生成一个完整的世界定义JSON。
+    const sysPrompt = `你是一位专业的世界观架构师。请根据用户给出的世界描述，生成一个完整的世界定义JSON。
 
-要求：严格返回一个JSON对象（不要markdown标记），包含以下结构：
+要求：
+1. 根据描述创意生成一个合适的中文世界名称（不要直接使用用户输入）
+2. 严格返回一个JSON对象（不要markdown标记），包含以下结构：
 {
-  "name": "世界名称",
+  "name": "创意中文世界名称（根据描述生成，不要直接用用户输入）",
   "description": "一句话简介（20字以内）",
-  "icon": "一个合适的Lucide图标名称（如 Globe, Sword, Compass, BookOpen, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, Sparkles, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon, Wind, Waves, Anchor, Eye 等）",
+  "icon": "一个合适的Lucide图标名称（从以下选择：Globe, Compass, BookOpen, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon, Wind, Waves, Anchor, Eye, Heart, Target, Wand2, Fish, Flower, TreePine, Cloud）",
   "tags": ["标签1", "标签2", "标签3"],
   "setting": {
     "overview": "2-3段沉浸式世界观描述（200-400字）",
@@ -240,9 +281,9 @@ export default function WorldEditorForm({
           {editorMode === 'ai' && !isEditing && (
             <div className="world-form-section" style={{ marginBottom: 20 }}>
               <h4><Cpu size={15} style={{ marginRight: 4, flexShrink: 0 }} /> AI 一键生成</h4>
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: 10 }}>输入世界名称，AI 将自动生成完整的世界设定，你可以在"手动编辑"中修改细节</p>
+              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: 10 }}>输入世界描述，AI 将自动生成创意名称和完整的世界设定，你可以在"手动编辑"中修改细节</p>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <input type="text" value={aiGenName} onChange={e => setAiGenName(e.target.value)} placeholder="例如：末日废土、赛博朋克都市、仙侠大陆..." style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', color: 'var(--text-primary)', fontSize: 'var(--font-size-md)' }} onKeyDown={e => e.key === 'Enter' && !isGeneratingWorld && handleAIGenerate()} />
+                <input type="text" value={aiGenName} onChange={e => setAiGenName(e.target.value)} placeholder="例如：一个被僵尸占领的末日废土世界..." style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', color: 'var(--text-primary)', fontSize: 'var(--font-size-md)' }} onKeyDown={e => e.key === 'Enter' && !isGeneratingWorld && handleAIGenerate()} />
                 <button className="btn-primary" onClick={handleAIGenerate} disabled={isGeneratingWorld} style={{ padding: '8px 20px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{isGeneratingWorld ? <><Loader size={14} className="animate-spin" /> 生成中...</> : <><Sparkles size={14} style={{ flexShrink: 0 }} /> 生成</>}</button>
                 {isGeneratingWorld && <button className="btn-ghost" onClick={() => aiAbortRef.current?.abort()} style={{ padding: '8px 12px', color: '#ef4444' }}>{t('common.cancel')}</button>}
               </div>
@@ -257,7 +298,30 @@ export default function WorldEditorForm({
                 <div className="world-form-group"><label>世界名称 *</label><input type="text" value={form.name} onChange={e => update({ name: e.target.value })} placeholder="给你的世界起个名字..." /></div>
                 <div className="world-form-group"><label>简介</label><textarea value={form.description} onChange={e => update({ description: e.target.value })} placeholder="一句话描述这个世界（展示在卡片上）" rows={2} /></div>
                 <div className="world-form-row">
-                  <div className="world-form-group"><label>图标名称 (Lucide)</label><input type="text" value={form.icon} onChange={e => update({ icon: e.target.value })} placeholder="Globe" style={{ width: 120 }} /></div>
+                  <div className="world-form-group">
+                    <label>图标</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, maxHeight: 120, overflowY: 'auto' }}>
+                      {WORLD_ICONS.map(({ name, icon: Icon }) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => update({ icon: name })}
+                          style={{
+                            width: 32, height: 32,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: form.icon === name ? '2px solid var(--accent)' : '1px solid var(--border)',
+                            borderRadius: 4,
+                            background: form.icon === name ? 'var(--accent-dim)' : 'transparent',
+                            color: form.icon === name ? 'var(--accent)' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                          }}
+                          title={name}
+                        >
+                          <Icon size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="world-form-group"><label>主题色</label><input type="color" value={form.coverColor} onChange={e => update({ coverColor: e.target.value })} /></div>
                   <div className="world-form-group"><label>难度</label><select value={form.difficulty} onChange={e => update({ difficulty: e.target.value })} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px', color: 'var(--text-primary)' }}><option value="easy">&#9679; 简单</option><option value="medium">&#9679; 中等</option><option value="hard">&#9679; 困难</option></select></div>
                 </div>

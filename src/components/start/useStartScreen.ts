@@ -122,7 +122,11 @@ export function useStartScreen() {
   // ─── 开始游戏 ───
   const handleStartGame = async () => {
     const characterHistory = charHistory.buildFullCharacterHistory();
-    const saveName = wizard.personalInfo.name || '未命名存档';
+    // 获取世界名（中文）
+    const world = wizard.allWorlds.find((w: any) => w.id === wizard.selectedWorld);
+    const worldName = world?.name || '默认世界';
+    const characterName = wizard.personalInfo.name || '未命名';
+    const saveName = `${characterName} - ${worldName}`;
 
     dispatch({ type: 'SET_WORLD', worldId: wizard.selectedWorld });
     dispatch({ type: 'SET_PERSONAL_INFO', info: wizard.personalInfo });
