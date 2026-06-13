@@ -1,0 +1,470 @@
+import { useState, useMemo } from 'react';
+import {
+  Search, Globe, ScrollText, MapPin, Clock, Cloud,
+  Swords, AlertTriangle, DollarSign, Flag, User,
+  Sparkles, ChevronRight, Layers, Shield, Users,
+  Calendar, Heart, Zap, Target, BarChart3,
+  Compass, BookOpen, Star,
+} from 'lucide-react';
+import type { WorldDef } from '../../data/worldLoader';
+import type { WorldBookEntry } from '../../worldbook/index';
+import WorldCard, { CreateWorldCard, getWorldIcon } from './WorldCard';
+
+// ── 难度筛选 ──
+const DIFFICULTY_FILTERS = [
+  { key: 'all', label: '全部', color: undefined as string | undefined },
+  { key: 'easy', label: '简单', color: '#22c55e' as string | undefined },
+  { key: 'medium', label: '中等', color: '#eab308' as string | undefined },
+  { key: 'hard', label: '困难', color: '#ef4444' as string | undefined },
+];
+
+// ── Tab 定义 ──
+const TABS = [
+  { key: 'overview', label: '概览', icon: BookOpen },
+  { key: 'systems', label: '系统', icon: Layers },
+  { key: 'economy', label: '经济', icon: DollarSign },
+  { key: 'characters', label: '人物', icon: Users },
+] as const;
+
+type TabKey = typeof TABS[number]['key'];
+
+interface StepWorldBrowserProps {
+  selectedWorld: string;
+  setSelectedWorld: (id: string) => void;
+  createdWorlds: WorldDef[];
+  allWorlds: WorldDef[];
+  worldEntry: WorldBookEntry | null;
+  onNext: () => void;
+  onEditWorld: (world: WorldDef) => void;
+  onDeleteWorld: (worldId: string) => void;
+  onCreateWorld: () => void;
+}
+
+export default function StepWorldBrowser({
+  selectedWorld, setSelectedWorld,
+  createdWorlds, allWorlds, worldEntry,
+  onNext, onEditWorld, onDeleteWorld, onCreateWorld,
+}: StepWorldBrowserProps) {
+  const [search, setSearch] = useState('');
+  const [diffFilter, setDiffFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+
+  const selected = allWorlds.find(w => w.id === selectedWorld);
+
+  // ── 搜索 + 筛选 ──
+  const filteredWorlds = useMemo(() => {
+    return allWorlds.filter(w => {
+      if (diffFilter !== 'all' && w.difficulty !== diffFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const match = (s?: string) => s?.toLowerCase().includes(q);
+        return match(w.name) || match(w.description) || w.tags?.some(t => match(t));
+      }
+      return true;
+    });
+  }, [allWorlds, search, diffFilter]);
+
+  return (
+    <div className="world-browser">
+      {/* ── 左侧：卡片网格 ── */}
+      <div className="world-browser-left">
+        {/* 搜索 + 筛选 */}
+        <div className="world-browser-toolbar">
+          <div className="world-search-box">
+            <Search size={14} strokeWidth={2} />
+            <input
+              type="text"
+              placeholder="搜索世界..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="world-diff-filters">
+            {DIFFICULTY_FILTERS.map(f => (
+              <button
+                key={f.key}
+                className={`diff-filter-btn${diffFilter === f.key ? ' active' : ''}`}
+                onClick={() => setDiffFilter(f.key)}
+                style={f.color ? { '--dot-color': f.color } as React.CSSProperties : undefined}
+                data-color={f.color}
+              >
+                {f.color && <span className="diff-dot" style={{ background: f.color }} />}
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 卡片网格 */}
+        <div className="world-card-grid">
+          {filteredWorlds.map(w => (
+            <WorldCard
+              key={w.id}
+              world={w}
+              selected={selectedWorld === w.id}
+              onSelect={() => setSelectedWorld(w.id)}
+              isCustom={createdWorlds.some(c => c.id === w.id)}
+              onEdit={e => onEditWorld(w)}
+              onDelete={() => onDeleteWorld(w.id)}
+            />
+          ))}
+          <CreateWorldCard onClick={onCreateWorld} />
+        </div>
+      </div>
+
+      {/* ── 右侧：详情面板 ── */}
+      <div className="world-browser-right">
+        {selected ? (
+          <div className="world-detail">
+            {/* 头部 */}
+            {(() => {
+              const DetailIcon = getWorldIcon(selected);
+              return (
+            <div
+              className="world-detail-header"
+              style={{ '--cover-color': selected.coverColor ?? 'var(--accent)' } as React.CSSProperties}
+            >
+              <DetailIcon size={32} strokeWidth={1.5} />
+              <div>
+                <h2 className="world-detail-title">{selected.name}</h2>
+                <p className="world-detail-desc">{selected.description}</p>
+                <div className="world-detail-meta">
+                  {selected.tags?.map(tag => (
+                    <span key={tag} className="world-card-tag">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+              );
+            })()}
+
+            {/* Tab 栏 */}
+            <div className="world-tabs">
+              {TABS.map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    <Icon size={14} strokeWidth={2} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tab 内容 */}
+            <div className="world-tab-content">
+              {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
+              {activeTab === 'systems' && <SystemsTab world={selected} />}
+              {activeTab === 'economy' && <EconomyTab world={selected} />}
+              {activeTab === 'characters' && <CharactersTab world={selected} />}
+            </div>
+          </div>
+        ) : (
+          <div className="world-detail-empty">
+            <Globe size={48} strokeWidth={1} style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
+            <p>选择一个世界查看详情</p>
+          </div>
+        )}
+
+        {/* 下一步按钮 */}
+        <div className="world-browser-nav">
+          <button className="btn-primary" onClick={onNext}>
+            下一步 <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+//  Tab 内容组件
+// ═══════════════════════════════════════════════════
+
+/** 概览 Tab */
+function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: WorldBookEntry | null }) {
+  return (
+    <div className="tab-section">
+      {/* 世界设定 */}
+      {worldEntry?.content ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
+          <div className="detail-block-body">{worldEntry.content}</div>
+        </div>
+      ) : world.setting?.overview && (
+        <div className="detail-block">
+          <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
+          <div className="detail-block-body">{world.setting.overview}</div>
+        </div>
+      )}
+
+      {/* 元数据徽章 */}
+      {world.setting && (
+        <div className="detail-badges">
+          {world.setting.location && (
+            <span className="detail-badge"><MapPin size={12} />{world.setting.location}</span>
+          )}
+          {world.setting.timePeriod && (
+            <span className="detail-badge"><Clock size={12} />{world.setting.timePeriod}</span>
+          )}
+          {world.setting.atmosphere && (
+            <span className="detail-badge"><Cloud size={12} />{world.setting.atmosphere}</span>
+          )}
+        </div>
+      )}
+
+      {/* 世界规则概览 */}
+      {world.rules && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Shield size={15} />世界规则</div>
+          <div className="detail-block-body">
+            {world.rules.powerSystem && (
+              <div className="detail-row"><Zap size={13} /><strong>力量体系：</strong>{world.rules.powerSystem}</div>
+            )}
+            {world.rules.socialStructure && (
+              <div className="detail-row"><Users size={13} /><strong>社会结构：</strong>{world.rules.socialStructure}</div>
+            )}
+            {world.rules.specialRules?.map((rule, i) => (
+              <div key={i} className="detail-rule"><AlertTriangle size={12} />{rule}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 核心特色 */}
+      {world.highlights && world.highlights.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Star size={15} />核心特色</div>
+          <div className="detail-pills">
+            {world.highlights.map((h, i) => <span key={i} className="detail-pill"><Sparkles size={11} />{h}</span>)}
+          </div>
+        </div>
+      )}
+
+      {/* 适合人群 */}
+      {world.playstyleGuide?.recommendedFor && world.playstyleGuide.recommendedFor.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Compass size={15} />适合人群</div>
+          <div className="detail-pills">
+            {world.playstyleGuide.recommendedFor.map((p, i) => <span key={i} className="detail-pill">{p}</span>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 系统 Tab — 动态渲染通用框架 */
+function SystemsTab({ world }: { world: WorldDef }) {
+  return (
+    <div className="tab-section">
+      {/* 核心属性 */}
+      {world.coreStats && world.coreStats.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><BarChart3 size={15} />核心属性</div>
+          <div className="stats-grid">
+            {world.coreStats.map(stat => (
+              <div key={stat.id} className={`stat-card${stat.important ? ' important' : ''}`}>
+                <div className="stat-name">{stat.name}</div>
+                <div className="stat-desc">{stat.description}</div>
+                {stat.range && <div className="stat-range">{stat.range[0]}~{stat.range[1]}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 进阶体系 */}
+      {world.progression && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Target size={15} />进阶体系</div>
+          <div className="detail-block-body">
+            {world.progression.description && <p>{world.progression.description}</p>}
+            {world.progression.tiers && world.progression.tiers.length > 0 && (
+              <div className="progression-ladder">
+                {world.progression.tiers.map((tier, i) => (
+                  <div key={i} className="progression-tier">
+                    <span className="tier-number">{i + 1}</span>
+                    <div>
+                      <span className="tier-name">{tier.name}</span>
+                      {tier.description && <span className="tier-desc">{tier.description}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 冲突方式 */}
+      {world.conflict && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Swords size={15} />冲突方式</div>
+          <div className="detail-block-body">
+            <p>{world.conflict.description}</p>
+            <div className="detail-pills">
+              {world.conflict.types.map((t, i) => <span key={i} className="detail-pill">{t}</span>)}
+            </div>
+            <div className="detail-flags">
+              {world.conflict.lethal && <span className="detail-flag danger"><AlertTriangle size={11} />角色可能死亡</span>}
+              {world.conflict.nonViolent && <span className="detail-flag safe"><Shield size={11} />无物理暴力</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 关系系统 */}
+      {world.relationships && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Heart size={15} />关系系统</div>
+          <div className="detail-block-body">
+            {world.relationships.description && <p>{world.relationships.description}</p>}
+            {world.relationships.mechanics && (
+              <div className="detail-row"><Zap size={13} /><strong>机制：</strong>{world.relationships.mechanics}</div>
+            )}
+            <div className="detail-pills">
+              {world.relationships.types.map((rt, i) => (
+                <span key={i} className="detail-pill" title={rt.description}>{rt.name}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 世界事件 */}
+      {world.events && world.events.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Calendar size={15} />世界事件</div>
+          <div className="events-list">
+            {world.events.map((evt, i) => (
+              <div key={i} className={`event-item${evt.significance === 'major' ? ' major' : ''}`}>
+                <div className="event-header">
+                  <span className="event-name">{evt.name}</span>
+                  {evt.trigger && <span className="event-trigger">{evt.trigger}</span>}
+                </div>
+                <div className="event-desc">{evt.description}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 经济 Tab */
+function EconomyTab({ world }: { world: WorldDef }) {
+  return (
+    <div className="tab-section">
+      {/* 货币 */}
+      {world.economy && (
+        <div className="detail-block">
+          <div className="detail-block-title"><DollarSign size={15} />经济系统</div>
+          <div className="detail-block-body">
+            {world.economy.currency && (
+              <div className="detail-row">
+                <strong>{world.economy.currency.symbol ?? ''} {world.economy.currency.name}</strong>
+                {world.economy.currency.description && <span> — {world.economy.currency.description}</span>}
+              </div>
+            )}
+            {world.economy.priceLevel && (
+              <div className="detail-row"><BarChart3 size={13} /><strong>物价水平：</strong>{world.economy.priceLevel}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 资源系统 */}
+      {world.resources && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Flag size={15} />资源管理</div>
+          <div className="detail-block-body">
+            {world.resources.description && <p>{world.resources.description}</p>}
+            <div className="resources-list">
+              {world.resources.resources.map(res => (
+                <div key={res.id} className={`resource-item${res.scarce ? ' scarce' : ''}`}>
+                  <div className="resource-header">
+                    <span className="resource-name">{res.symbol ? `${res.symbol} ` : ''}{res.name}</span>
+                    {res.scarce && <span className="resource-scarce">稀缺</span>}
+                  </div>
+                  <div className="resource-desc">{res.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 时间系统 */}
+      {world.timeSystem && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Clock size={15} />时间系统</div>
+          <div className="detail-block-body">
+            {world.timeSystem.calendar && (
+              <div className="detail-row"><Calendar size={13} /><strong>历法：</strong>{world.timeSystem.calendar}</div>
+            )}
+            {world.timeSystem.startTime && (
+              <div className="detail-row"><Clock size={13} /><strong>开局时间：</strong>{world.timeSystem.startTime}</div>
+            )}
+            {world.timeSystem.timeSpeed && (
+              <div className="detail-row"><Zap size={13} /><strong>时间流速：</strong>{world.timeSystem.timeSpeed}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 人物 Tab */
+function CharactersTab({ world }: { world: WorldDef }) {
+  return (
+    <div className="tab-section">
+      {/* 势力 */}
+      {world.factions && world.factions.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Flag size={15} />势力分布</div>
+          <div className="factions-grid">
+            {world.factions.map((f, i) => (
+              <div key={i} className="faction-card">
+                <div className="faction-header">
+                  <span className="faction-name">{f.name}</span>
+                  {f.alignment && (
+                    <span className={`faction-alignment ${f.alignment === '友善' ? 'friendly' : f.alignment === '敌对' ? 'hostile' : 'neutral'}`}>
+                      {f.alignment}
+                    </span>
+                  )}
+                </div>
+                <div className="faction-desc">{f.description}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 预设 NPC */}
+      {world.presetNPCs && world.presetNPCs.length > 0 && (
+        <div className="detail-block">
+          <div className="detail-block-title"><User size={15} />关键 NPC</div>
+          <div className="npcs-grid">
+            {world.presetNPCs.map((npc, i) => (
+              <div key={i} className="npc-card">
+                <div className="npc-header">
+                  <span className="npc-name">{npc.name}</span>
+                  <span className="npc-role">{npc.role}</span>
+                </div>
+                <div className="npc-desc">{npc.description}</div>
+                {npc.personality && <div className="npc-personality">性格：{npc.personality}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,253 @@
+// 管线执行器 - 按 executionOrder 顺序/并行执行各模块
+import type { PipelineConfig, PipelineTaskId, PipelineStageResult, PipelineStatus } from './pipelineTypes';
+import { createPipelineStatus, STAGE_LABELS } from './pipelineTypes';
+import type { VariableManager } from './variableManager';
+import type { WorldBookManager } from '../worldbook/index';
+import type { ParsedResponse } from './responseExtractor';
+import type { AuxiliaryConfig } from '../api/auxiliaryApi';
+import type { ApiConfig } from '../api/types';
+import { runVariableExtraction } from './variableExtraction';
+import { eventBus, EVENTS } from './eventBus';
+
+/** 管线执行回调 */
+export interface PipelineCallbacks {
+  onUpdate: () => void;
+}
+
+/** 管线执行结果 */
+export interface PipelineResult {
+  mainResult: {
+    text: string;
+    parsed: ParsedResponse;
+  } | null;
+  status: PipelineStatus;
+}
+
+/** 记忆系统任务集合（由外部注入） */
+export interface MemoryTasks {
+  /** 叙事记忆写入 */
+  write?: () => Promise<void>;
+  /** 摘要保存 */
+  summary?: () => Promise<void>;
+  /** 检索规划 */
+  retrieve?: () => Promise<void>;
+  /** 上下文编译 */
+  compile?: () => Promise<void>;
+  /** 向量事实提取 */
+  vector?: () => Promise<void>;
+  /** 调试日志记录器 */
+  debugLogger?: (kind: string, message: string) => void;
+}
+
+export class PipelineExecutor {
+  private status: PipelineStatus;
+  private onUpdate: () => void;
+
+  constructor(round: number, callbacks: PipelineCallbacks) {
+    this.status = createPipelineStatus(round);
+    this.onUpdate = callbacks.onUpdate;
+  }
+
+  getStatus(): PipelineStatus {
+    return this.status;
+  }
+
+  private updateStage(taskId: PipelineTaskId, updates: Partial<PipelineStageResult>) {
+    this.status.stages[taskId] = { ...this.status.stages[taskId], ...updates };
+    console.log(`[管线] ${taskId} → ${updates.status || this.status.stages[taskId].status}`, updates);
+    this.onUpdate();
+  }
+
+  /**
+   * 执行管线主流程
+   * 遵循 executionOrder：同层并行，层间串行
+   */
+  async execute(params: {
+    config: PipelineConfig;
+    mainTask: () => Promise<{ text: string; parsed: ParsedResponse }>;
+    varMgr: VariableManager;
+    worldBook: WorldBookManager | null;
+    userText: string;
+    auxiliaryConfig: AuxiliaryConfig | null;
+    mainApiConfig: ApiConfig;
+    signal: AbortSignal;
+    /** 记忆系统任务集（可选，由外部注入） */
+    memoryTasks?: MemoryTasks;
+  }): Promise<PipelineResult> {
+    const { config, mainTask, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks } = params;
+    let mainResult: { text: string; parsed: ParsedResponse } | null = null;
+
+    for (const step of config.executionOrder) {
+      if (signal.aborted) {
+        this.skipRemaining();
+        break;
+      }
+
+      const hasMain = step.includes('main');
+      const otherTasks = step.filter(t => t !== 'main');
+
+      if (hasMain) {
+        mainResult = await this.executeMain(mainTask);
+        if (otherTasks.length > 0 && !signal.aborted) {
+          await Promise.all(otherTasks.map(taskId =>
+            this.executeTask(taskId, config, mainResult!, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks)
+          ));
+        }
+      } else {
+        // 整层并行
+        await Promise.all(step.map(taskId =>
+          this.executeTask(taskId, config, mainResult, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks)
+        ));
+      }
+    }
+
+    this.status.endTime = Date.now();
+    this.onUpdate();
+    return { mainResult, status: this.status };
+  }
+
+  /** 执行正文生成任务 */
+  private async executeMain(
+    mainTask: () => Promise<{ text: string; parsed: ParsedResponse }>
+  ): Promise<{ text: string; parsed: ParsedResponse }> {
+    this.updateStage('main', { status: 'running', startTime: Date.now() });
+
+    try {
+      const result = await mainTask();
+      this.updateStage('main', {
+        status: 'success',
+        endTime: Date.now(),
+        dataLength: result.text.length,
+        attempts: 1,
+      });
+      return result;
+    } catch (err: any) {
+      this.updateStage('main', {
+        status: 'error',
+        endTime: Date.now(),
+        error: err.message || '正文生成失败',
+      });
+      throw err;
+    }
+  }
+
+  /** 执行单个任务的路由 */
+  private async executeTask(
+    taskId: PipelineTaskId,
+    config: PipelineConfig,
+    mainResult: { text: string; parsed: ParsedResponse } | null,
+    varMgr: VariableManager,
+    worldBook: WorldBookManager | null,
+    userText: string,
+    auxiliaryConfig: AuxiliaryConfig | null,
+    mainApiConfig: ApiConfig,
+    signal: AbortSignal,
+    memoryTasks?: MemoryTasks,
+  ): Promise<void> {
+    switch (taskId) {
+      case 'variable':
+        return this.executeVariable(config, varMgr, mainResult, userText, auxiliaryConfig, mainApiConfig, worldBook);
+      case 'memory_write':
+        return this.executeMemoryTask('memory_write', config.memoryEnabled, memoryTasks?.write, memoryTasks?.debugLogger);
+      case 'memory_summary':
+        return this.executeMemoryTask('memory_summary', config.memoryEnabled, memoryTasks?.summary, memoryTasks?.debugLogger);
+      case 'memory_retrieve':
+        return this.executeMemoryTask('memory_retrieve', config.memoryEnabled, memoryTasks?.retrieve, memoryTasks?.debugLogger);
+      case 'memory_compile':
+        return this.executeMemoryTask('memory_compile', config.memoryEnabled, memoryTasks?.compile, memoryTasks?.debugLogger);
+      case 'memory_vector':
+        return this.executeMemoryTask('memory_vector', config.memoryEnabled, memoryTasks?.vector, memoryTasks?.debugLogger);
+      default:
+        this.updateStage(taskId, { status: 'skipped', skipped: true });
+    }
+  }
+
+  /** 执行记忆系统子任务（通用） */
+  private async executeMemoryTask(
+    taskId: PipelineTaskId,
+    enabled: boolean,
+    task?: () => Promise<void>,
+    debugLogger?: (kind: string, message: string) => void,
+  ): Promise<void> {
+    if (!enabled || !task) {
+      this.updateStage(taskId, { status: 'skipped', skipped: true });
+      return;
+    }
+
+    this.updateStage(taskId, { status: 'running', startTime: Date.now() });
+
+    try {
+      await task();
+      this.updateStage(taskId, {
+        status: 'success',
+        endTime: Date.now(),
+      });
+    } catch (err: any) {
+      const errMsg = err.message || `${STAGE_LABELS[taskId]}失败`;
+      this.updateStage(taskId, {
+        status: 'error',
+        endTime: Date.now(),
+        error: errMsg,
+      });
+      // 写入调试日志（UI 可见）
+      debugLogger?.(taskId, errMsg);
+      console.warn(`[管线] ${STAGE_LABELS[taskId]}失败:`, errMsg);
+    }
+  }
+
+  /** 执行变量提取任务 */
+  private async executeVariable(
+    config: PipelineConfig,
+    varMgr: VariableManager,
+    mainResult: { text: string; parsed: ParsedResponse } | null,
+    userText: string,
+    auxiliaryConfig: AuxiliaryConfig | null,
+    mainApiConfig: ApiConfig,
+    worldBook: WorldBookManager | null,
+  ): Promise<void> {
+    if (!config.variableEnabled || !mainResult) {
+      this.updateStage('variable', { status: 'skipped', skipped: true });
+      return;
+    }
+
+    const maxAttempts = config.variableMaxRetries + 1;
+    this.updateStage('variable', { status: 'running', startTime: Date.now(), maxAttempts });
+
+    try {
+      await runVariableExtraction({
+        varMgr,
+        parsed: mainResult.parsed,
+        round: this.status.round,
+        userText,
+        auxiliaryConfig,
+        mainApiConfig,
+        worldBook,
+        delayMs: config.variableDelayMs,
+        maxRetries: config.variableMaxRetries,
+      });
+
+      this.updateStage('variable', {
+        status: 'success',
+        endTime: Date.now(),
+        attempts: 1,
+      });
+    } catch (err: any) {
+      this.updateStage('variable', {
+        status: 'error',
+        endTime: Date.now(),
+        error: err.message || '变量提取失败',
+        attempts: maxAttempts,
+      });
+      console.warn('[管线] 变量提取失败:', err.message);
+    }
+  }
+
+  /** 跳过所有剩余 pending 阶段 */
+  private skipRemaining() {
+    for (const [key, stage] of Object.entries(this.status.stages)) {
+      if (stage.status === 'pending') {
+        this.updateStage(key as PipelineTaskId, { status: 'skipped', skipped: true });
+      }
+    }
+  }
+}

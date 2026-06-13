@@ -1,0 +1,167 @@
+// 游戏变量类型定义 - 从世界漫游指南.json的Zod schema提取
+
+export interface WorldState {
+  时间系统: { 当前时间: string; 纪元名称: string; 当前天气: string };
+  空间定位: { 当前位置: string; 区域特征: string };
+  社会环境: { 权力结构: string; 社会氛围: string; 主流价值观: string };
+  信息层级: {
+    全局重大事件: string;
+    势力动态: string;
+    区域事件: string;
+    本地消息: string;
+    圈内传闻: string;
+  };
+}
+
+export interface SurvivalStats {
+  血量: number;
+  体力值: number;
+}
+
+export interface SkillData {
+  品质: '普通' | '精良' | '稀有' | '史诗' | '传说';
+  描述: string;
+  类型: string;
+}
+
+export interface InventoryItem {
+  数量: number;
+  类型: string;
+  品质: '普通' | '精良' | '稀有' | '史诗' | '传说';
+  有效期: string;
+  特殊属性: string;
+  备注: string;
+}
+
+export interface Notebook {
+  潜在危机: Record<string, { 严重程度: string; 预计影响时间: string; 应对措施: string; $time: number }>;
+  当前机遇: Record<string, { 时效性: string; 所需资源: string; 行动计划: string; $time: number }>;
+  待办事项: Record<string, { 优先级: string; 截止时间: string; 状态: string; $time: number }>;
+}
+
+export interface PlayerState {
+  生存状态: SurvivalStats;
+  姓名: string;
+  年龄: string | number;
+  性别: string;
+  身份信息: {
+    职业: string;
+    阶层: string;
+    所属组织: string;
+    特殊身份: string;
+    背景信息: string;
+  };
+  当前位置?: string;
+  当前目标: string;
+  技能系统: Record<string, SkillData>;
+  货币资源: {
+    主货币: { 名称: string; 数量: number };
+    次级货币: Record<string, { 数量: number; 兑换比例: string; 用途说明: string }>;
+  };
+  物品栏: Record<string, InventoryItem>;
+  记事本: Notebook;
+}
+
+export interface CoreAnchor {
+  事件: string;
+  影响: string;
+  权重: string;
+}
+
+export interface NPCData {
+  姓名: string;
+  种族: string;
+  性别: string;
+  年龄: string | number;
+  背景?: string;
+  生存状态: SurvivalStats;
+  社会身份: { 职业: string; 所属势力: string; 社会地位: string };
+  关系数据: {
+    好感度: number;
+    信任度: number;
+    关系类型: string;
+    印象标签: string[];
+    核心锚点: CoreAnchor[];
+  };
+  个人信息: {
+    价值观: { 喜好: string[]; 厌恶: string[]; 雷区: string };
+    执念与目标: string;
+    心理创伤: string;
+    外貌: string;
+    表性格: string;
+    里性格: string;
+    当前想法: string;
+    特殊能力: string;
+    当前穿着: string;
+    当前位置: string;
+    当前状态: string;
+    持有物品: string;
+    过往经历: string[];
+    备注: string;
+  };
+  交互记忆: {
+    未完成约定: string[];
+    共同秘密: string[];
+    赠礼记录: string[];
+  };
+  重要NPC: boolean;
+  _关注: boolean;
+  婚姻状态: string;
+  联系方式: string;
+  近期事件: string[];
+  重要经历: string[];
+  $time: number;
+  // NPC 管理扩展字段
+  人物分类?: '在场' | '离场' | '重点';
+  人物事迹?: string[];
+  种族描述?: string;
+  种族效果?: string;
+  种族特性?: string[];
+  性格?: string;
+  穿着?: string;
+  当前行动?: string;
+  短期目标?: string;
+  长期目标?: string;
+  内心想法?: string;
+  属性?: Record<string, number | string>;
+  天赋?: string[];
+  技能列表?: string[] | Record<string, unknown>;
+  物品列表?: string[] | Record<string, unknown>;
+  装备列表?: Record<string, unknown>;
+}
+
+export interface GameState {
+  世界: WorldState;
+  玩家: PlayerState;
+  人物档案: Record<string, NPCData>;
+  /** 记忆系统运行态（可选，由记忆系统模块管理） */
+  memoryRuntime?: Record<string, unknown>;
+  /** 记忆系统配置（可选） */
+  memoryConfig?: Record<string, unknown>;
+}
+
+// 默认空状态
+export function createDefaultGameState(): GameState {
+  return {
+    世界: {
+      时间系统: { 当前时间: '', 纪元名称: '', 当前天气: '' },
+      空间定位: { 当前位置: '', 区域特征: '' },
+      社会环境: { 权力结构: '', 社会氛围: '', 主流价值观: '' },
+      信息层级: { 全局重大事件: '', 势力动态: '', 区域事件: '', 本地消息: '', 圈内传闻: '' },
+    },
+    玩家: {
+      生存状态: { 血量: 100, 体力值: 100 },
+      姓名: '', 年龄: '', 性别: '',
+      身份信息: { 职业: '', 阶层: '', 所属组织: '', 特殊身份: '', 背景信息: '' },
+      当前目标: '',
+      技能系统: {},
+      货币资源: { 主货币: { 名称: '', 数量: 500 }, 次级货币: {} },
+      物品栏: {},
+      记事本: { 潜在危机: {}, 当前机遇: {}, 待办事项: {} },
+    },
+    人物档案: {},
+  };
+}
+
+
+
