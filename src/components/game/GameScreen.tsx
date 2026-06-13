@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Save, Clock, CheckCircle, Layers } from 'lucide-react';
+import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Save, Clock, CheckCircle, Layers, Menu, PanelRightOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
 import { useSaveStore } from '../../stores/saveStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useMemoryStore } from '../../memory/memoryStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import ChatPanel from './chat/ChatPanel';
 import ProfilePanel from './panels/ProfilePanel';
 import CharacterGrid from './panels/CharacterGrid';
 import NotebookPanel from './panels/NotebookPanel';
 import RightPanel from './panels/RightPanel';
 import { VariableSettingsOverlay } from './VariableSettingsOverlay';
+import MobileOverlay from './MobileOverlay';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
 type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'save';
@@ -138,8 +140,17 @@ export default function GameScreen() {
   const currentSaveId = useSaveStore(s => s.currentSaveId);
   const saveGame = useSaveStore(s => s.saveGame);
   const { t } = useUISettings();
+  const isMobile = useIsMobile(900);
+
+  // 桌面端状态
   const [overlay, setOverlay] = useState<OverlayPanel>(null);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  // 移动端状态
+  const [showLeftOverlay, setShowLeftOverlay] = useState(false);
+  const [showRightOverlay, setShowRightOverlay] = useState(false);
+  const [mobileActivePanel, setMobileActivePanel] = useState<'save' | 'profile' | 'characters' | 'notebook' | 'variables' | null>(null);
+
   const [stateVersion, setStateVersion] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'done'>('idle');
@@ -302,109 +313,251 @@ export default function GameScreen() {
     }
   };
 
-  return (
-    <div style={{
-      height: '100vh',
-      display: 'flex',
-      background: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-      overflow: 'hidden',
-    }}>
-      {/* 左侧图标导航栏 */}
-      <div style={{
-        width: '52px',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '10px 0',
-        gap: '2px',
-        background: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border)',
-      }}>
-        {navButtons.map(btn => {
-          const Icon = btn.icon;
-          return (
+  // 移动端导航菜单项
+  const mobileNavItems = [
+    { id: 'home', icon: Home, labelKey: 'nav.home', action: () => { setShowLeftOverlay(false); navigate('start'); } },
+    { id: 'save', icon: Save, labelKey: 'nav.save', action: () => { setShowLeftOverlay(false); setMobileActivePanel('save'); } },
+    { id: 'profile', icon: User, labelKey: 'nav.profile', action: () => { setShowLeftOverlay(false); setMobileActivePanel('profile'); } },
+    { id: 'characters', icon: Users, labelKey: 'nav.characters', action: () => { setShowLeftOverlay(false); setMobileActivePanel('characters'); } },
+    { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook', action: () => { setShowLeftOverlay(false); setMobileActivePanel('notebook'); } },
+    { id: 'variables', icon: Layers, labelKey: 'nav.variables', action: () => { setShowLeftOverlay(false); setShowVariables(true); } },
+    { id: 'settings', icon: Settings, labelKey: 'nav.settings', action: () => { setShowLeftOverlay(false); navigate('settings'); } },
+  ];
+
+  // 移动端左侧面板内容渲染
+  const renderMobilePanelContent = () => {
+    switch (mobileActivePanel) {
+      case 'profile':
+        return <ProfilePanel gameState={gameState} />;
+      case 'characters':
+        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} />;
+      case 'notebook':
+        return <NotebookPanel gameState={gameState} />;
+      case 'save': {
+        const currentMeta = savesMeta.find(m => m.id === currentSaveId);
+        return (
+          <div style={{ padding: '16px 20px' }}>
+            {/* 当前存档信息 */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '8px' }}>当前存档</div>
+              <div style={{ padding: '12px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '4px' }}>
+                  {currentMeta?.name || state.personalInfo?.name || '未命名存档'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+                  <Clock size={12} />
+                  {currentMeta ? new Date(currentMeta.timestamp).toLocaleString() : '未保存'}
+                </div>
+              </div>
+            </div>
+
+            {/* 保存按钮 */}
             <button
-              key={btn.id}
-              onClick={() => {
-                if (btn.id === 'home') { navigate('start'); return; }
-                setOverlay(overlay === btn.id ? null : btn.id);
-              }}
-              title={t(btn.labelKey)}
+              onClick={handleManualSave}
+              disabled={saveStatus === 'saving'}
               style={{
-                width: '38px',
-                height: '38px',
-                border: 'none',
+                width: '100%',
+                padding: '12px',
+                border: '1px solid var(--accent)',
                 borderRadius: 'var(--radius-md)',
-                background: overlay === btn.id ? 'var(--accent-dim)' : 'transparent',
-                color: overlay === btn.id ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
+                background: saveStatus === 'done' ? 'var(--accent-dim)' : 'var(--bg-secondary)',
+                color: saveStatus === 'done' ? 'var(--accent)' : 'var(--text-primary)',
+                cursor: saveStatus === 'saving' ? 'wait' : 'pointer',
+                fontSize: 'var(--font-size-md)',
+                fontWeight: '500',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                if (overlay !== btn.id) e.currentTarget.style.background = 'var(--accent-dim)';
-              }}
-              onMouseLeave={e => {
-                if (overlay !== btn.id) e.currentTarget.style.background = 'transparent';
+                gap: '8px',
+                transition: 'all 0.2s',
+                minHeight: 'var(--touch-min)',
               }}
             >
-              <Icon size={18} strokeWidth={1.5} />
+              {saveStatus === 'saving' ? (
+                <><Save size={16} className="spin" /> 保存中...</>
+              ) : saveStatus === 'done' ? (
+                <><CheckCircle size={16} /> 已保存</>
+              ) : (
+                <><Save size={16} /> 保存游戏</>
+              )}
             </button>
-          );
-        })}
 
-        {/* 变量管理按钮 */}
-        <button
-          onClick={() => setShowVariables(true)}
-          title="变量管理"
-          style={{
-            width: '38px',
-            height: '38px',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            background: showVariables ? 'var(--accent-dim)' : 'transparent',
-            color: showVariables ? 'var(--accent)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-dim)'}
-          onMouseLeave={e => { if (!showVariables) e.currentTarget.style.background = 'transparent'; }}
-        >
-          <Layers size={18} strokeWidth={1.5} />
-        </button>
+            {/* 存档管理跳转 */}
+            <button
+              onClick={() => { setMobileActivePanel(null); navigate('start'); }}
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: '8px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: 'var(--font-size-md)',
+                minHeight: 'var(--touch-min)',
+              }}
+            >
+              存档管理
+            </button>
+          </div>
+        );
+      }
+      default:
+        return null;
+    }
+  };
 
-        <div style={{ flex: 1 }} />
+  // 移动端左侧面板标题
+  const getMobilePanelTitle = () => {
+    switch (mobileActivePanel) {
+      case 'save': return t('nav.save');
+      case 'profile': return t('nav.profile');
+      case 'characters': return t('nav.characters');
+      case 'notebook': return t('nav.notebook');
+      default: return '导航';
+    }
+  };
 
-        <button
-          onClick={() => navigate('settings')}
-          title={t('nav.settings')}
-          style={{
-            width: '38px',
-            height: '38px',
-            border: 'none',
-            borderRadius: '8px',
-            background: 'transparent',
-            color: 'var(--text-muted)',
-            fontSize: 'var(--font-size-xl)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Settings size={18} strokeWidth={1.5} />
-        </button>
-      </div>
+  return (
+    <div
+      className="full-height"
+      style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        background: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 移动端头部 */}
+      {isMobile && (
+        <div className="mobile-header">
+          <button
+            className="mobile-header-btn"
+            onClick={() => setShowLeftOverlay(true)}
+            aria-label="打开导航菜单"
+          >
+            <Menu size={22} />
+          </button>
+
+          <div className="mobile-header-title">
+            {state.selectedWorld || '世界漫游指南'}
+          </div>
+
+          <button
+            className="mobile-header-btn"
+            onClick={() => setShowRightOverlay(true)}
+            aria-label="打开信息面板"
+          >
+            <PanelRightOpen size={22} />
+          </button>
+        </div>
+      )}
+
+      {/* 桌面端：左侧图标导航栏 */}
+      {!isMobile && (
+        <div style={{
+          width: '52px',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '10px 0',
+          gap: '2px',
+          background: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border)',
+        }}>
+          {navButtons.map(btn => {
+            const Icon = btn.icon;
+            return (
+              <button
+                key={btn.id}
+                onClick={() => {
+                  if (btn.id === 'home') { navigate('start'); return; }
+                  setOverlay(overlay === btn.id ? null : btn.id);
+                }}
+                title={t(btn.labelKey)}
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  background: overlay === btn.id ? 'var(--accent-dim)' : 'transparent',
+                  color: overlay === btn.id ? 'var(--accent)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  if (overlay !== btn.id) e.currentTarget.style.background = 'var(--accent-dim)';
+                }}
+                onMouseLeave={e => {
+                  if (overlay !== btn.id) e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <Icon size={18} strokeWidth={1.5} />
+              </button>
+            );
+          })}
+
+          {/* 变量管理按钮 */}
+          <button
+            onClick={() => setShowVariables(true)}
+            title="变量管理"
+            style={{
+              width: '38px',
+              height: '38px',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: showVariables ? 'var(--accent-dim)' : 'transparent',
+              color: showVariables ? 'var(--accent)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-dim)'}
+            onMouseLeave={e => { if (!showVariables) e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Layers size={18} strokeWidth={1.5} />
+          </button>
+
+          <div style={{ flex: 1 }} />
+
+          <button
+            onClick={() => navigate('settings')}
+            title={t('nav.settings')}
+            style={{
+              width: '38px',
+              height: '38px',
+              border: 'none',
+              borderRadius: '8px',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              fontSize: 'var(--font-size-xl)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Settings size={18} strokeWidth={1.5} />
+          </button>
+        </div>
+      )}
 
       {/* 中间主区域 */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <ChatPanel
             messages={engine.messages}
@@ -419,54 +572,130 @@ export default function GameScreen() {
           />
         </div>
 
-        {/* 侧滑抽屉面板 */}
-        <DrawerPanel
-          open={overlay !== null}
-          title={getOverlayTitle()}
-          onClose={() => setOverlay(null)}
+        {/* 桌面端：侧滑抽屉面板 */}
+        {!isMobile && (
+          <DrawerPanel
+            open={overlay !== null}
+            title={getOverlayTitle()}
+            onClose={() => setOverlay(null)}
+          >
+            {renderOverlayContent()}
+          </DrawerPanel>
+        )}
+      </div>
+
+      {/* 桌面端：右侧信息栏 */}
+      {!isMobile && (
+        <>
+          <div style={{
+            width: rightCollapsed ? '0px' : 'var(--right-panel-width)',
+            flexShrink: 0,
+            overflow: 'hidden',
+            borderLeft: rightCollapsed ? 'none' : '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            {!rightCollapsed && <RightPanel gameState={gameState} />}
+          </div>
+
+          {/* 右侧折叠按钮 */}
+          <button
+            onClick={() => setRightCollapsed(!rightCollapsed)}
+            style={{
+              position: 'fixed',
+              right: rightCollapsed ? '0' : 'var(--right-panel-width)',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '24px',
+              height: '40px',
+              border: '1px solid var(--border)',
+              borderRight: rightCollapsed ? '1px solid var(--border)' : 'none',
+              borderRadius: '4px 0 0 4px',
+              background: 'var(--bg-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--text-muted)',
+              zIndex: 50,
+              transition: 'right 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            {rightCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+          </button>
+        </>
+      )}
+
+      {/* 移动端：左侧导航覆盖层 */}
+      {isMobile && (
+        <MobileOverlay
+          open={showLeftOverlay}
+          onClose={() => setShowLeftOverlay(false)}
+          title="导航"
+          side="left"
+          width={260}
         >
-          {renderOverlayContent()}
-        </DrawerPanel>
-      </div>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px 0' }}>
+            {mobileNavItems.map(item => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={item.action}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'transparent',
+                    color: 'var(--text-primary)',
+                    fontSize: 'var(--font-size-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    minHeight: 'var(--touch-min)',
+                    width: '100%',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-dim)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Icon size={20} strokeWidth={1.5} />
+                  <span>{t(item.labelKey)}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </MobileOverlay>
+      )}
 
-      {/* 右侧信息栏 */}
-      <div style={{
-        width: rightCollapsed ? '0px' : 'var(--right-panel-width)',
-        flexShrink: 0,
-        overflow: 'hidden',
-        borderLeft: rightCollapsed ? 'none' : '1px solid var(--border)',
-        background: 'var(--bg-secondary)',
-        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}>
-        {!rightCollapsed && <RightPanel gameState={gameState} />}
-      </div>
+      {/* 移动端：左侧面板覆盖层（显示具体内容） */}
+      {isMobile && mobileActivePanel && (
+        <MobileOverlay
+          open={true}
+          onClose={() => setMobileActivePanel(null)}
+          title={getMobilePanelTitle()}
+          side="left"
+          width={300}
+        >
+          {renderMobilePanelContent()}
+        </MobileOverlay>
+      )}
 
-      {/* 右侧折叠按钮 */}
-      <button
-        onClick={() => setRightCollapsed(!rightCollapsed)}
-        style={{
-          position: 'fixed',
-          right: rightCollapsed ? '0' : 'var(--right-panel-width)',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: '24px',
-          height: '40px',
-          border: '1px solid var(--border)',
-          borderRight: rightCollapsed ? '1px solid var(--border)' : 'none',
-          borderRadius: '4px 0 0 4px',
-          background: 'var(--bg-secondary)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 'var(--font-size-xs)',
-          color: 'var(--text-muted)',
-          zIndex: 50,
-          transition: 'right 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
-        {rightCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
-      </button>
+      {/* 移动端：右侧信息覆盖层 */}
+      {isMobile && (
+        <MobileOverlay
+          open={showRightOverlay}
+          onClose={() => setShowRightOverlay(false)}
+          title="信息面板"
+          side="right"
+          width={320}
+        >
+          <RightPanel gameState={gameState} />
+        </MobileOverlay>
+      )}
 
       {/* 通知提示 */}
       {notification && (

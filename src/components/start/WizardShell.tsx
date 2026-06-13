@@ -71,7 +71,15 @@ export default function WizardShell({
   );
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', overflow: 'hidden' }}>
+    <div
+      className="full-height"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-primary)',
+        overflow: 'hidden',
+      }}
+    >
       {/* ── 顶部标题栏（精简） ── */}
       <div className="wizard-topbar" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '1rem 2rem', borderBottom: '1px solid var(--border)', animation: 'slideUp 0.3s ease' }}>
         <button

@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
-import { Palette, Cpu, BarChart3, Brain } from 'lucide-react';
+import { Palette, Cpu, BarChart3, Brain, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useUISettings } from '../context/UISettingsContext';
 import { useConfigStore } from '../stores/configStore';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { ApiConfig } from '../api/types';
 import GeneralSettingsTab from './settings/GeneralSettingsTab';
 import ApiSettingsTab, { type ApiSettingsRef } from './settings/ApiSettingsTab';
@@ -23,6 +24,7 @@ const TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
 export default function SettingsScreen() {
   const { goBack, engine } = useGame();
   const { t } = useUISettings();
+  const isMobile = useIsMobile(768);
   const apiConfig = useConfigStore(s => s.apiConfig);
   const apiMode = useConfigStore(s => s.apiMode);
   const auxiliaryConfig = useConfigStore(s => s.auxiliaryConfig);
@@ -78,33 +80,60 @@ export default function SettingsScreen() {
   }, [goBack, presets, setApiConfig, setApiMode, setAuxiliaryConfig]);
 
   return (
-    <div style={{
-      minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)',
-      display: 'flex', flexDirection: 'column',
-    }}>
+    <div
+      className="full-height"
+      style={{
+        background: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       {/* 头部 */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '12px',
-        padding: '16px 20px', borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-secondary)', flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: isMobile ? '12px 16px' : '16px 20px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-secondary)',
+        flexShrink: 0,
       }}>
         <button
           className="btn-ghost"
           onClick={goBack}
-          style={{ padding: '4px 8px', border: 'none', background: 'var(--bg-tertiary)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 'var(--font-size-md)' }}
+          style={{
+            padding: '4px 8px',
+            border: 'none',
+            background: 'var(--bg-tertiary)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            fontSize: 'var(--font-size-md)',
+            minHeight: 'var(--touch-min)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
         >
-          ← {t('settings.back')}
+          <ArrowLeft size={16} />
+          {t('settings.back')}
         </button>
         <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '600' }}>{t('settings.title')}</h1>
       </div>
 
-      {/* 主体：侧边栏 + 内容 */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* 左侧 Tab 栏 */}
+      {/* 移动端：顶部标签页 */}
+      {isMobile && (
         <div style={{
-          width: '130px', flexShrink: 0, display: 'flex', flexDirection: 'column',
-          padding: '12px 8px', gap: '4px',
-          borderRight: '1px solid var(--border)', background: 'var(--bg-secondary)',
+          display: 'flex',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          gap: '4px',
+          padding: '8px 12px',
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
         }}>
           {TABS.map(t => {
             const TabIcon = t.icon;
@@ -113,16 +142,21 @@ export default function SettingsScreen() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 10px', border: 'none', borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  whiteSpace: 'nowrap',
+                  minHeight: 'var(--touch-min)',
+                  borderRadius: 'var(--radius-md)',
+                  border: 'none',
                   background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
                   color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
-                  fontSize: 'var(--font-size-base)', cursor: 'pointer', transition: 'all 0.15s',
+                  fontSize: 'var(--font-size-sm)',
                   fontWeight: tab === t.id ? '600' : '400',
-                  textAlign: 'left', width: '100%',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { if (tab !== t.id) e.currentTarget.style.background = 'var(--accent-dim)'; }}
-                onMouseLeave={e => { if (tab !== t.id) e.currentTarget.style.background = 'transparent'; }}
               >
                 <TabIcon size={15} strokeWidth={1.5} />
                 <span>{t.label}</span>
@@ -130,9 +164,68 @@ export default function SettingsScreen() {
             );
           })}
         </div>
+      )}
 
-        {/* 右侧内容 */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
+      {/* 主体：侧边栏 + 内容 */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        overflow: 'hidden',
+      }}>
+        {/* 桌面端：左侧 Tab 栏 */}
+        {!isMobile && (
+          <div style={{
+            width: '130px',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '12px 8px',
+            gap: '4px',
+            borderRight: '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+          }}>
+            {TABS.map(t => {
+              const TabIcon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 10px',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
+                    color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: 'var(--font-size-base)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    fontWeight: tab === t.id ? '600' : '400',
+                    textAlign: 'left',
+                    width: '100%',
+                    minHeight: 'var(--touch-min)',
+                  }}
+                  onMouseEnter={e => { if (tab !== t.id) e.currentTarget.style.background = 'var(--accent-dim)'; }}
+                  onMouseLeave={e => { if (tab !== t.id) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <TabIcon size={15} strokeWidth={1.5} />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 内容 */}
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: isMobile ? '16px' : '20px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
           {tab === 'general' && <GeneralSettingsTab />}
           {tab === 'api' && <ApiSettingsTab ref={apiRef} initialConfig={apiConfig} t={t} onSave={handleSave} onBack={goBack} />}
           {tab === 'variable' && (
@@ -149,17 +242,40 @@ export default function SettingsScreen() {
       </div>
 
       {/* 底部保存按钮（API 和 Memory tab 有自己的按钮，此处隐藏） */}
-      {tab !== 'api' && tab !== 'memory' && <div style={{
-        padding: '12px 24px', borderTop: '1px solid var(--border)',
-        background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0,
-      }}>
-        <button className="btn-secondary" onClick={goBack} style={{ padding: '8px 20px', fontSize: 'var(--font-size-md)' }}>
-          取消
-        </button>
-        <button className="btn-primary" onClick={handleSave} style={{ padding: '8px 28px', fontSize: 'var(--font-size-md)' }}>
-          {t('settings.save')}
-        </button>
-      </div>}
+      {tab !== 'api' && tab !== 'memory' && (
+        <div style={{
+          padding: isMobile ? '12px 16px' : '12px 24px',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg-secondary)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '10px',
+          flexShrink: 0,
+        }}>
+          <button
+            className="btn-secondary"
+            onClick={goBack}
+            style={{
+              padding: '8px 20px',
+              fontSize: 'var(--font-size-md)',
+              minHeight: 'var(--touch-min)',
+            }}
+          >
+            取消
+          </button>
+          <button
+            className="btn-primary"
+            onClick={handleSave}
+            style={{
+              padding: '8px 28px',
+              fontSize: 'var(--font-size-md)',
+              minHeight: 'var(--touch-min)',
+            }}
+          >
+            {t('settings.save')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

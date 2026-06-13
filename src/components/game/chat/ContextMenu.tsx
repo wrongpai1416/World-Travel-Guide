@@ -92,7 +92,8 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
             onClose();
           }}
           style={{
-            padding: '8px 14px',
+            padding: '10px 14px',
+            minHeight: 'var(--touch-min)',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',

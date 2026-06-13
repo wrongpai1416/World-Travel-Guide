@@ -26,13 +26,15 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div style={{
-          padding: '2rem',
-          color: '#ff6b6b',
-          background: '#1a1a2e',
-          minHeight: '100vh',
-          fontFamily: 'monospace',
-        }}>
+        <div
+          className="full-height"
+          style={{
+            padding: '2rem',
+            color: '#ff6b6b',
+            background: '#1a1a2e',
+            fontFamily: 'monospace',
+          }}
+        >
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={20} /> 渲染出错</h2>
           <pre style={{
             whiteSpace: 'pre-wrap',

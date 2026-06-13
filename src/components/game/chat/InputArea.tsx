@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useUISettings } from '../../../context/UISettingsContext';
-import { Activity } from 'lucide-react';
+import { useIsMobile } from '../../../hooks/useIsMobile';
+import { Activity, Send, StopCircle } from 'lucide-react';
 import type { PipelineStatus as PipelineStatusType } from '../../../engine/pipelineTypes';
 
 interface Props {
@@ -16,6 +17,7 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { t } = useUISettings();
+  const isMobile = useIsMobile(640);
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
@@ -88,7 +90,7 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
 
       {/* 输入区 */}
       <div style={{
-        padding: '12px 16px',
+        padding: isMobile ? '8px 12px' : '12px 16px',
         display: 'flex',
         gap: '8px',
         alignItems: 'flex-end',
@@ -101,8 +103,13 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
           onKeyDown={handleKeyDown}
           placeholder={t('input.placeholder')}
           disabled={isGenerating}
-          rows={3}
-          style={{ flex: 1, resize: 'none', fontFamily: 'inherit' }}
+          rows={isMobile ? 2 : 3}
+          style={{
+            flex: 1,
+            resize: 'none',
+            fontFamily: 'inherit',
+            minHeight: 'var(--touch-min)',
+          }}
         />
         {/* 管线监控按钮 */}
         <button
@@ -119,6 +126,8 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
+            minWidth: 'var(--touch-min)',
+            minHeight: 'var(--touch-min)',
           }}
         >
           <Activity size={16} />
@@ -132,11 +141,39 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
           )}
         </button>
         {isGenerating ? (
-          <button className="btn-ghost" onClick={onCancel} style={{ padding: '8px 16px', color: 'var(--danger)' }}>
+          <button
+            className="btn-ghost"
+            onClick={onCancel}
+            style={{
+              padding: '8px 16px',
+              color: 'var(--danger)',
+              minWidth: 'var(--touch-min)',
+              minHeight: 'var(--touch-min)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+            }}
+          >
+            <StopCircle size={16} />
             {t('input.stop')}
           </button>
         ) : (
-          <button className="btn-primary" onClick={handleSend} disabled={!text.trim()} style={{ padding: '8px 16px' }}>
+          <button
+            className="btn-primary"
+            onClick={handleSend}
+            disabled={!text.trim()}
+            style={{
+              padding: '8px 16px',
+              minWidth: 'var(--touch-min)',
+              minHeight: 'var(--touch-min)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+            }}
+          >
+            <Send size={16} />
             {t('input.send')}
           </button>
         )}

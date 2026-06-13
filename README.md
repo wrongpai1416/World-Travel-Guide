@@ -207,6 +207,40 @@ src/
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 更新日志
 
+### v1.2.0 — 移动端适配 (2026-06-13)
+
+全面的移动端响应式适配，支持手机和平板设备流畅使用。
+
+#### 移动端布局
+
+- **GameScreen**：全屏聊天 + 侧边栏覆盖层模式
+  - 点击左上角汉堡菜单 → 导航菜单从左侧滑出
+  - 点击右上角图标 → 信息面板从右侧滑出
+  - 点击空白区域收回覆盖层
+- **SettingsScreen**：移动端顶部横向滚动标签页
+- **MessageBubble**：移动端宽度自适应（92%）
+- **InputArea**：触控目标优化（≥ 44px）
+
+#### 响应式设计
+
+- 新增移动端专用 Design Token（断点、触控目标、安全区）
+- 100vh → 100dvh 适配 iOS Safari 动态视口
+- Safe Area 支持刘海屏/底部安全区
+- `prefers-reduced-motion` 动画偏好支持
+
+#### 触控优化
+
+- 所有按钮最小触控目标 44px
+- 菜单项最小高度 44px
+- 移除 300ms 点击延迟（`touch-action: manipulation`）
+
+#### 新增组件
+
+- `useIsMobile` / `useMediaQuery` 响应式 hooks
+- `MobileOverlay` 通用覆盖层组件
+
+---
+
 ### v1.0.0 — 正式发布 (2026-06-13)
 
 首个正式版本，包含完整的游戏引擎、记忆系统与管线架构。

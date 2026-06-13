@@ -59,7 +59,16 @@ export default function SavesView({
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg-deep)', padding: '2rem' }}>
+    <div
+      className="full-height"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: 'var(--bg-deep)',
+        padding: '2rem',
+      }}
+    >
       <div style={{ width: '100%', maxWidth: '680px' }}>
         {/* 头部 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>

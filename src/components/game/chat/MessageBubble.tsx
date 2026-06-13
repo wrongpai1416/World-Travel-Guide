@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Pencil, Copy, RefreshCw, ArrowLeftToLine, Trash2 } from 'lucide-react';
 import { useUISettings } from '../../../context/UISettingsContext';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import type { ChatMessage } from '../../../engine/types';
 import ReasoningBlock from './ReasoningBlock';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
@@ -26,6 +27,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
   const editRef = useRef<HTMLTextAreaElement>(null);
   const isUser = message.role === 'user';
   const { t } = useUISettings();
+  const isMobile = useIsMobile(640);
 
   // ─── 渲染管线 ────────────────────────────────────────
   const colorizationRules = useMemo(() => getEnabledTextColorizationRules(), []);
@@ -127,9 +129,9 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
     }}>
       <div
         style={{
-          width: isUser ? undefined : '75%',
-          maxWidth: isUser ? '80%' : undefined,
-          padding: '0.75rem 1rem',
+          width: isUser ? undefined : (isMobile ? '92%' : '75%'),
+          maxWidth: isUser ? (isMobile ? '95%' : '80%') : undefined,
+          padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
           borderRadius: isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
           background: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
           color: isUser ? '#fff' : 'var(--text-primary)',
@@ -153,7 +155,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
         {/* 编辑模式 */}
         {editing ? (
-          <div style={{ minWidth: '400px', maxWidth: '90vw' }}>
+          <div style={{ minWidth: isMobile ? '0' : '400px', maxWidth: '95vw' }}>
             <textarea
               ref={editRef}
               value={editText}

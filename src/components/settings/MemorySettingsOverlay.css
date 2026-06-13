@@ -372,7 +372,7 @@
   .ms-config-grid.simple-mode { grid-template-areas: "write" "retrieve"; }
 }
 @media (max-width: 640px) {
-  .ms-main { width: 100%; height: 100vh; border-radius: 0; }
+  .ms-main { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; }
   .ms-block-header { flex-direction: column; }
   .ms-action-bar {
     position: sticky; bottom: 0;

@@ -38,20 +38,22 @@ export default function MainMenuView({
   ];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: `
-        radial-gradient(ellipse at 50% 30%, var(--accent-glow) 0%, transparent 60%),
-        var(--bg-deep)
-      `,
-      padding: '2rem',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
+    <div
+      className="full-height"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: `
+          radial-gradient(ellipse at 50% 30%, var(--accent-glow) 0%, transparent 60%),
+          var(--bg-deep)
+        `,
+        padding: '2rem',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
       {/* 装饰：顶部和底部细金线 */}
       <div style={{
         position: 'absolute',
@@ -152,7 +154,7 @@ export default function MainMenuView({
         transition: 'opacity 1s ease 1.2s',
         letterSpacing: '0.05em',
       }}>
-        v1.6.0
+        v1.2.0
       </div>
     </div>
   );
