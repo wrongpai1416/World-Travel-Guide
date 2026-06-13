@@ -56,6 +56,7 @@ export default function StartScreen() {
         worldEditorOpen={h.worldEditorOpen} editingWorld={h.editingWorld}
         onSaveWorld={h.handleSaveWorld} onDeleteWorld={h.handleDeleteWorld} onCancelWorldEditor={h.handleCancelWorldEditor}
         onOpenEditor={(w) => { h.setEditingWorld(w); h.setWorldEditorOpen(true); }}
+        onImportWorld={h.handleImportWorld}
         apiConfig={h.apiConfig} settings={h.settings}
       />
     );

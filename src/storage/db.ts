@@ -150,10 +150,43 @@ let cachedSaveMeta: SaveMeta[] | null = null;
 
 /** 读取所有存档元数据（轻量，不加载完整存档） */
 export async function getAllSaveMeta(): Promise<SaveMeta[]> {
-  if (cachedSaveMeta) return cachedSaveMeta;
+  if (cachedSaveMeta) {
+    // 重新计算预览文本（修复世界 ID 显示问题）
+    return cachedSaveMeta.map(meta => ({
+      ...meta,
+      preview: rebuildPreview(meta),
+    }));
+  }
   const metas = await getGlobal<SaveMeta[]>('saves');
   cachedSaveMeta = metas || [];
-  return cachedSaveMeta;
+  // 重新计算预览文本
+  return cachedSaveMeta.map(meta => ({
+    ...meta,
+    preview: rebuildPreview(meta),
+  }));
+}
+
+/** 重新构建预览文本（从 SaveMeta 中提取信息） */
+function rebuildPreview(meta: SaveMeta): string {
+  // 如果预览文本已经包含中文世界名，直接返回
+  if (meta.preview && !meta.preview.includes('custom_') && !meta.preview.includes('_')) {
+    return meta.preview;
+  }
+
+  // 尝试从预览文本中提取角色名
+  const parts = meta.preview?.split(' · ') || [];
+  const characterName = parts[0] || '';
+
+  // 尝试从存档名中提取世界名（格式：角色名 - 世界名）
+  const nameParts = meta.name?.split(' - ') || [];
+  const worldNameFromName = nameParts.length > 1 ? nameParts[1] : '';
+
+  if (characterName && worldNameFromName) {
+    return `${characterName} · ${worldNameFromName}`;
+  }
+
+  // 如果都提取不到，返回原始预览文本
+  return meta.preview || '世界漫游';
 }
 
 /** 持久化存档元数据列表 */
@@ -376,8 +409,45 @@ function getUniqueImportName(baseName: string, metas: SaveMeta[]): string {
 export function buildPreview(save: GameSave): string {
   const parts: string[] = [];
   if (save.personalInfo?.name) parts.push(save.personalInfo.name);
-  if (save.worldId && save.worldId !== 'default') parts.push(save.worldId);
+  // 优先使用世界名，如果没有则使用世界 ID
+  if (save.worldId && save.worldId !== 'default') {
+    const worldName = getWorldNameById(save.worldId);
+    parts.push(worldName);
+  }
   return parts.join(' · ') || '世界漫游';
+}
+
+/** 根据世界 ID 获取世界名（支持内置世界和自建世界） */
+function getWorldNameById(worldId: string): string {
+  // 内置世界 ID → 中文名映射
+  const BUILTIN_WORLD_NAMES: Record<string, string> = {
+    cyberpunk_city: '赛博朋克',
+    desire_metropolis: '欲望都市',
+    wasteland_apocalypse: '废土末日',
+    japanese_school: '日系校园',
+    crystal_world: '绯晶之乡',
+    wuxia_world: '武侠江湖',
+    palace_intrigue: '宫斗权谋',
+  };
+
+  // 先检查内置世界
+  if (BUILTIN_WORLD_NAMES[worldId]) {
+    return BUILTIN_WORLD_NAMES[worldId];
+  }
+
+  // 再检查自建世界
+  try {
+    const createdWorlds = JSON.parse(localStorage.getItem('chuanye_custom_worlds') || '[]');
+    const world = createdWorlds.find((w: any) => w.id === worldId);
+    if (world?.name) {
+      return world.name;
+    }
+  } catch {
+    // 忽略解析错误
+  }
+
+  // 都找不到，返回原始 ID
+  return worldId;
 }
 
 // ─── 一次性迁移：旧 auto_save → 新多槽位模式 ──────────

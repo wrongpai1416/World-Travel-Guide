@@ -840,8 +840,8 @@ async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineC
           .replace(/\{\{entityTerms\}\}/g, '').replace(/\{\{timeTerms\}\}/g, '');
         const qrRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, qrPrompt, '请分析当前输入并输出查询改写 JSON。');
         retrievalKeywords = parseVectorQueryRewriteResult(qrRaw).retrievalKeywords;
-        // 添加延迟，避免 429 错误
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 添加延迟，避免 429 错误（增加到 3 秒）
+        await new Promise(resolve => setTimeout(resolve, 3000));
       } catch { /* 失败用原始输入 */ }
     }
 
@@ -859,8 +859,26 @@ async function executeMemoryRetrieve(memStore: MemoryStore, ctx: MemoryPipelineC
       .replace(/\{\{summaryHistory\}\}/g, `共 ${runtime.summarySaveHistory.length} 条摘要`)
       .replace(/\{\{memoryCandidates\}\}/g, candidateList || '无候选');
 
-    const plannerRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, plannerPrompt, '请规划需要注入的记忆，输出 JSON。', 0.3, 60000);
-    const plannerResult = parseNarrativeRetrievePlannerResult(plannerRaw);
+    // 添加重试机制，避免 429 错误
+    let plannerRaw = '';
+    let plannerResult = { items: [] as Array<{ title: string; reason?: string }>, retrievalKeywords: [] as string[] };
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        plannerRaw = await callMemoryAI(ctx.retrievalApiConfig ?? ctx.apiConfig, plannerPrompt, '请规划需要注入的记忆，输出 JSON。', 0.3, 60000);
+        plannerResult = parseNarrativeRetrievePlannerResult(plannerRaw);
+        break; // 成功，退出重试循环
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.warn(`[检索规划] 第 ${attempt}/${maxRetries} 次尝试失败:`, errorMessage);
+        if (attempt < maxRetries && errorMessage.includes('429')) {
+          // 429 错误，等待后重试
+          await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+        } else {
+          throw err; // 非 429 错误或最后一次重试失败，抛出异常
+        }
+      }
+    }
     const allKeywords = [...new Set([...retrievalKeywords, ...plannerResult.retrievalKeywords])];
 
     // 标题匹配 + 关键词命中率

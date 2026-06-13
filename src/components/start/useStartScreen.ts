@@ -124,9 +124,13 @@ export function useStartScreen() {
     const characterHistory = charHistory.buildFullCharacterHistory();
     // 获取世界名（中文）
     const world = wizard.allWorlds.find((w: any) => w.id === wizard.selectedWorld);
+    console.log('[存档名字调试] selectedWorld:', wizard.selectedWorld);
+    console.log('[存档名字调试] 找到的世界:', world);
+    console.log('[存档名字调试] allWorlds数量:', wizard.allWorlds.length);
     const worldName = world?.name || '默认世界';
     const characterName = wizard.personalInfo.name || '未命名';
     const saveName = `${characterName} - ${worldName}`;
+    console.log('[存档名字调试] 最终存档名:', saveName);
 
     dispatch({ type: 'SET_WORLD', worldId: wizard.selectedWorld });
     dispatch({ type: 'SET_PERSONAL_INFO', info: wizard.personalInfo });
@@ -223,6 +227,7 @@ export function useStartScreen() {
     handleSaveWorld: wizard.handleSaveWorld,
     handleDeleteWorld: wizard.handleDeleteWorld,
     handleCancelWorldEditor: wizard.handleCancelWorldEditor,
+    handleImportWorld: wizard.handleImportWorld,
     // ai fill
     isFilling: aiFill.isFilling, handleAiFill: aiFill.handleAiFill,
     // character history

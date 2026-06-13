@@ -48,6 +48,7 @@ interface WizardShellProps {
   onDeleteWorld: (worldId: string) => void;
   onCancelWorldEditor: () => void;
   onOpenEditor: (world: WorldDef | null) => void;
+  onImportWorld: (world: WorldDef) => void;
   apiConfig: any;
   settings: any;
 }
@@ -60,6 +61,7 @@ export default function WizardShell({
   segments, setSegments, isGenerating, regeneratingId, hasApiConfig,
   onGenerateAll, onRegenerateSegment, buildInitialState, onStartGame,
   worldEditorOpen, editingWorld, onSaveWorld, onDeleteWorld, onCancelWorldEditor, onOpenEditor,
+  onImportWorld,
   apiConfig, settings,
 }: WizardShellProps) {
   // 动态计算年龄阶段
@@ -117,6 +119,7 @@ export default function WizardShell({
                 onEditWorld={(w) => onOpenEditor(w)}
                 onDeleteWorld={onDeleteWorld}
                 onCreateWorld={() => onOpenEditor(null)}
+                onImportWorld={onImportWorld}
               />
             )}
             {step === 2 && (

@@ -6,7 +6,7 @@ import cyberpunkCity from './worlds/cyberpunk_city.json';
 import desireMetropolis from './worlds/desire_metropolis.json';
 import wastelandApocalypse from './worlds/wasteland_apocalypse.json';
 import japaneseSchool from './worlds/japanese_school.json';
-import chineseHighschool from './worlds/chinese_highschool.json';
+import crystalWorld from './worlds/crystal_world.json';
 import wuxiaWorld from './worlds/wuxia_world.json';
 import palaceIntrigue from './worlds/palace_intrigue.json';
 
@@ -26,7 +26,7 @@ export const WORLDS: WorldDef[] = [
   ...(desireMetropolis as unknown as WorldDef[]),
   ...(wastelandApocalypse as unknown as WorldDef[]),
   ...(japaneseSchool as unknown as WorldDef[]),
-  ...(chineseHighschool as unknown as WorldDef[]),
+  ...(crystalWorld as unknown as WorldDef[]),
   ...(wuxiaWorld as unknown as WorldDef[]),
   ...(palaceIntrigue as unknown as WorldDef[]),
 ];

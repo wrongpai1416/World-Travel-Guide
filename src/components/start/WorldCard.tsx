@@ -1,19 +1,38 @@
-import { Pencil, Trash2, Plus, Cpu, Heart, Skull, Flower2, GraduationCap, Swords, Crown, Globe } from 'lucide-react';
+import {
+  Pencil, Trash2, Plus, Cpu, Heart, Skull, Flower2, GraduationCap, Swords, Crown, Globe,
+  Compass, BookOpen, Flame, Mountain, Ship, Castle, Rocket, Star, Shield, Zap, Brain, Gem,
+  Ghost, Snowflake, Sun, Moon, Wind, Waves, Anchor, Eye, Target, Wand2, Fish, Bug,
+  Flower, TreePine, Cloud, Sunrise, Eclipse, Hexagon, Diamond, Atom,
+} from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 
-/** 世界 ID → Lucide 图标映射 */
+/** 世界 ID → Lucide 图标映射（内置世界） */
 const WORLD_ICONS: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   cyberpunk_city: Cpu,
   desire_metropolis: Heart,
   wasteland_apocalypse: Skull,
   japanese_school: Flower2,
-  chinese_highschool: GraduationCap,
+  crystal_world: Gem,
   wuxia_world: Swords,
   palace_intrigue: Crown,
 };
 
-export function getWorldIcon(worldId: string) {
-  return WORLD_ICONS[worldId] ?? Globe;
+/** 图标名称 → Lucide 图标映射（自建世界） */
+const ICON_NAME_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
+  Globe, Compass, BookOpen, Flame, Mountain, Ship, Castle, Skull, Crown,
+  Rocket, Star, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon,
+  Wind, Waves, Anchor, Eye, Heart, Target, Wand2, Fish, Bug,
+  Flower, TreePine, Cloud, Sunrise, Eclipse, Hexagon, Diamond, Atom,
+  Cpu, Swords, GraduationCap, Flower2,
+};
+
+export function getWorldIcon(world: WorldDef) {
+  // 优先使用 world.icon 字段（图标名称）
+  if (world.icon && ICON_NAME_MAP[world.icon]) {
+    return ICON_NAME_MAP[world.icon];
+  }
+  // 否则根据 worldId 查找（内置世界）
+  return WORLD_ICONS[world.id] ?? Globe;
 }
 
 interface WorldCardProps {
@@ -27,7 +46,7 @@ interface WorldCardProps {
 
 /** 世界卡片 — 紧凑横排：色条头部(icon+名称) + 描述 + 标签 */
 export default function WorldCard({ world, selected, onSelect, onEdit, onDelete, isCustom }: WorldCardProps) {
-  const Icon = getWorldIcon(world.id);
+  const Icon = getWorldIcon(world);
   return (
     <div
       className={`world-card${selected ? ' selected' : ''}`}

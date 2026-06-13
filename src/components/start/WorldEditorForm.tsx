@@ -9,6 +9,7 @@ import {
   Rocket, Star, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon,
   Wind, Waves, Anchor, Eye, Heart, Target, Wand2, Fish, Bug,
   Flower, TreePine, Cloud, Sunrise, Eclipse, Hexagon, Diamond, Atom,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -237,29 +238,44 @@ export default function WorldEditorForm({
     } finally { setIsGeneratingWorld(false); aiAbortRef.current = null; }
   };
 
+  // 将当前表单转换为 WorldDef 对象（供导出和保存共用）
+  const formToWorldDef = (): WorldDef => ({
+    id: initialWorld?.id || `custom_${Date.now()}`,
+    name: form.name.trim(), description: form.description.trim(), entryId: null,
+    icon: form.icon || undefined, coverColor: form.coverColor || undefined,
+    tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
+    difficulty: (form.difficulty as any) || undefined,
+    setting: form.overview ? { overview: form.overview, timePeriod: form.timePeriod || undefined, location: form.location || undefined, atmosphere: form.atmosphere || undefined } : undefined,
+    rules: (form.powerSystem || form.socialStructure || form.specialRules) ? { powerSystem: form.powerSystem || undefined, socialStructure: form.socialStructure || undefined, specialRules: form.specialRules ? form.specialRules.split('\n').map(s => s.trim()).filter(Boolean) : undefined } : undefined,
+    economy: form.currencyName ? { currency: { name: form.currencyName, symbol: form.currencySymbol || undefined, description: form.currencyDesc || undefined }, priceLevel: form.priceLevel || undefined } : undefined,
+    timeSystem: (form.calendar || form.startTime) ? { calendar: form.calendar || undefined, startTime: form.startTime || undefined, timeSpeed: form.timeSpeed || undefined } : undefined,
+    factions: form.factions.filter(f => f.name.trim()).length > 0 ? form.factions.filter(f => f.name.trim()).map(f => ({ name: f.name.trim(), description: f.description.trim(), alignment: f.alignment || undefined })) : undefined,
+    presetNPCs: form.presetNPCs.filter(n => n.name.trim()).length > 0 ? form.presetNPCs.filter(n => n.name.trim()).map(n => ({ name: n.name.trim(), role: n.role.trim(), description: n.description.trim(), personality: n.personality.trim() || undefined })) : undefined,
+    highlights: form.highlights ? form.highlights.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
+    coreStats: form.coreStats,
+    progression: form.progression,
+    conflict: form.conflict,
+    relationships: form.relationships,
+    events: form.events,
+    author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
+  });
+
   const handleSave = () => {
     if (!form.name.trim()) return;
-    const world: WorldDef = {
-      id: initialWorld?.id || `custom_${Date.now()}`,
-      name: form.name.trim(), description: form.description.trim(), entryId: null,
-      icon: form.icon || undefined, coverColor: form.coverColor || undefined,
-      tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
-      difficulty: (form.difficulty as any) || undefined,
-      setting: form.overview ? { overview: form.overview, timePeriod: form.timePeriod || undefined, location: form.location || undefined, atmosphere: form.atmosphere || undefined } : undefined,
-      rules: (form.powerSystem || form.socialStructure || form.specialRules) ? { powerSystem: form.powerSystem || undefined, socialStructure: form.socialStructure || undefined, specialRules: form.specialRules ? form.specialRules.split('\n').map(s => s.trim()).filter(Boolean) : undefined } : undefined,
-      economy: form.currencyName ? { currency: { name: form.currencyName, symbol: form.currencySymbol || undefined, description: form.currencyDesc || undefined }, priceLevel: form.priceLevel || undefined } : undefined,
-      timeSystem: (form.calendar || form.startTime) ? { calendar: form.calendar || undefined, startTime: form.startTime || undefined, timeSpeed: form.timeSpeed || undefined } : undefined,
-      factions: form.factions.filter(f => f.name.trim()).length > 0 ? form.factions.filter(f => f.name.trim()).map(f => ({ name: f.name.trim(), description: f.description.trim(), alignment: f.alignment || undefined })) : undefined,
-      presetNPCs: form.presetNPCs.filter(n => n.name.trim()).length > 0 ? form.presetNPCs.filter(n => n.name.trim()).map(n => ({ name: n.name.trim(), role: n.role.trim(), description: n.description.trim(), personality: n.personality.trim() || undefined })) : undefined,
-      highlights: form.highlights ? form.highlights.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
-      coreStats: form.coreStats,
-      progression: form.progression,
-      conflict: form.conflict,
-      relationships: form.relationships,
-      events: form.events,
-      author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
-    };
-    onSave(world);
+    onSave(formToWorldDef());
+  };
+
+  // 导出世界为 JSON 文件
+  const handleExport = () => {
+    const world = formToWorldDef();
+    const json = JSON.stringify(world, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${world.name || 'world'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -402,8 +418,11 @@ export default function WorldEditorForm({
         </div>
 
         <div className="world-editor-footer">
-          <button className="btn-secondary" onClick={onCancel} style={{ padding: '8px 20px' }}>{t('common.cancel')}</button>
-          <button className="btn-primary" onClick={handleSave} disabled={!form.name.trim()} style={{ padding: '8px 24px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Save size={14} style={{ flexShrink: 0 }} /> {t('worldEditor.saveWorld')}</button>
+          <button className="btn-ghost" onClick={handleExport} style={{ padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 'var(--font-size-sm)' }}><Download size={14} style={{ flexShrink: 0 }} /> 导出</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-secondary" onClick={onCancel} style={{ padding: '8px 20px' }}>{t('common.cancel')}</button>
+            <button className="btn-primary" onClick={handleSave} disabled={!form.name.trim()} style={{ padding: '8px 24px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Save size={14} style={{ flexShrink: 0 }} /> {t('worldEditor.saveWorld')}</button>
+          </div>
         </div>
       </div>
     </div>

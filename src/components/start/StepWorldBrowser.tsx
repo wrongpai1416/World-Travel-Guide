@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Search, Globe, ScrollText, MapPin, Clock, Cloud,
   Swords, AlertTriangle, DollarSign, Flag, User,
   Sparkles, ChevronRight, Layers, Shield, Users,
   Calendar, Heart, Zap, Target, BarChart3,
-  Compass, BookOpen, Star,
+  Compass, BookOpen, Star, Upload,
 } from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
@@ -38,18 +38,47 @@ interface StepWorldBrowserProps {
   onEditWorld: (world: WorldDef) => void;
   onDeleteWorld: (worldId: string) => void;
   onCreateWorld: () => void;
+  onImportWorld: (world: WorldDef) => void;
 }
 
 export default function StepWorldBrowser({
   selectedWorld, setSelectedWorld,
   createdWorlds, allWorlds, worldEntry,
-  onNext, onEditWorld, onDeleteWorld, onCreateWorld,
+  onNext, onEditWorld, onDeleteWorld, onCreateWorld, onImportWorld,
 }: StepWorldBrowserProps) {
   const [search, setSearch] = useState('');
   const [diffFilter, setDiffFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [importError, setImportError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = allWorlds.find(w => w.id === selectedWorld);
+
+  // ── 导入世界 ──
+  const handleImportClick = () => {
+    setImportError('');
+    fileInputRef.current?.click();
+  };
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string) as WorldDef;
+        if (!data.name) { setImportError('JSON 缺少 name 字段'); return; }
+        // 确保有 id
+        if (!data.id) data.id = `custom_${Date.now()}`;
+        data.entryId = null;
+        onImportWorld(data);
+        setImportError('');
+      } catch {
+        setImportError('JSON 解析失败，请检查文件格式');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // ── 搜索 + 筛选 ──
   const filteredWorlds = useMemo(() => {
@@ -109,7 +138,18 @@ export default function StepWorldBrowser({
             />
           ))}
           <CreateWorldCard onClick={onCreateWorld} />
+          {/* 导入世界卡片 */}
+          <div
+            className="world-card create-world-card"
+            onClick={handleImportClick}
+            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '2px dashed var(--border)', background: 'transparent' }}
+          >
+            <Upload size={28} style={{ color: 'var(--text-muted)' }} />
+            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>导入世界</span>
+          </div>
+          {importError && <div style={{ gridColumn: '1 / -1', color: '#ef4444', fontSize: 'var(--font-size-sm)', textAlign: 'center' }}>{importError}</div>}
         </div>
+        <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportFile} />
       </div>
 
       {/* ── 右侧：详情面板 ── */}

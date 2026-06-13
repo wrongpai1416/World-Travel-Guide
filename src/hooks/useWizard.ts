@@ -128,6 +128,15 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
     setEditingWorld(null);
   };
 
+  const handleImportWorld = (world: WorldDef) => {
+    setCreatedWorlds(prev => {
+      const idx = prev.findIndex(w => w.id === world.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = world; return next; }
+      return [...prev, world];
+    });
+    setSelectedWorld(world.id);
+  };
+
   return {
     // 向导
     view, setView,
@@ -145,5 +154,6 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
     handleSaveWorld,
     handleDeleteWorld,
     handleCancelWorldEditor,
+    handleImportWorld,
   };
 }

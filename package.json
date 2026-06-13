@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "bun run server.ts",
-    "build": "bun build src/main.tsx --outdir dist --target browser"
+    "build": "bun run build.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
