@@ -60,54 +60,47 @@ export default function StepCharacterHistory({
 
   return (
     <div className="history-layout">
-      {/* ── 左侧边栏：阶段列表 ── */}
-      <div className="history-sidebar">
-        <div className="history-sidebar-header">
-          <ScrollText size={15} />
-          <span>人生阶段</span>
-        </div>
-        <div className="history-sidebar-list">
-          {segmentDefs.map((def, i) => {
-            const content = segments[def.id] || '';
-            const hasText = content.trim().length > 0;
-            const isRegen = regeneratingId === def.id;
-            return (
-              <button
-                key={def.id}
-                className={`history-sidebar-item${activeId === def.id ? ' active' : ''}`}
-                onClick={() => setActiveId(def.id)}
-              >
-                <span className="history-sidebar-icon">{def.icon}</span>
-                <span className="history-sidebar-title">{def.title}</span>
-                <span className="history-sidebar-status">
-                  {isRegen ? <Loader size={11} className="animate-spin" /> : hasText ? '✓' : ''}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 侧边栏底部按钮 */}
-        <div className="history-sidebar-footer">
-          {hasApiConfig && (
-            <button
-              className="btn-secondary pi-ai-btn"
-              onClick={onGenerateAll}
-              disabled={isGenerating}
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              {isGenerating ? <><Loader size={12} className="animate-spin" /> 生成中</> : hasContent ? <><RefreshCw size={12} /> 全部重生成</> : '一键生成全部'}
-            </button>
-          )}
-          {!hasApiConfig && (
-            <button className="btn-ghost" onClick={onSettings} style={{ fontSize: 'var(--font-size-sm)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-              <Settings size={12} /> 配置API
-            </button>
-          )}
-        </div>
+      {/* ── 顶部操作栏 ── */}
+      <div className="history-topbar">
+        {hasApiConfig && (
+          <button
+            className="btn-secondary pi-ai-btn"
+            onClick={onGenerateAll}
+            disabled={isGenerating}
+          >
+            {isGenerating ? <><Loader size={12} className="animate-spin" /> 生成中</> : hasContent ? <><RefreshCw size={12} /> 全部重生成</> : '一键生成全部'}
+          </button>
+        )}
+        {!hasApiConfig && (
+          <button className="btn-ghost" onClick={onSettings} style={{ fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Settings size={12} /> 配置API
+          </button>
+        )}
       </div>
 
-      {/* ── 右侧：内容编辑区 ── */}
+      {/* ── Tab 栏：阶段选择 ── */}
+      <div className="history-tabs">
+        {segmentDefs.map((def, i) => {
+          const content = segments[def.id] || '';
+          const hasText = content.trim().length > 0;
+          const isRegen = regeneratingId === def.id;
+          return (
+            <button
+              key={def.id}
+              className={`history-tab${activeId === def.id ? ' active' : ''}`}
+              onClick={() => setActiveId(def.id)}
+            >
+              <span className="history-tab-icon">{def.icon}</span>
+              <span className="history-tab-title">{def.title}</span>
+              <span className="history-tab-status">
+                {isRegen ? <Loader size={10} className="animate-spin" /> : hasText ? '✓' : ''}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── 内容编辑区 ── */}
       <div className="history-content">
         {activeDef && (
           <>

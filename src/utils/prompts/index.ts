@@ -4,7 +4,7 @@
  */
 
 // 类型定义
-export type { CharacterFillOptions } from './types';
+export type { CharacterFillOptions } from './editor-prompts';
 
 // 编辑器 AI 相关
 export {

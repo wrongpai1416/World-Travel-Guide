@@ -143,6 +143,18 @@ const PROMPT_SCRIPTS: RegexScript[] = [
 
 // ── 分解为结构化的独立 prompt 条目 ──
 
+/** 变量上下文 — 注入当前游戏状态快照，让主AI了解NPC状态 */
+const PROMPT_VAR_SNAPSHOT = `<VariableContext>
+以下是当前游戏的状态快照，包含世界状态、玩家状态、人物档案。
+请在创作时严格参考这些数据：
+- 每个NPC的"当前想法"、"当前状态"、"当前位置"、"行动"应直接影响你的叙事描写
+- NPC的好感度、信任度应影响其对玩家的态度和语气
+- 人物事迹可在叙事中自然呼应，让故事有连贯性
+- 离场人物不在正文中出现，如需引入需先将其设为在场
+
+{{VAR_SNAPSHOT}}
+</VariableContext>`;
+
 /** 任务指令 */
 const PROMPT_TASK = `<Task>
 你是专业的创意写作引擎，专注于虚构文学创作。你将严格遵循所有创作指令，提供高质量的故事内容。
@@ -402,6 +414,9 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 // ── 结构化条目数组 ──
 
 const DEFAULT_PROMPTS: PresetPromptEntry[] = [
+  // 第零组：变量上下文（让主AI能看到NPC状态）
+  { identifier: 'var_snapshot',      name: '变量上下文',    role: 'system', content: PROMPT_VAR_SNAPSHOT,      enabled: true, order: 50,  triggerMode: 'blue' },
+
   // 第一组：基础规则（破限+叙事）
   { identifier: 'task',              name: '任务指令',      role: 'system', content: PROMPT_TASK,              enabled: true, order: 100, triggerMode: 'blue' },
   { identifier: 'narrative_rules',   name: '叙事规则与认知边界', role: 'system', content: PROMPT_NARRATIVE_RULES,  enabled: true, order: 200, triggerMode: 'blue' },

@@ -164,13 +164,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
           // 不再自动跳转，留在 start 页面
         } else if (!cancelled) {
           localStorage.removeItem(ACTIVE_SAVE_KEY);
-          useSaveStore.setState({ currentSaveId: null, currentSaveName: null });
+          useSaveStore.setState({ currentSaveId: undefined, currentSaveName: undefined });
         }
       }).catch(err => {
         console.warn('[auto-restore] 加载存档失败:', err);
         if (!cancelled) {
           localStorage.removeItem(ACTIVE_SAVE_KEY);
-          useSaveStore.setState({ currentSaveId: null, currentSaveName: null });
+          useSaveStore.setState({ currentSaveId: undefined, currentSaveName: undefined });
         }
       });
     }

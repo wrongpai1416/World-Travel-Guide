@@ -95,6 +95,17 @@ export default function StepPersonalInfo({
         <div className="pi-box-header">
           <User size={16} />
           <span>基本信息</span>
+          {hasApiConfig && (
+            <button
+              className="pi-ai-btn"
+              onClick={onAiFill}
+              disabled={isFilling || !personalInfo.name.trim()}
+              title="AI 补全所有信息"
+              style={{ marginLeft: 'auto' }}
+            >
+              {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中</> : <><Wand2 size={12} /> AI 补全</>}
+            </button>
+          )}
         </div>
         <div className="pi-box-body">
           <div className="form-group">
@@ -149,16 +160,6 @@ export default function StepPersonalInfo({
                 <span>{tab.label}</span>
               </button>
             ))}
-            {hasApiConfig && (
-              <button
-                className="pi-ai-btn"
-                onClick={onAiFill}
-                disabled={isFilling || !personalInfo.name.trim()}
-                title="AI 补全"
-              >
-                {isFilling ? <Loader size={12} className="animate-spin" /> : <Wand2 size={12} />}
-              </button>
-            )}
           </div>
         </div>
         <div className="pi-box-body">

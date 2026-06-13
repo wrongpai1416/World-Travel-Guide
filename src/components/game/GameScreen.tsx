@@ -202,10 +202,17 @@ export default function GameScreen() {
     setStateVersion(v => v + 1);
   }, [engine]);
 
+  const handleMergeChronicles = useCallback(async (npcId: string, startIndex: number, endIndex: number) => {
+    if (!apiConfig) return false;
+    const ok = await engine.variableManager.mergeNpcChronicles(npcId, startIndex, endIndex, apiConfig);
+    if (ok) setStateVersion(v => v + 1);
+    return ok;
+  }, [engine, apiConfig]);
+
   const renderOverlayContent = () => {
     switch (overlay) {
       case 'profile': return <ProfilePanel gameState={gameState} />;
-      case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} />;
+      case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
       default: return null;
     }
@@ -226,7 +233,7 @@ export default function GameScreen() {
       case 'profile':
         return <ProfilePanel gameState={gameState} />;
       case 'characters':
-        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} />;
+        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook':
         return <NotebookPanel gameState={gameState} />;
       default:

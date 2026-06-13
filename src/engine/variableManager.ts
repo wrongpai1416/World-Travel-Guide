@@ -221,6 +221,38 @@ export class VariableManager {
     return false;
   }
 
+  // 合并指定范围的事迹条目为一条
+  async mergeNpcChronicles(npcId: string, startIndex: number, endIndex: number, apiConfig: ApiConfig): Promise<boolean> {
+    const npc = this.state.人物档案[npcId];
+    if (!npc) return false;
+    const chronicles = (npc as any).人物事迹;
+    if (!Array.isArray(chronicles)) return false;
+    if (startIndex < 0 || endIndex >= chronicles.length || startIndex >= endIndex) return false;
+
+    const npcName = (npc as any).姓名 || npcId;
+    const selectedDeeds = chronicles.slice(startIndex, endIndex + 1);
+    const prompt = `你是叙事记录员。以下是NPC「${npcName}」的${selectedDeeds.length}条事迹记录，请将它们合并总结为1条简洁的事迹摘要（30-60字），保留关键事件，去除冗余。只输出合并后的1条文本，不要编号或其他前缀。\n\n原始事迹：\n${selectedDeeds.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
+
+    try {
+      const result = await requestCompletion(apiConfig, [
+        { role: 'user', content: prompt },
+      ], { temperature: 0.3 });
+      const merged = result.text.replace(/^\d+[\.\)、]\s*/, '').trim();
+      if (merged) {
+        const newChronicles = [
+          ...chronicles.slice(0, startIndex),
+          merged,
+          ...chronicles.slice(endIndex + 1),
+        ];
+        (npc as any).人物事迹 = newChronicles;
+        return true;
+      }
+    } catch (e) {
+      console.warn('[VariableManager] 事迹合并失败:', e);
+    }
+    return false;
+  }
+
   // 创建快照（挂载到消息上，用于回滚）
   createSnapshot(): GameState {
     return _.cloneDeep(this.state);

@@ -19,6 +19,7 @@ import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '
 import { assembleSystemPrompt } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
 import { useMemoryStore } from '../memory/memoryStore';
+import { formatSnapshotForMainAI } from '../utils/npcHelpers';
 import type { MemoryPipelineContext } from '../memory/useMemorySystem';
 import { loadPresets } from '../components/settings/apiPresetUtils';
 
@@ -338,7 +339,7 @@ export function useGameEngine(
         mainTask: async () => {
           // ── 构建系统提示词（v2.0 结构化预设 + 宏引擎） ──
           const state = varMgrRef.current.createSafeSnapshotForPrompt();
-          const varSnapshot = JSON.stringify(state, null, 2);
+          const varSnapshot = formatSnapshotForMainAI(state);
 
           // 世界书注入
           let wbInjection = '';
@@ -911,7 +912,7 @@ async function executeMemoryRetrievePlan(memStore: MemoryStore, ctx: MemoryPipel
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '检索规划失败';
     console.warn('[检索规划] 失败:', message);
-    ctx._plannerResult = null;
+    ctx._plannerResult = undefined;
     ctx._finalSelectedTitles = [];
   } finally {
     memStore.setLoading(false);
@@ -958,6 +959,7 @@ async function executeMemoryMultiRound(memStore: MemoryStore, ctx: MemoryPipelin
         const multiTitles = multiResult.items.map(i => i.title);
         if (multiTitles.length === 0) break;
 
+        if (!ctx._finalSelectedTitles) ctx._finalSelectedTitles = [];
         ctx._finalSelectedTitles.push(...multiTitles);
         previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
         console.log(`[多轮补充] 第 ${round} 轮, 新增 ${multiTitles.length} 条`);

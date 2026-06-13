@@ -383,7 +383,7 @@ export function useMemorySystem(): MemorySystemHook {
       const message = err instanceof Error ? err.message : '检索规划失败';
       store.appendRetrieveDebugLog({ kind: 'retrieve', message, mode: 'error' });
       console.warn('[记忆系统] 检索规划失败:', message);
-      ctx._plannerResult = null;
+      ctx._plannerResult = undefined;
       ctx._finalSelectedTitles = [];
     } finally {
       store.setLoading(false);
@@ -437,6 +437,7 @@ export function useMemorySystem(): MemorySystemHook {
           const multiTitles = multiResult.items.map(i => i.title);
           if (multiTitles.length === 0) break; // 没有新内容，提前退出
 
+          if (!ctx._finalSelectedTitles) ctx._finalSelectedTitles = [];
           ctx._finalSelectedTitles.push(...multiTitles);
           previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
         } catch {

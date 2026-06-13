@@ -229,22 +229,6 @@ export default function StepWorldBrowser({
           {importError && <div style={{ gridColumn: '1 / -1', color: '#ef4444', fontSize: 'var(--font-size-sm)', textAlign: 'center' }}>{importError}</div>}
         </div>
         <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportFile} />
-
-        {/* 移动端：下一步按钮 */}
-        {isMobile && (
-          <div className="world-browser-nav mobile">
-            <button
-              className="btn-primary"
-              onClick={() => {
-                if (selected) setShowMobileDetail(true);
-              }}
-              disabled={!selectedWorld}
-              title={!selectedWorld ? '请先选择一个世界' : ''}
-            >
-              查看详情 <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── 右侧：详情面板（桌面端） ── */}

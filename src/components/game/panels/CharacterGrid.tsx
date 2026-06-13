@@ -15,6 +15,7 @@ interface Props {
   gameState: GameState;
   onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
   onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
+  onMergeChronicles?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }
 
 type DetailTab = 'overview' | 'dossier' | 'skills' | 'items';
@@ -173,10 +174,11 @@ function ListOrRecord({ data, emptyText }: { data: string[] | Record<string, unk
 }
 
 // 事迹弹窗组件
-function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, onUpdate, onSummarize }: {
+function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, onUpdate, onSummarize, onMerge }: {
   npcId: string; npcName: string; chronicles: string[];
   onClose: () => void; onUpdate: (npcId: string, chronicles: string[]) => void;
   onSummarize?: (npcId: string) => Promise<boolean>;
+  onMerge?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }) {
   const [chronicles, setChronicles] = useState<string[]>(initialChronicles);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -184,6 +186,10 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
   const [adding, setAdding] = useState(false);
   const [addText, setAddText] = useState('');
   const [summarizing, setSummarizing] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeStart, setMergeStart] = useState<number | null>(null);
+  const [mergeEnd, setMergeEnd] = useState<number | null>(null);
 
   const handleSave = (idx: number) => {
     const updated = [...chronicles];
@@ -208,6 +214,41 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
     setAdding(false);
   };
 
+  const handleMergeClick = (idx: number) => {
+    if (mergeStart === null) {
+      setMergeStart(idx);
+      setMergeEnd(idx);
+    } else if (mergeEnd !== null && idx > mergeStart) {
+      setMergeEnd(idx);
+    } else {
+      setMergeStart(idx);
+      setMergeEnd(idx);
+    }
+  };
+
+  const handleMergeConfirm = async () => {
+    if (mergeStart === null || mergeEnd === null || !onMerge) return;
+    setMerging(true);
+    try {
+      const ok = await onMerge(npcId, mergeStart, mergeEnd);
+      if (ok) {
+        // 重新读取合并后的数据
+        setChronicles(prev => {
+          const selected = prev.slice(mergeStart, mergeEnd + 1);
+          // 合并后的结果需要从父组件刷新，这里先做乐观更新
+          return prev;
+        });
+        setMergeMode(false);
+        setMergeStart(null);
+        setMergeEnd(null);
+        // 通知父组件刷新
+        onClose();
+      }
+    } finally {
+      setMerging(false);
+    }
+  };
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -229,7 +270,29 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
             </span>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            {chronicles.length > 5 && onSummarize && (
+            {chronicles.length >= 2 && onMerge && (
+              mergeMode ? (
+                <>
+                  {mergeStart !== null && mergeEnd !== null && mergeEnd > mergeStart && (
+                    <button onClick={handleMergeConfirm} disabled={merging} style={{
+                      border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
+                      background: merging ? 'var(--bg-tertiary)' : 'var(--accent-dim)',
+                      color: merging ? 'var(--text-muted)' : 'var(--accent)', cursor: merging ? 'wait' : 'pointer', fontWeight: '500',
+                    }}>{merging ? '合并中...' : `合并 ${mergeStart + 1}-${mergeEnd + 1}`}</button>
+                  )}
+                  <button onClick={() => { setMergeMode(false); setMergeStart(null); setMergeEnd(null); }} style={{
+                    border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
+                    background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer',
+                  }}>取消</button>
+                </>
+              ) : (
+                <button onClick={() => setMergeMode(true)} style={{
+                  border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
+                  background: 'var(--accent-dim)', color: 'var(--accent)', cursor: 'pointer', fontWeight: '500',
+                }}>合并事迹</button>
+              )
+            )}
+            {chronicles.length > 5 && onSummarize && !mergeMode && (
               <button onClick={async () => { setSummarizing(true); try { await onSummarize(npcId); } finally { setSummarizing(false); } }}
                 disabled={summarizing} style={{
                   border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
@@ -245,8 +308,18 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
           {chronicles.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {chronicles.map((c, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+              {chronicles.map((c, i) => {
+                const inMergeRange = mergeMode && mergeStart !== null && mergeEnd !== null && i >= mergeStart && i <= mergeEnd;
+                const isMergeStart = mergeMode && mergeStart === i;
+                const isMergeEnd = mergeMode && mergeEnd === i;
+                return (
+                <div key={i} onClick={() => mergeMode ? handleMergeClick(i) : undefined} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', borderBottom: '1px solid var(--border)',
+                  background: inMergeRange ? 'var(--accent-dim)' : 'transparent',
+                  cursor: mergeMode ? 'pointer' : 'default',
+                  borderRadius: inMergeRange ? 'var(--radius-sm)' : undefined,
+                  borderLeft: isMergeStart ? '3px solid var(--accent)' : isMergeEnd ? '3px solid var(--accent)' : '3px solid transparent',
+                }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)', flexShrink: 0, marginTop: '2px' }}>{i + 1}.</span>
                   {editingIndex === i ? (
                     <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
@@ -268,7 +341,8 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
                     </>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <EmptyState icon={ScrollText} message="暂无事迹记录" />
@@ -303,10 +377,11 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
 }
 
 // NPC 详情弹窗
-function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronicles }: {
+function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronicles, onMergeChronicles }: {
   npc: NPCData; npcId: string; onClose: () => void;
   onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
   onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
+  onMergeChronicles?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }) {
   const [tab, setTab] = useState<DetailTab>('overview');
   const [showDeeds, setShowDeeds] = useState(false);
@@ -599,6 +674,7 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
           onClose={() => setShowDeeds(false)}
           onUpdate={onUpdateChronicles ?? (() => {})}
           onSummarize={onSummarizeChronicles}
+          onMerge={onMergeChronicles}
         />
       )}
     </div>
@@ -616,7 +692,7 @@ function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: str
   );
 }
 
-export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpdateChronicles }: Props) {
+export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpdateChronicles, onMergeChronicles }: Props) {
   const npcs = gameState.人物档案;
   const [selected, setSelected] = useState<{ id: string; data: NPCData } | null>(null);
 
@@ -632,7 +708,7 @@ export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpda
       {sorted.length === 0 && (
         <EmptyState icon={Users} message="暂无人物档案" />
       )}
-      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onSummarizeChronicles={onSummarizeChronicles} onUpdateChronicles={onUpdateChronicles} />}
+      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onSummarizeChronicles={onSummarizeChronicles} onUpdateChronicles={onUpdateChronicles} onMergeChronicles={onMergeChronicles} />}
     </div>
   );
 }

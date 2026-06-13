@@ -293,3 +293,176 @@ export function createPromptSafeNpcSnapshot(npc: NPCData | Record<string, unknow
   return snapshot;
 }
 
+// ─── 主 AI 紧凑快照 ─────────────────────────────────
+
+/** 截断文本到指定长度 */
+function truncate(text: unknown, maxLen: number): string {
+  const s = String(text ?? '').trim();
+  if (!s || s === '未知' || s === '无' || s === '暂无') return '';
+  return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+}
+
+/** 格式化单个 NPC 为紧凑文本 */
+function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
+  const n = npc as any;
+  const name = String(n.姓名 ?? npcId).trim() || npcId;
+  const category = String(n.人物分类 ?? '在场').trim();
+  const gender = String(n.性别 ?? '').trim();
+  const race = String(n.种族 ?? '').trim();
+  const age = n.年龄 ?? '';
+  const sj = n.社会身份 ?? {};
+  const job = String(sj.职业 ?? '').trim() || '未知';
+  const rd = n.关系数据 ?? {};
+  const favor = rd.好感度 ?? '';
+  const trust = rd.信任度 ?? '';
+  const relationType = String(rd.关系类型 ?? '').trim();
+  const pi = n.个人信息 ?? {};
+  const ext = n;
+
+  // 头部行
+  const headerParts = [`[NPC] ${name}`];
+  if (gender) headerParts.push(gender);
+  if (race) headerParts.push(race);
+  if (age !== '' && age !== undefined) headerParts.push(`${age}岁`);
+  headerParts.push(`职业:${job}`);
+  if (category !== '在场') headerParts.push(`[${category}]`);
+
+  const lines = [headerParts.join(' | ')];
+
+  // 关系
+  const relationParts = [];
+  if (favor !== '' && favor !== undefined) relationParts.push(`好感度:${favor}`);
+  if (trust !== '' && trust !== undefined) relationParts.push(`信任度:${trust}`);
+  if (relationType) relationParts.push(`关系:${relationType}`);
+  if (relationParts.length > 0) lines.push(`> 关系: ${relationParts.join(', ')}`);
+
+  // 外貌与性格
+  const appearance = truncate(pi.外貌 ?? ext.外貌, 40);
+  const personality = truncate(pi.表性格 ?? ext.性格, 20);
+  const hiddenPersonality = truncate(pi.里性格, 20);
+  const clothing = truncate(pi.当前穿着 ?? ext.穿着, 24);
+  if (appearance || personality || clothing) {
+    const parts = [];
+    if (appearance) parts.push(`外貌:${appearance}`);
+    if (personality) parts.push(`性格:${personality}`);
+    if (hiddenPersonality) parts.push(`里性格:${hiddenPersonality}`);
+    if (clothing) parts.push(`穿着:${clothing}`);
+    lines.push(`> 描写: ${parts.join(' | ')}`);
+  }
+
+  // 当前状态
+  const location = truncate(pi.当前位置 ?? ext.当前位置, 20);
+  const status = truncate(pi.当前状态, 20);
+  const action = truncate(ext.当前行动, 30);
+  const thoughts = truncate(pi.当前想法 ?? ext.内心想法, 50);
+  const stateParts = [];
+  if (location) stateParts.push(`位置:${location}`);
+  if (status) stateParts.push(`状态:${status}`);
+  if (action) stateParts.push(`行动:${action}`);
+  if (stateParts.length > 0) lines.push(`> 当前: ${stateParts.join(', ')}`);
+  if (thoughts) lines.push(`> 想法: ${thoughts}`);
+
+  // 目标
+  const shortGoal = truncate(ext.短期目标, 30);
+  const longGoal = truncate(ext.长期目标, 30);
+  if (shortGoal || longGoal) {
+    const parts = [];
+    if (shortGoal) parts.push(`短期:${shortGoal}`);
+    if (longGoal) parts.push(`长期:${longGoal}`);
+    lines.push(`> 目标: ${parts.join(' | ')}`);
+  }
+
+  // 事迹（最近5条）
+  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds);
+  if (chronicles.length > 0) {
+    const recent = chronicles.slice(-5);
+    const chronicleText = recent.map((c, i) => `${i + 1}.${truncate(c, 36)}`).join(' | ');
+    lines.push(`> 事迹: ${chronicleText}`);
+  }
+
+  return lines.join('\n');
+}
+
+/** 格式化离场 NPC 为精简文本 */
+function formatDepartedNpcCompact(npc: Record<string, unknown>, npcId: string): string {
+  const n = npc as any;
+  const name = String(n.姓名 ?? npcId).trim() || npcId;
+  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds);
+  const recent = chronicles.slice(-3);
+
+  let line = `> ${name}`;
+  if (recent.length > 0) {
+    line += ` — 最近: ${recent.map(c => truncate(c, 28)).join('; ')}`;
+  }
+  return line;
+}
+
+/**
+ * 将 GameState 格式化为主 AI 可读的紧凑文本快照
+ * 只提取叙事需要的字段，避免浪费 token
+ */
+export function formatSnapshotForMainAI(state: GameState): string {
+  const lines: string[] = [];
+
+  // 世界状态
+  const world = state.世界 ?? ({} as any);
+  const time = world.时间系统?.当前时间 ?? '';
+  const weather = world.时间系统?.当前天气 ?? '';
+  const location = world.空间定位?.当前位置 ?? '';
+  if (time || location || weather) {
+    lines.push(`### 【世界状态】`);
+    const parts = [];
+    if (time) parts.push(`时间:${time}`);
+    if (location) parts.push(`地点:${location}`);
+    if (weather) parts.push(`天气:${weather}`);
+    lines.push(`> ${parts.join(' | ')}`);
+  }
+
+  // 玩家状态
+  const player = state.玩家 ?? ({} as any);
+  const playerName = player.姓名 ?? (player as any).name ?? '';
+  const playerLocation = player.当前位置 ?? '';
+  const playerGoal = player.当前目标 ?? '';
+  if (playerName || playerLocation || playerGoal) {
+    lines.push(`### 【玩家】`);
+    if (playerName) lines.push(`> 姓名: ${playerName}`);
+    if (playerLocation) lines.push(`> 位置: ${playerLocation}`);
+    if (playerGoal) lines.push(`> 目标: ${playerGoal}`);
+  }
+
+  // 人物档案
+  const npcs = state.人物档案 ?? {};
+  const npcEntries = Object.entries(npcs);
+  if (npcEntries.length > 0) {
+    const presentNpcs: [string, Record<string, unknown>][] = [];
+    const departedNpcs: [string, Record<string, unknown>][] = [];
+
+    for (const [id, npc] of npcEntries) {
+      if (!npc || typeof npc !== 'object') continue;
+      const category = getNpcCategoryValue(npc);
+      if (category === '离场') {
+        departedNpcs.push([id, npc as unknown as Record<string, unknown>]);
+      } else {
+        presentNpcs.push([id, npc as unknown as Record<string, unknown>]);
+      }
+    }
+
+    if (presentNpcs.length > 0) {
+      lines.push(`### 【在场人物】`);
+      for (const [id, npc] of presentNpcs) {
+        lines.push(formatNpcCompact(npc, id));
+      }
+    }
+
+    if (departedNpcs.length > 0) {
+      lines.push(`### 【离场人物】`);
+      lines.push('> 以下人物已不在当前场景中，如需重新引入，先将人物分类设为"在场"');
+      for (const [id, npc] of departedNpcs) {
+        lines.push(formatDepartedNpcCompact(npc, id));
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
