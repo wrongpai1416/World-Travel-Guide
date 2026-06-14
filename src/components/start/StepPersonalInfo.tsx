@@ -112,10 +112,10 @@ export default function StepPersonalInfo({
             <label>姓名 *</label>
             <input type="text" value={personalInfo.name} onChange={e => set('name', e.target.value)} placeholder="输入角色姓名..." />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '0.75rem' }}>
             <div className="form-group">
               <label>年龄</label>
-              <input type="text" value={personalInfo.age} onChange={e => set('age', e.target.value)} placeholder="如: 18, 25..." />
+              <input type="text" value={personalInfo.age} onChange={e => set('age', e.target.value)} placeholder="18" />
             </div>
             <div className="form-group">
               <label>性别</label>
@@ -166,25 +166,21 @@ export default function StepPersonalInfo({
           {/* Tab: 身份信息 */}
           {rightTab === 'identity' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                <div className="form-group">
-                  <label>职业</label>
-                  <input type="text" value={personalInfo.career} onChange={e => set('career', e.target.value)} placeholder="学生, 佣兵..." />
-                </div>
-                <div className="form-group">
-                  <label>阶层</label>
-                  <input type="text" value={personalInfo.socialClass} onChange={e => set('socialClass', e.target.value)} placeholder="平民, 贵族..." />
-                </div>
+              <div className="form-group">
+                <label>职业</label>
+                <input type="text" value={personalInfo.career} onChange={e => set('career', e.target.value)} placeholder="学生, 佣兵..." />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                <div className="form-group">
-                  <label>所属组织</label>
-                  <input type="text" value={personalInfo.organization} onChange={e => set('organization', e.target.value)} placeholder="佣兵工会..." />
-                </div>
-                <div className="form-group">
-                  <label>特殊身份</label>
-                  <input type="text" value={personalInfo.specialIdentity} onChange={e => set('specialIdentity', e.target.value)} placeholder="转生者..." />
-                </div>
+              <div className="form-group">
+                <label>阶层</label>
+                <input type="text" value={personalInfo.socialClass} onChange={e => set('socialClass', e.target.value)} placeholder="平民, 贵族..." />
+              </div>
+              <div className="form-group">
+                <label>所属组织</label>
+                <input type="text" value={personalInfo.organization} onChange={e => set('organization', e.target.value)} placeholder="佣兵工会..." />
+              </div>
+              <div className="form-group">
+                <label>特殊身份</label>
+                <input type="text" value={personalInfo.specialIdentity} onChange={e => set('specialIdentity', e.target.value)} placeholder="转生者..." />
               </div>
             </div>
           )}
@@ -193,17 +189,15 @@ export default function StepPersonalInfo({
           {rightTab === 'skills' && (
             <div className="world-dynamic-list">
               {Object.entries(personalInfo.initialSkills).map(([name, skill]) => (
-                <div key={name} className="world-dynamic-item">
+                <div key={name} className="world-dynamic-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 'var(--space-1)' }}>
-                      <input type="text" value={name} onChange={e => updateSkill(name, e.target.value, '描述', skill.描述)} placeholder="技能名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
-                      <select value={skill.品质} onChange={e => updateSkill(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
-                        {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
-                      </select>
-                    </div>
+                    <input type="text" value={name} onChange={e => updateSkill(name, e.target.value, '描述', skill.描述)} placeholder="技能名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
+                    <select value={skill.品质} onChange={e => updateSkill(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
+                      {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                    </select>
                     <input type="text" value={skill.描述} onChange={e => updateSkill(name, name, '描述', e.target.value)} placeholder="技能描述..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
                   </div>
-                  <button onClick={() => removeSkill(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0 }}><Trash2 size={14} /></button>
+                  <button onClick={() => removeSkill(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0, alignSelf: 'flex-end' }}><Trash2 size={14} /></button>
                 </div>
               ))}
               <button className="btn-ghost" onClick={addSkill} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-base)', marginTop: '4px' }}><Plus size={14} /> 添加技能</button>
@@ -214,17 +208,17 @@ export default function StepPersonalInfo({
           {rightTab === 'items' && (
             <div className="world-dynamic-list">
               {Object.entries(personalInfo.initialItems).map(([name, item]) => (
-                <div key={name} className="world-dynamic-item">
+                <div key={name} className="world-dynamic-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px', gap: 'var(--space-1)' }}>
-                      <input type="text" value={name} onChange={e => updateItem(name, e.target.value, '备注', item.备注)} placeholder="物品名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
-                      <input type="number" value={item.数量} onChange={e => updateItem(name, name, '数量', e.target.value)} min={1} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
-                      <select value={item.品质} onChange={e => updateItem(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
+                    <input type="text" value={name} onChange={e => updateItem(name, e.target.value, '备注', item.备注)} placeholder="物品名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      <input type="number" value={item.数量} onChange={e => updateItem(name, name, '数量', e.target.value)} min={1} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', width: '60px' }} />
+                      <select value={item.品质} onChange={e => updateItem(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)', flex: 1 }}>
                         {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
                       </select>
                     </div>
                   </div>
-                  <button onClick={() => removeItem(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0 }}><Trash2 size={14} /></button>
+                  <button onClick={() => removeItem(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0, alignSelf: 'flex-end' }}><Trash2 size={14} /></button>
                 </div>
               ))}
               <button className="btn-ghost" onClick={addItem} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-base)', marginTop: '4px' }}><Plus size={14} /> 添加物品</button>

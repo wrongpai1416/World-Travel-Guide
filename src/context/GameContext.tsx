@@ -156,12 +156,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       loadGameFromDb(savedId).then(save => {
         if (!cancelled && save && save.messages && save.messages.length > 0) {
           useSaveStore.setState({ currentSaveId: savedId, currentSaveName: save.name });
-          // 恢复存档中的 API 配置
-          if (save.apiConfig) useConfigStore.getState().setApiConfig(save.apiConfig);
-          if (save.apiMode) useConfigStore.getState().setApiMode(save.apiMode);
           dispatch({ type: 'LOAD_SAVE', save });
           engine.loadSave(save);
-          // 不再自动跳转，留在 start 页面
         } else if (!cancelled) {
           localStorage.removeItem(ACTIVE_SAVE_KEY);
           useSaveStore.setState({ currentSaveId: undefined, currentSaveName: undefined });

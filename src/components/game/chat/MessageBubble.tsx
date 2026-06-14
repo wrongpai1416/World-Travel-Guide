@@ -156,7 +156,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
         {/* 编辑模式 */}
         {editing ? (
-          <div style={{ minWidth: isMobile ? '0' : '400px', maxWidth: '95vw' }}>
+          <div style={{ width: '100%' }}>
             <textarea
               ref={editRef}
               value={editText}
@@ -245,7 +245,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                     onClick={(e) => {
                       // 处理行动选项点击
                       const target = e.target as HTMLElement
-                      const optionEl = target.closest('.action-option-item') as HTMLElement
+                      const optionEl = target.closest('.action-option-card') as HTMLElement
                       if (optionEl && onOptionClick) {
                         const optionText = optionEl.getAttribute('data-option-text')
                         if (optionText) {
