@@ -73,8 +73,9 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
   {
     id: 'builtin_display_option_item',
     scriptName: '行动选项-选项',
-    findRegex: '\\[OPTION\\]\\s*\\{"t"\\s*:\\s*"([^"]*)"\\s*,\\s*"d"\\s*:\\s*"([^"]*)"\\s*\\}',
-    replaceString: '<div class="action-option-card" data-option-text="$1"><div class="action-option-card-title">$1</div><div class="action-option-card-desc">$2</div></div>',
+    // 兼容带引号和不带引号的 key 格式：{t:"..."} 或 {"t":"..."} 或 {t: "..."}
+    findRegex: '\\[OPTION\\]\\s*\\{["\']?t["\']?\\s*:\\s*"([^"]*)"\\s*,\\s*["\']?d["\']?\\s*:\\s*"([^"]*)"\\s*\\}',
+    replaceString: '<div class="action-option-card" data-option-text="$1：$2"><div class="action-option-card-title">$1</div><div class="action-option-card-desc">$2</div></div>',
     placement: [2],
     disabled: false,
     markdownOnly: true,

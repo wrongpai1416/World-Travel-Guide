@@ -21,15 +21,14 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
   const { t } = useUISettings();
   const isMobile = useIsMobile(640);
 
-  // 处理外部文本变化
+  // 处理外部文本变化（只处理非空值，避免清空回调导致的循环）
   useEffect(() => {
-    if (externalText !== undefined && externalText !== text) {
-      setText(externalText)
-      onExternalTextChange?.()
-      // 聚焦到输入框
-      setTimeout(() => inputRef.current?.focus(), 0)
+    if (externalText && externalText !== text) {
+      setText(externalText);
+      onExternalTextChange?.();
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [externalText])
+  }, [externalText]);
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
