@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen } from 'lucide-react';
+import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
@@ -9,11 +9,13 @@ import ChatPanel from './chat/ChatPanel';
 import ProfilePanel from './panels/ProfilePanel';
 import CharacterGrid from './panels/CharacterGrid';
 import NotebookPanel from './panels/NotebookPanel';
+import VariableSnapshotPanel from './panels/VariableSnapshotPanel';
 import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
+import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
-type OverlayPanel = null | 'profile' | 'notebook' | 'characters';
+type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'variables' | 'memory';
 
 interface NavButton {
   id: OverlayPanel | 'home';
@@ -26,6 +28,8 @@ const navButtons: NavButton[] = [
   { id: 'profile', icon: User, labelKey: 'nav.profile' },
   { id: 'characters', icon: Users, labelKey: 'nav.characters' },
   { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook' },
+  { id: 'variables', icon: Layers, labelKey: 'nav.variables' },
+  { id: 'memory', icon: Brain, labelKey: 'nav.memory' },
 ];
 
 // 侧滑抽屉面板组件
@@ -142,7 +146,7 @@ export default function GameScreen() {
   // 移动端状态
   const [showLeftOverlay, setShowLeftOverlay] = useState(false);
   const [showRightOverlay, setShowRightOverlay] = useState(false);
-  const [mobileActivePanel, setMobileActivePanel] = useState<'profile' | 'characters' | 'notebook' | null>(null);
+  const [mobileActivePanel, setMobileActivePanel] = useState<'profile' | 'characters' | 'notebook' | 'variables' | 'memory' | null>(null);
 
   const [stateVersion, setStateVersion] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
@@ -214,6 +218,8 @@ export default function GameScreen() {
       case 'profile': return <ProfilePanel gameState={gameState} />;
       case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
+      case 'variables': return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
+      case 'memory': return <MemorySettingsOverlay visible={true} onClose={() => setOverlay(null)} onSave={() => {}} mode="inline" />;
       default: return null;
     }
   };
@@ -224,6 +230,8 @@ export default function GameScreen() {
     { id: 'profile', icon: User, labelKey: 'nav.profile', action: () => { setShowLeftOverlay(false); setMobileActivePanel('profile'); } },
     { id: 'characters', icon: Users, labelKey: 'nav.characters', action: () => { setShowLeftOverlay(false); setMobileActivePanel('characters'); } },
     { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook', action: () => { setShowLeftOverlay(false); setMobileActivePanel('notebook'); } },
+    { id: 'variables', icon: Layers, labelKey: 'nav.variables', action: () => { setShowLeftOverlay(false); setMobileActivePanel('variables'); } },
+    { id: 'memory', icon: Brain, labelKey: 'nav.memory', action: () => { setShowLeftOverlay(false); setMobileActivePanel('memory'); } },
     { id: 'settings', icon: Settings, labelKey: 'nav.settings', action: () => { setShowLeftOverlay(false); navigate('settings'); } },
   ];
 
@@ -236,6 +244,10 @@ export default function GameScreen() {
         return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook':
         return <NotebookPanel gameState={gameState} />;
+      case 'variables':
+        return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
+      case 'memory':
+        return <MemorySettingsOverlay visible={true} onClose={() => setMobileActivePanel(null)} onSave={() => {}} mode="inline" />;
       default:
         return null;
     }
@@ -247,6 +259,8 @@ export default function GameScreen() {
       case 'profile': return t('nav.profile');
       case 'characters': return t('nav.characters');
       case 'notebook': return t('nav.notebook');
+      case 'variables': return t('nav.variables');
+      case 'memory': return t('nav.memory');
       default: return '导航';
     }
   };
