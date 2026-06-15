@@ -88,7 +88,6 @@ export default function RightPanel({ gameState }: Props) {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '4px', fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', paddingLeft: '36px' }}>
                   <span>好感 {npc.关系数据?.好感度 ?? 0}</span>
-                  <span>信任 {npc.关系数据?.信任度 ?? 0}</span>
                 </div>
                 {/* 生存状态条 */}
                 {npc.生存状态 && (

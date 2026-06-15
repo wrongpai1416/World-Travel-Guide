@@ -8,6 +8,8 @@
 
 基于 React 19 + TypeScript 的 AI 互动叙事引擎，支持多世界观、多阶段管线执行、编译式记忆系统与实时变量管理。
 
+**[在线体验](https://world-travel-guide.pages.dev)** · [问题反馈](https://github.com/wrongpai1416/World-Travel-Guide/issues)
+
 </div>
 
 ---
@@ -106,6 +108,110 @@
 
 ---
 
+## <img src="https://unpkg.com/lucide-static@latest/icons/rocket.svg" width="20" height="20" /> 快速开始
+
+### 方式一：在线体验
+
+直接访问 **https://world-travel-guide.pages.dev**
+
+配置 API Key 后即可开始游戏（支持 OpenAI / DeepSeek / Google AI）
+
+### 方式二：本地运行
+
+```bash
+# 克隆项目
+git clone https://github.com/wrongpai1416/World-Travel-Guide.git
+cd World-Travel-Guide
+
+# 安装依赖
+bun install
+
+# 启动开发服务器（默认 http://localhost:3456）
+bun run dev
+
+# 构建生产版本
+bun run build
+```
+
+---
+
+## <img src="https://unpkg.com/lucide-static@latest/icons/gamepad-2.svg" width="20" height="20" /> 怎么玩？
+
+### 基本流程
+
+1. 点击「新游戏」→ 选择世界 → 填写角色信息 → 开始冒险
+2. 输入你的行动或对话，AI 会继续故事
+3. 也可以点击「行动选项」快速选择
+
+### 操作说明
+
+| 操作 | 说明 |
+|------|------|
+| 消息右上角「...」 | 回滚 / 编辑 / 删除 / 重新发送 |
+| 右侧边栏 | 人物档案、关系、笔记、图谱 |
+| 设置 | API 配置、记忆系统、UI 主题 |
+| 思维链 | 查看 AI 推理过程（可关闭） |
+
+---
+
+## <img src="https://unpkg.com/lucide-static@latest/icons/brain.svg" width="20" height="20" /> 记忆系统
+
+让 AI 记住你的故事：
+
+### 记忆类型
+
+| 类型 | 说明 |
+|------|------|
+| **场景锚点** | 记住你去过哪里 |
+| **叙事线程** | 追踪剧情发展 |
+| **状态槽** | 记录角色状态变化 |
+| **关系边** | 记录 NPC 关系变化 |
+| **事件卡** | 记录重要事件 |
+| **实体档案** | 记住遇到的人和物 |
+| **向量记忆** | 长期事实记忆 |
+
+### 图谱可视化
+
+右侧边栏「图谱」可查看 13 种可视化图谱，支持：
+- 平移、缩放
+- 节点交互
+- 节点详情弹窗
+
+---
+
+## <img src="https://unpkg.com/lucide-static@latest/icons/database.svg" width="20" height="20" /> 变量系统
+
+追踪生命值、体力、金币等量化数据：
+
+- **快照回滚**：每轮对话保存变量快照，支持查看、编辑、回滚
+- **NPC 感知合并**：NPC 会根据感知到的信息调整行为
+- **RFC 6902 Patch**：精确的变量差异更新
+- **独立 API 配置**：可为变量提取配置独立的 API
+
+---
+
+## <img src="https://unpkg.com/lucide-static@latest/icons/hard-drive.svg" width="20" height="20" /> 存档系统
+
+### 自动保存
+
+- 每次对话后自动存档
+- 500ms debounce + coalescing 防并发写入
+- F5 刷新自动恢复上次进度
+
+### 多槽位管理
+
+- 支持多个存档槽位
+- 每次新游戏生成独立存档 ID
+- 不限存档数量
+
+### 导入导出
+
+- 导出为 JSON 文件（自动去除 API key）
+- 导入自动分配新存档 ID
+- 方便备份和分享
+
+---
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="20" height="20" /> 技术栈
 
 | 技术 | 用途 |
@@ -122,22 +228,7 @@
 
 ---
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/rocket.svg" width="20" height="20" /> 快速开始
-
-```bash
-# 安装依赖
-bun install
-
-# 启动开发服务器（默认 http://localhost:3456）
-bun run dev
-
-# 构建
-bun run build
-```
-
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/folder-tree.svg" width="20" height="20" /> 目录结构
+## <img src="https://unpkg.com/lucide-static@latest/icons/folder-tree.svg" width="20" height="20" /> 项目结构
 
 ```
 src/
@@ -145,25 +236,6 @@ src/
 │   ├── client.ts         #   请求 / 流式响应 / 重试
 │   ├── auxiliaryApi.ts   #   辅助 API（变量提取）
 │   └── types.ts          #   ApiConfig / Provider 类型
-│
-├── stores/               # Zustand 状态管理
-│   ├── configStore.ts    #   UI 设置 + API 配置
-│   └── saveStore.ts      #   多槽位存档管理
-│
-├── hooks/                # React hooks
-│   ├── useGame.ts        #   游戏上下文
-│   ├── useUISettings.ts  #   UI 设置
-│   └── useWizard.ts      #   向导流程管理
-│
-├── components/
-│   ├── game/             #   游戏主界面
-│   │   ├── GameScreen.tsx#     三栏布局 + 抽屉 + 存档面板
-│   │   ├── chat/         #     聊天（气泡 / 输入 / 思维链 / 管线）
-│   │   └── panels/       #     面板（档案 / 关系 / 笔记）
-│   ├── start/            #   开始页（主菜单 / 向导 / 世界编辑器 / 存档）
-│   ├── settings/         #   设置（API / 变量系统 / 记忆系统）
-│   ├── shared/           #   通用组件（Avatar / Dialog / Collapsible）
-│   └── ErrorBoundary.tsx
 │
 ├── engine/               # 游戏引擎（纯逻辑）
 │   ├── useGameEngine.ts  #   消息发送 / 流式 / 管线调度
@@ -179,6 +251,19 @@ src/
 │   ├── narrativeGraph.ts #   叙事图谱
 │   ├── memoryPrompts.ts  #   记忆提示词
 │   └── useMemorySystem.ts#   记忆系统 hooks
+│
+├── components/
+│   ├── game/             #   游戏主界面
+│   │   ├── GameScreen.tsx#     三栏布局 + 抽屉 + 存档面板
+│   │   ├── chat/         #     聊天（气泡 / 输入 / 思维链 / 管线）
+│   │   └── panels/       #     面板（档案 / 关系 / 笔记）
+│   ├── start/            #   开始页（主菜单 / 向导 / 世界编辑器 / 存档）
+│   ├── settings/         #   设置（API / 变量系统 / 记忆系统）
+│   └── shared/           #   通用组件（Avatar / Dialog / Collapsible）
+│
+├── stores/               # Zustand 状态管理
+│   ├── configStore.ts    #   UI 设置 + API 配置
+│   └── saveStore.ts      #   多槽位存档管理
 │
 ├── context/              # React Context（导航 + 引擎生命周期）
 │   └── GameContext.tsx
@@ -205,63 +290,52 @@ src/
 
 ---
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 更新日志
+## <img src="https://unpkg.com/lucide-static@latest/icons/help-circle.svg" width="20" height="20" /> 常见问题
 
-### v1.5.0 — 管线重构 + 移动端适配 + 限流配置 (2026-06-13)
+### AI 回复慢？
 
-全面的移动端响应式适配，支持手机和平板设备流畅使用。
+- 换更快的模型（如 GPT-4o、Claude 3.5 Sonnet）
+- 减少记忆调用频率（设置中调整）
+- 检查网络连接
 
-#### 移动端布局
+### 游戏卡住？
 
-- **GameScreen**：全屏聊天 + 侧边栏覆盖层模式
-  - 点击左上角汉堡菜单 → 导航菜单从左侧滑出
-  - 点击右上角图标 → 信息面板从右侧滑出
-  - 点击空白区域收回覆盖层
-- **SettingsScreen**：移动端顶部横向滚动标签页
-- **MessageBubble**：移动端宽度自适应（92%）
-- **InputArea**：触控目标优化（≥ 44px）
+- 刷新页面（F5 保护进度）
+- 检查 API 连接状态
+- 查看浏览器控制台错误信息
 
-#### 响应式设计
+### 记忆不工作？
 
-- 新增移动端专用 Design Token（断点、触控目标、安全区）
-- 100vh → 100dvh 适配 iOS Safari 动态视口
-- Safe Area 支持刘海屏/底部安全区
-- `prefers-reduced-motion` 动画偏好支持
+- 确认设置中已开启记忆系统
+- 检查 API 配置是否正确
+- 查看管线状态监控
 
-#### 触控优化
+### 如何自定义世界？
 
-- 所有按钮最小触控目标 44px
-- 菜单项最小高度 44px
-- 移除 300ms 点击延迟（`touch-action: manipulation`）
-
-#### 新增组件
-
-- `useIsMobile` / `useMediaQuery` 响应式 hooks
-- `MobileOverlay` 通用覆盖层组件
+- 点击主菜单「世界编辑器」
+- 设置世界名称、背景、种族、职业、NPC
+- 导出存档分享给朋友
 
 ---
 
-### v1.0.0 — 正式发布 (2026-06-13)
+## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 更新日志
 
-首个正式版本，包含完整的游戏引擎、记忆系统与管线架构。
+### v1.5.3 (2026-06-14)
 
-#### 核心功能
+- 存档取名优化
+- 修复类型和一致性问题
+- 清理调试日志
 
-- AI 流式对话引擎（多 Provider 兼容）
-- 多阶段管线执行器（正文 → 记忆 → 变量全链路）
-- 编译式叙事记忆引擎（写入 / 摘要 / 检索 / 向量 / 冲突裁决）
-- 13 种 Mermaid 图谱可视化
-- 变量系统（快照 / 回滚 / Patch / NPC 感知合并）
-- 多存档系统（自动 / 手动 / 导入导出）
-- 结构化预设系统（15 模块 + 宏引擎 + 正则脚本）
-- 5 步式角色创建向导
-- 7 个内置世界 + 世界编辑器
+### v1.5.0 (2026-06-13)
 
-#### 技术架构
+- 移动端响应式适配
+- 管线重构 + 限流配置
+- 触控目标优化（≥ 44px）
 
-- React 19 + TypeScript + Zustand
-- Bun 开发环境 + 构建打包
-- IndexedDB 持久化存储
+### v1.0.0 (2026-06-13)
+
+- 首个正式版本
+- 完整游戏引擎、记忆系统与管线架构
 
 ---
 

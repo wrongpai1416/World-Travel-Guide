@@ -168,7 +168,18 @@ export class VariableManager {
         if (!this.state.人物档案[npcId]) {
           (this.state.人物档案 as any)[npcId] = {};
         }
-        _.merge(this.state.人物档案[npcId], data);
+        // 人物事迹：数组拼接（追加）而非替换
+        const npcData = data as Record<string, unknown>;
+        const incomingChronicles = npcData.人物事迹;
+        if (Array.isArray(incomingChronicles)) {
+          delete npcData.人物事迹;
+          const existing = (this.state.人物档案[npcId] as any).人物事迹;
+          const existingArr = Array.isArray(existing) ? existing : [];
+          // 去重追加：只添加不存在的新条目
+          const newEntries = incomingChronicles.filter(c => !existingArr.includes(c));
+          (this.state.人物档案[npcId] as any).人物事迹 = [...existingArr, ...newEntries];
+        }
+        _.merge(this.state.人物档案[npcId], npcData);
       }
 
       // 从 patch 中移除已单独处理的 人物档案

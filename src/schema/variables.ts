@@ -75,29 +75,21 @@ export interface NPCData {
   年龄: string | number;
   背景?: string;
   生存状态: SurvivalStats;
-  社会身份: { 职业: string; 所属势力: string; 社会地位: string };
+  社会身份: { 职业: string; 社会地位: string };
   关系数据: {
     好感度: number;
-    信任度: number;
     关系类型: string;
     印象标签: string[];
     核心锚点: CoreAnchor[];
   };
   个人信息: {
-    价值观: { 喜好: string[]; 厌恶: string[]; 雷区: string };
-    /** @deprecated 已废弃，保留兼容性 */
-    执念与目标?: string;
-    心理创伤: string;
     外貌: string;
     表性格: string;
     里性格: string;
     当前想法: string;
-    特殊能力: string;
     当前穿着: string;
     当前位置: string;
     当前状态: string;
-    持有物品: string;
-    过往经历: string[];
     备注: string;
   };
   交互记忆: {
@@ -107,9 +99,6 @@ export interface NPCData {
   };
   重要NPC: boolean;
   _关注: boolean;
-  婚姻状态: string;
-  联系方式: string;
-  近期事件: string[];
   重要经历: string[];
   $time: number;
   // NPC 管理扩展字段

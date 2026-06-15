@@ -6,7 +6,7 @@ import { useSaveStore } from '../../stores/saveStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useWizard } from '../../hooks/useWizard';
 import { useAiFill } from '../../hooks/useAiFill';
-import { useCharacterHistory } from '../../hooks/useCharacterHistory';
+import { useCharacterHistory, clearSegmentsCache } from '../../hooks/useCharacterHistory';
 import type { GameSave, PlayerProfile } from '../../storage/db';
 import { saveGame as saveGameToDb } from '../../storage/db';
 import type { GameState } from '../../schema/variables';
@@ -24,11 +24,8 @@ export function useStartScreen() {
   const importSaveToStore = useSaveStore(s => s.importSave);
   const exportSaveFromStore = useSaveStore(s => s.exportSave);
   const apiConfig = useConfigStore(s => s.apiConfig);
-  const apiMode = useConfigStore(s => s.apiMode);
-  const setApiConfig = useConfigStore(s => s.setApiConfig);
-  const setApiModeCfg = useConfigStore(s => s.setApiMode);
   const { t, settings } = useUISettings();
-  const { DialogUI, confirm, alert: showAlert } = useDialog();
+  const { DialogUI, confirm, alert: showAlert, prompt } = useDialog();
   const locale = settings.language === 'en' ? 'en-US' : 'zh-CN';
 
   // ─── 向导 ───
@@ -59,7 +56,7 @@ export function useStartScreen() {
     navigate, showAlert,
   });
 
-  // 清理
+  // 清理（组件卸载时保存 segments 到缓存）
   useEffect(() => () => { aiFill.cleanup(); charHistory.cleanup(); }, []);
 
   // ─── 构建初始 GameState ───
@@ -88,32 +85,27 @@ export function useStartScreen() {
         生存状态: { 血量: 100, 体力值: 100 },
         社会身份: {
           职业: npc.occupation || '',
-          所属势力: npc.faction || '',
           社会地位: npc.socialStatus || '',
         },
-        关系数据: { 好感度: 50, 信任度: 50, 关系类型: npc.relationshipType || '同伴', 印象标签: [], 核心锚点: [] },
+        关系数据: { 好感度: 50, 关系类型: npc.relationshipType || '同伴', 印象标签: [], 核心锚点: [] },
         个人信息: {
-          价值观: {
-            喜好: npc.likes ? npc.likes.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [],
-            厌恶: npc.dislikes ? npc.dislikes.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [],
-            雷区: '',
-          },
-          执念与目标: npc.longTermGoal || '',
-          心理创伤: npc.psychologicalTrauma || '',
           外貌: npc.appearance || '',
           表性格: npc.personality || '',
           里性格: npc.hiddenPersonality || '',
           当前想法: npc.currentThought || '',
-          特殊能力: npc.specialAbility || '',
           当前穿着: npc.currentOutfit || '',
-          当前位置: '', 当前状态: '',
-          持有物品: '', 过往经历: [], 备注: '',
+          当前位置: npc.currentLocation || '', 当前状态: npc.currentState || '',
+          备注: '',
         },
         交互记忆: { 未完成约定: [], 共同秘密: [], 赠礼记录: [] },
-        重要NPC: true, _关注: true, 婚姻状态: '', 联系方式: '',
-        近期事件: [], 重要经历: [], $time: Date.now(), 人物分类: '在场',
+        重要NPC: true, _关注: true,
+        重要经历: [], $time: Date.now(), 人物分类: '在场',
+        当前行动: npc.currentAction || '',
         短期目标: npc.shortTermGoal || '',
         长期目标: npc.longTermGoal || '',
+        人物事迹: npc.chronicles || [],
+        技能列表: npc.skillsList || {},
+        物品列表: npc.itemsList || {},
       };
     }
     return gs;
@@ -121,16 +113,32 @@ export function useStartScreen() {
 
   // ─── 开始游戏 ───
   const handleStartGame = async () => {
+    // 开始游戏时清除缓存，下次进向导从头开始
+    clearSegmentsCache();
     const characterHistory = charHistory.buildFullCharacterHistory();
     // 获取世界名（中文）
     const world = wizard.allWorlds.find((w: any) => w.id === wizard.selectedWorld);
-    console.log('[存档名字调试] selectedWorld:', wizard.selectedWorld);
-    console.log('[存档名字调试] 找到的世界:', world);
-    console.log('[存档名字调试] allWorlds数量:', wizard.allWorlds.length);
     const worldName = world?.name || '默认世界';
     const characterName = wizard.personalInfo.name || '未命名';
-    const saveName = `${characterName} - ${worldName}`;
-    console.log('[存档名字调试] 最终存档名:', saveName);
+    const defaultSaveName = `${characterName} - ${worldName}`;
+
+    // ─── 取名环节 ───
+    let saveName: string | null = defaultSaveName;
+    while (true) {
+      saveName = await prompt('请为这次冒险取一个存档名称：', {
+        title: '存档命名',
+        defaultValue: saveName || defaultSaveName,
+        placeholder: '输入存档名称',
+        confirmText: '开始冒险',
+      });
+      if (saveName === null) return; // 用户取消
+      saveName = saveName.trim() || defaultSaveName;
+      if (savesMeta.some(s => s.name === saveName)) {
+        await showAlert(`存档名「${saveName}」已存在，请换个名字。`, { title: '名称重复', danger: true });
+        continue;
+      }
+      break;
+    }
 
     dispatch({ type: 'SET_WORLD', worldId: wizard.selectedWorld });
     dispatch({ type: 'SET_PERSONAL_INFO', info: wizard.personalInfo });
@@ -144,8 +152,11 @@ export function useStartScreen() {
     }
 
     if (characterHistory.trim()) {
+      // 附加快照到初始消息，确保第一轮重新发送时能回滚到初始状态
+      const initialSnapshot = engine.variableManager.createSnapshot();
       engine.addMessage({
         id: uuid(), role: 'assistant', content: characterHistory, round: 0, timestamp: Date.now(),
+        snapshot: initialSnapshot, snapshotTime: Date.now(),
       });
     }
 
@@ -154,7 +165,6 @@ export function useStartScreen() {
     const save: GameSave = {
       id: saveId, name: saveName, timestamp: Date.now(),
       messages: engine.messages, gameState: engine.variableManager.getState(),
-      apiConfig, apiMode: apiMode || 'default',
       worldId: wizard.selectedWorld, personalInfo: wizard.personalInfo, characterHistory,
     };
     await saveGameToDb(save);
@@ -165,8 +175,6 @@ export function useStartScreen() {
   const handleLoadSave = async (save: GameSave) => {
     const loaded = await loadSaveFromStore(save.id);
     if (loaded) {
-      if (loaded.apiConfig) setApiConfig(loaded.apiConfig);
-      if (loaded.apiMode) setApiModeCfg(loaded.apiMode);
       dispatch({ type: 'LOAD_SAVE', save: loaded });
       engine.loadSave(loaded);
       navigate('game');
@@ -212,7 +220,7 @@ export function useStartScreen() {
     // context
     navigate, state, t, settings, locale, engine, dispatch,
     // config
-    apiConfig, apiMode,
+    apiConfig,
     // dialog
     DialogUI,
     // wizard

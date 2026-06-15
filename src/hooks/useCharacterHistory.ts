@@ -6,6 +6,10 @@ import type { ApiConfig } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
 import { getAgeStages, getAllSegmentIds } from '../utils/ageStages';
 
+// ─── 模块级缓存：跨导航保留已生成的 segments ───
+let _segmentsCache: Record<string, string> | null = null;
+export function clearSegmentsCache() { _segmentsCache = null; }
+
 interface UseCharacterHistoryOptions {
   apiConfig: ApiConfig | null;
   personalInfo: PlayerProfile;
@@ -22,6 +26,8 @@ export function useCharacterHistory({
   initialCharacterHistory, navigate, showAlert,
 }: UseCharacterHistoryOptions) {
   const [segments, setSegments] = useState<Record<string, string>>(() => {
+    // 优先从缓存恢复（解决返回再前进丢失经历的 Bug）
+    if (_segmentsCache) return { ..._segmentsCache };
     const ids = getAllSegmentIds(personalInfo.age || '');
     const initial: Record<string, string> = {};
     for (const id of ids) initial[id] = '';
@@ -31,6 +37,10 @@ export function useCharacterHistory({
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // segments 变化时同步到缓存
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
 
   // ─── 辅助函数 ───
   const getWorldSetting = useCallback(() => {
@@ -93,28 +103,55 @@ export function useCharacterHistory({
     abortRef.current = controller;
 
     const ageStages = getAgeStages(personalInfo.age);
-    const stagePrompts = ageStages.map(s => `## ${s.label}\n（${s.label}期间的经历，1-2段）`).join('\n\n');
+    const stagePrompts = ageStages.map(s => `## ${s.label}\n（${s.label}期间的关键经历：重大事件、人际关系变化、个人成长转折点，2-3段）`).join('\n\n');
 
-    const systemPrompt = `你是一位专业的角色背景故事撰写者。根据以下信息，为玩家生成完整的人生经历。
+    // NPC 关联信息
+    const npcBlock = personalInfo.customNpcs.length > 0
+      ? `\n【关联NPC】\n${personalInfo.customNpcs.map(n => `- ${n.name}：${n.relationshipType || '同伴'}，${n.personality || ''}${n.background ? '。' + n.background : ''}`).join('\n')}\n\n请在经历中自然地融入这些NPC，描写他们与角色的互动和关系发展。`
+      : '';
+
+    const systemPrompt = `你是一位专业的角色背景故事撰写者，擅长为互动小说生成沉浸式的人生经历。请根据以下信息，为玩家生成完整的人生经历。
 
 【世界设定】
 ${getWorldSetting()}
 
 【玩家信息】
 ${getPlayerInfoBlock()}
+${npcBlock}
+═══════════════════════════════════════
+【写作要求】
 
-请严格按照以下格式输出，每个段落以 ## 标题开头：
+1. 格式：严格按照以下结构输出，每个段落以 ## 标题开头，段落间用空行分隔
+
+2. 内容质量：
+   - 用具体的场景和细节描写，而非概括性叙述（"show, don't tell"）
+   - 每个阶段要有明确的事件、冲突或转折，不能只是流水账
+   - 人物的决定和行为要与其性格、背景一致
+   - 各阶段之间要有因果联系，形成连贯的人生轨迹
+
+3. 世界融合：
+   - 使用世界设定中的地名、组织、术语来增强代入感
+   - 角色的经历要与世界的权力结构、社会氛围相呼应
+   - 避免出现与世界设定矛盾的内容
+
+4. 序章特别要求：
+   - 这是冒险的开场白，要有画面感和氛围感
+   - 描写角色当前所处的场景、感官细节、内心状态
+   - 暗示即将到来的冒险或冲突，制造悬念
+   - 2-3段，不少于200字
+
+5. 人生阶段要求：
+   - 每个阶段描写2-3个关键事件
+   - 要有角色的成长、失去、或认知变化
+   - 阶段之间要自然衔接，体现时间流逝
+
+═══════════════════════════════════════
+【输出格式】
 
 ## 序章
-（描写角色当前所处的场景和氛围，作为冒险的开场白，2-3段）
+（冒险开场白，描写当前场景和氛围）
 
-${stagePrompts}
-
-注意：
-- 每个段落之间用空行分隔
-- 内容要与世界设定紧密关联
-- 要体现角色的性格和背景
-- 序章要有画面感和氛围感`;
+${stagePrompts}`;
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },
@@ -176,7 +213,13 @@ ${getWorldSetting()}
 ${getPlayerInfoBlock()}
 
 ${contextBlock}
-请只输出「${stageName}」的内容，不要输出标题标记，直接输出故事文本，1-2段。`;
+【写作要求】
+- 用具体的场景和细节描写，而非概括性叙述
+- 要有明确的事件、冲突或转折，不能流水账
+- 使用世界设定中的地名、组织、术语增强代入感
+- 与前后阶段自然衔接
+
+请只输出「${stageName}」的内容，不要输出标题标记，直接输出故事文本，2-3段。`;
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },
@@ -209,8 +252,18 @@ ${contextBlock}
     return order.map(id => (segments[id] || '').trim()).filter(Boolean).join('\n\n');
   }, [segments, personalInfo.age]);
 
-  // 清理
-  const cleanup = () => { abortRef.current?.abort(); };
+  // 清理（开始游戏或离开向导时调用）
+  const cleanup = () => {
+    abortRef.current?.abort();
+    // 将当前 segments 保存到缓存，以便重新进入步骤3时恢复
+    _segmentsCache = { ...segmentsRef.current };
+  };
+
+  // 开始游戏时清理缓存
+  const clearCacheAndCleanup = () => {
+    abortRef.current?.abort();
+    _segmentsCache = null;
+  };
 
   return {
     segments, setSegments,
@@ -219,5 +272,6 @@ ${contextBlock}
     handleRegenerateSegment,
     buildFullCharacterHistory,
     cleanup,
+    clearCacheAndCleanup,
   };
 }

@@ -115,12 +115,12 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
       icon: <ArrowLeftToLine size={14} />,
       action: () => onResendFromHere(message.id),
     }] : []),
-    {
+    ...(isUser ? [{
       label: '删除消息',
       icon: <Trash2 size={14} />,
       action: () => onDelete(message.id),
       danger: true,
-    },
+    }] : []),
   ];
 
   return (
@@ -267,41 +267,6 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
         )}
 
         {/* 悬停操作按钮 */}
-        {!isUser && !message.streaming && !editing && (
-          <div style={{
-            position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            display: 'flex',
-            gap: '4px',
-            opacity: 0,
-            transition: 'opacity 0.2s',
-          }}
-          className="msg-actions"
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(message.id);
-              }}
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                border: 'none',
-                background: 'var(--danger)',
-                color: '#fff',
-                fontSize: 'var(--font-size-md)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >×</button>
-          </div>
-        )}
       </div>
 
       {/* 右键菜单 */}

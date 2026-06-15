@@ -121,8 +121,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         timestamp: Date.now(),
         messages: optimized,
         gameState: eng.variableManager.getState(),
-        apiConfig: useConfigStore.getState().apiConfig,
-        apiMode: useConfigStore.getState().apiMode,
         worldId: s.selectedWorld,
         personalInfo: s.personalInfo ?? undefined,
         characterHistory: s.characterHistory || undefined,
@@ -181,8 +179,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // 开发环境暴露（调试用）
   useEffect(() => {
-    (window as any).__engine = engine;
-    return () => { delete (window as any).__engine; };
+    if (process.env.NODE_ENV !== 'production') {
+      (window as any).__engine = engine;
+      return () => { delete (window as any).__engine; };
+    }
   }, [engine]);
 
   return (

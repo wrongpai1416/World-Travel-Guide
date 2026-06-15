@@ -11,7 +11,6 @@ let currentInterval = 10000; // 默认 10 秒
  */
 export function setRateLimitInterval(intervalMs: number): void {
   currentInterval = Math.max(1000, Math.min(60000, intervalMs)); // 限制在 1-60 秒
-  console.log(`[限流] 间隔已更新为 ${currentInterval}ms`);
 }
 
 /**
@@ -28,14 +27,11 @@ export function getRateLimitInterval(): number {
 export async function waitForRateLimit(): Promise<void> {
   const now = Date.now();
   const timeSinceLastCall = now - lastCallTime;
-  console.log(`[限流] 检查: lastCallTime=${lastCallTime}, now=${now}, diff=${timeSinceLastCall}ms, interval=${currentInterval}ms`);
   if (timeSinceLastCall < currentInterval) {
     const waitTime = currentInterval - timeSinceLastCall;
-    console.log(`[限流] 等待 ${waitTime}ms`);
     await new Promise(resolve => setTimeout(resolve, waitTime));
   }
   lastCallTime = Date.now();
-  console.log(`[限流] 更新 lastCallTime=${lastCallTime}`);
 }
 
 /**

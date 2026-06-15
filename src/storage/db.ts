@@ -2,7 +2,6 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import type { ChatMessage } from '../engine/types';
 import type { GameState } from '../schema/variables';
-import type { ApiConfig } from '../api/types';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -17,25 +16,26 @@ interface CustomNpc {
   relationshipType: string;
   // 社会身份
   occupation: string;
-  faction: string;
   socialStatus: string;
   // 性格与内在
   personality: string;
   hiddenPersonality: string;
   currentThought: string;
-  // 外在与能力
+  // 外在
   appearance: string;
   currentOutfit: string;
-  specialAbility: string;
-  // 目标与创伤
+  // 状态
+  currentAction: string;
+  currentLocation: string;
+  currentState: string;
+  // 目标
   shortTermGoal: string;
   longTermGoal: string;
-  psychologicalTrauma: string;
-  // 价值观
-  likes: string;
-  dislikes: string;
-  // 背景
+  // 其他
   background: string;
+  chronicles: string[];
+  skillsList: Record<string, { 描述: string; 类型: string; 品质: string }>;
+  itemsList: Record<string, { 数量: number; 类型: string; 品质: string; 备注: string }>;
 }
 
 interface PlayerProfile {
@@ -80,8 +80,6 @@ interface GameSave {
   timestamp: number;
   messages: ChatMessage[];
   gameState: GameState;
-  apiConfig: ApiConfig | null;
-  apiMode: 'default' | 'auxiliary';
   worldId: string;
   personalInfo?: PlayerProfile;
   characterHistory?: string;
@@ -290,20 +288,14 @@ export function optimizeSnapshots(messages: ChatMessage[]): ChatMessage[] {
 
 // ─── 导出/导入 ────────────────────────────────────────
 
-/** 导出存档为 JSON Blob（去除敏感字段） */
+/** 导出存档为 JSON Blob（不包含 API 配置，API 是应用级设置） */
 export async function exportSave(saveId: string): Promise<Blob> {
   const save = await loadGame(saveId);
   if (!save) throw new Error('存档不存在');
 
-  // 去除 API key 等敏感信息
-  const sanitizedApiConfig = save.apiConfig ? {
-    ...save.apiConfig,
-    apiKey: '',
-  } : null;
-
   const exportData = {
     type: 'chuanyue-save',
-    version: '1.0',
+    version: '2.0',
     exportedAt: Date.now(),
     save: {
       id: save.id,
@@ -311,8 +303,6 @@ export async function exportSave(saveId: string): Promise<Blob> {
       timestamp: save.timestamp,
       messages: save.messages,
       gameState: save.gameState,
-      apiConfig: sanitizedApiConfig,
-      apiMode: save.apiMode,
       worldId: save.worldId,
       personalInfo: save.personalInfo,
       characterHistory: save.characterHistory,
@@ -367,8 +357,6 @@ export async function importSaveFromData(rawData: any): Promise<SaveMeta> {
     timestamp: finalTimestamp,
     messages: Array.isArray(payload.messages) ? payload.messages : [],
     gameState: payload.gameState || {},
-    apiConfig: payload.apiConfig || null,
-    apiMode: payload.apiMode || 'default',
     worldId: payload.worldId || 'default',
     personalInfo: payload.personalInfo || undefined,
     characterHistory: payload.characterHistory || undefined,

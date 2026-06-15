@@ -182,28 +182,25 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       n.生存状态 = { 血量: 100, 体力值: 100 };
     }
     if (!n.社会身份 || typeof n.社会身份 !== 'object') {
-      n.社会身份 = { 职业: '未知', 所属势力: '无', 社会地位: '普通' };
+      n.社会身份 = { 职业: '未知', 社会地位: '普通' };
     } else {
       if (n.社会身份.职业 === undefined || n.社会身份.职业 === '') n.社会身份.职业 = '未知';
-      if (n.社会身份.所属势力 === undefined || n.社会身份.所属势力 === '') n.社会身份.所属势力 = '无';
       if (n.社会身份.社会地位 === undefined || n.社会身份.社会地位 === '') n.社会身份.社会地位 = '普通';
     }
     if (!n.关系数据 || typeof n.关系数据 !== 'object') {
-      n.关系数据 = { 好感度: 0, 信任度: 0, 关系类型: '陌生人', 印象标签: [], 核心锚点: [] };
+      n.关系数据 = { 好感度: 0, 关系类型: '陌生人', 印象标签: [], 核心锚点: [] };
     } else {
       if (!Array.isArray(n.关系数据.印象标签)) n.关系数据.印象标签 = [];
       if (!Array.isArray(n.关系数据.核心锚点)) n.关系数据.核心锚点 = [];
       if (typeof n.关系数据.好感度 !== 'number') n.关系数据.好感度 = 0;
-      if (typeof n.关系数据.信任度 !== 'number') n.关系数据.信任度 = 0;
     }
     if (!n.个人信息 || typeof n.个人信息 !== 'object') {
       n.个人信息 = {
         外貌: '未知', 表性格: '未知', 里性格: '未知',
-        当前想法: '暂无', 特殊能力: '无', 当前穿着: '未知', 当前位置: '未知', 当前状态: '未知',
+        当前想法: '暂无', 当前穿着: '未知', 当前位置: '未知', 当前状态: '未知',
         备注: '',
       };
     } else {
-      // 补全空字符串字段为有意义的默认值（仅补全有 UI 显示的字段）
       if (n.个人信息.外貌 === '') n.个人信息.外貌 = '未知';
       if (n.个人信息.表性格 === '') n.个人信息.表性格 = '未知';
       if (n.个人信息.里性格 === '') n.个人信息.里性格 = '未知';
@@ -211,7 +208,6 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       if (n.个人信息.当前状态 === '') n.个人信息.当前状态 = '未知';
       if (n.个人信息.当前穿着 === '') n.个人信息.当前穿着 = '未知';
       if (n.个人信息.当前位置 === '') n.个人信息.当前位置 = '未知';
-      if (n.个人信息.特殊能力 === '') n.个人信息.特殊能力 = '无';
     }
     if (!n.交互记忆 || typeof n.交互记忆 !== 'object') {
       n.交互记忆 = { 未完成约定: [], 共同秘密: [], 赠礼记录: [] };
@@ -220,11 +216,8 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       if (!Array.isArray(n.交互记忆.共同秘密)) n.交互记忆.共同秘密 = [];
       if (!Array.isArray(n.交互记忆.赠礼记录)) n.交互记忆.赠礼记录 = [];
     }
-    if (!Array.isArray(n.近期事件)) n.近期事件 = [];
     if (!Array.isArray(n.重要经历)) n.重要经历 = [];
     if (n.重要NPC === undefined) n.重要NPC = false;
-    if (n.婚姻状态 === undefined || n.婚姻状态 === '') n.婚姻状态 = '未知';
-    if (n.联系方式 === undefined || n.联系方式 === '') n.联系方式 = '无';
   }
 }
 
@@ -314,7 +307,6 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   const job = String(sj.职业 ?? '').trim() || '未知';
   const rd = n.关系数据 ?? {};
   const favor = rd.好感度 ?? '';
-  const trust = rd.信任度 ?? '';
   const relationType = String(rd.关系类型 ?? '').trim();
   const pi = n.个人信息 ?? {};
   const ext = n;
@@ -332,7 +324,6 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   // 关系
   const relationParts = [];
   if (favor !== '' && favor !== undefined) relationParts.push(`好感度:${favor}`);
-  if (trust !== '' && trust !== undefined) relationParts.push(`信任度:${trust}`);
   if (relationType) relationParts.push(`关系:${relationType}`);
   if (relationParts.length > 0) lines.push(`> 关系: ${relationParts.join(', ')}`);
 

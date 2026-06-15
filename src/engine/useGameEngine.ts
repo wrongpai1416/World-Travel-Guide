@@ -44,6 +44,8 @@ export function useGameEngine(
   const roundRef = useRef(0);
   const worldBookRef = useRef<WorldBookManager | null>(null);
   const initializedRef = useRef(false);
+  // 全局初始快照（参考项目的 initialSnapshot，用于回滚兜底）
+  const initialSnapshotRef = useRef<unknown>(null);
   // 从 sessionStorage 恢复最后一轮管线状态
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(() => {
     try {
@@ -98,8 +100,53 @@ export function useGameEngine(
     setMessages(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
   }, []);
 
+  // 删除消息：级联删除 + 回滚状态（用户消息连同后面的AI消息一起删）
   const deleteSingleMessage = useCallback((id: string) => {
-    setMessages(prev => prev.filter(m => m.id !== id));
+    const currentMessages = messagesRef.current;
+    const idx = currentMessages.findIndex(m => m.id === id);
+    if (idx === -1) return;
+    const msg = currentMessages[idx];
+
+    // 确定要回滚到的用户消息索引
+    let userIdx = idx;
+    if (msg.role === 'assistant') {
+      for (let i = idx - 1; i >= 0; i--) {
+        if (currentMessages[i].role === 'user') { userIdx = i; break; }
+      }
+    }
+    if (userIdx < 0 || currentMessages[userIdx]?.role !== 'user') return;
+
+    // 回滚变量状态：从 userIdx-1 向前找最近的 snapshot，找不到则用全局初始快照
+    let restored = false;
+    for (let i = userIdx - 1; i >= 0; i--) {
+      if (currentMessages[i].snapshot) {
+        varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
+        restored = true;
+        break;
+      }
+    }
+    if (!restored && initialSnapshotRef.current) {
+      varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
+    }
+
+    // 回滚记忆系统
+    const memStore = useMemoryStore.getState();
+    for (let i = userIdx - 1; i >= 0; i--) {
+      if (currentMessages[i].memoryCheckpointId) {
+        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
+        break;
+      }
+    }
+    memStore.setCompiledContext(null);
+    memStore.setRuntimeFlow(null);
+    memStore.setRetrievePlan(null);
+
+    // 截断到用户消息（不含），删除用户消息及之后所有消息
+    setMessages(prev => {
+      const truncated = prev.slice(0, userIdx);
+      messagesRef.current = truncated;
+      return truncated;
+    });
   }, []);
 
   const editMessage = useCallback((id: string, content: string) => {
@@ -114,11 +161,20 @@ export function useGameEngine(
     const msg = currentMessages[idx];
     if (!msg || msg.role !== 'user') return;
 
-    // 回滚变量状态：从 idx-1 向前找最近的 snapshot
+    // 回滚变量状态：从 idx-1 向前找最近的 snapshot，找不到则用全局初始快照
+    let restored = false;
     for (let i = idx - 1; i >= 0; i--) {
       if (currentMessages[i].snapshot) {
         varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
+        restored = true;
         break;
+      }
+    }
+    if (!restored) {
+      if (initialSnapshotRef.current) {
+        varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
+      } else {
+        console.log('[回滚] 没有找到任何快照！');
       }
     }
 
@@ -134,6 +190,7 @@ export function useGameEngine(
     memStore.setRuntimeFlow(null);
     memStore.setRetrievePlan(null);
 
+    // 截断到用户消息（不含），重新发送（参考项目的 splice + push + generateResponse）
     setMessages(prev => {
       const truncated = prev.slice(0, idx);
       messagesRef.current = truncated;
@@ -162,12 +219,17 @@ export function useGameEngine(
     if (userIdx === -1) return;
     const userMsg = currentMessages[userIdx];
 
-    // 回滚变量状态：从 userIdx-1 向前找最近的 snapshot
+    // 回滚变量状态：从 userIdx-1 向前找最近的 snapshot，找不到则用全局初始快照
+    let restored = false;
     for (let i = userIdx - 1; i >= 0; i--) {
       if (currentMessages[i].snapshot) {
         varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
+        restored = true;
         break;
       }
+    }
+    if (!restored && initialSnapshotRef.current) {
+      varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
     }
 
     // 回滚记忆系统：从 userIdx-1 向前找最近的 memoryCheckpointId
@@ -197,6 +259,13 @@ export function useGameEngine(
   const loadSave = useCallback((save: GameSave) => {
     setMessages(save.messages);
     varMgrRef.current = VariableManager.fromJSON({ state: save.gameState });
+    // 恢复全局初始快照：优先从第一条消息的 snapshot 获取，否则用存档的 gameState
+    const firstMsg = save.messages.find(m => m.snapshot);
+    if (firstMsg?.snapshot) {
+      initialSnapshotRef.current = firstMsg.snapshot;
+    } else {
+      initialSnapshotRef.current = varMgrRef.current.createSnapshot();
+    }
     roundRef.current = save.messages.length > 0
       ? Math.max(...save.messages.map(m => m.round))
       : 0;
@@ -567,43 +636,40 @@ ${perspectiveInstruction}
         生存状态: { 血量: 100, 体力值: 100 },
         社会身份: {
           职业: npc.occupation || '',
-          所属势力: npc.faction || '',
           社会地位: npc.socialStatus || '',
         },
         关系数据: {
-          好感度: 50, 信任度: 50,
+          好感度: 50,
           关系类型: npc.relationshipType || '同伴',
           印象标签: [], 核心锚点: [],
         },
         个人信息: {
-          价值观: {
-            喜好: npc.likes ? npc.likes.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [],
-            厌恶: npc.dislikes ? npc.dislikes.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [],
-            雷区: '',
-          },
-          执念与目标: npc.longTermGoal || '',
-          心理创伤: npc.psychologicalTrauma || '',
           外貌: npc.appearance || '',
           表性格: npc.personality || '',
           里性格: npc.hiddenPersonality || '',
           当前想法: npc.currentThought || '',
-          特殊能力: npc.specialAbility || '',
           当前穿着: npc.currentOutfit || '',
-          当前位置: '', 当前状态: '',
-          持有物品: '', 过往经历: [], 备注: '',
+          当前位置: npc.currentLocation || '',
+          当前状态: npc.currentState || '',
+          备注: '',
         },
         交互记忆: { 未完成约定: [], 共同秘密: [], 赠礼记录: [] },
         重要NPC: true,
         _关注: true,
-        婚姻状态: '', 联系方式: '',
-        近期事件: [], 重要经历: [],
+        重要经历: [],
         $time: Date.now(),
         人物分类: '在场',
+        当前行动: npc.currentAction || '',
         短期目标: npc.shortTermGoal || '',
         长期目标: npc.longTermGoal || '',
+        人物事迹: npc.chronicles || [],
+        技能列表: npc.skillsList || {},
+        物品列表: npc.itemsList || {},
       };
     }
     varMgrRef.current.setState(state);
+    // 更新全局初始快照（此时包含玩家数据和NPC，NPC事迹为空）
+    initialSnapshotRef.current = varMgrRef.current.createSnapshot();
   }, []);
 
   return {
@@ -655,7 +721,6 @@ async function callMemoryAI(
   // 限流保护
   await waitForRateLimit();
 
-  console.log('[记忆AI] 调用开始', { model: apiConfig.model });
   try {
     // 非流式调用，加大超时到 120 秒
     const result = await withTimeout(
@@ -667,7 +732,6 @@ async function callMemoryAI(
       timeoutMs,
       '记忆AI调用',
     );
-    console.log('[记忆AI] 调用成功', { length: result.text?.length });
     return result.text;
   } catch (err) {
     console.error('[记忆AI] 调用失败:', err);
@@ -685,7 +749,6 @@ async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipelineCont
   const maxAttempts = retryCount + 1;
 
   memStore.setLoading(true, '正在写入叙事记忆...');
-  console.log('[记忆写入] 开始, floor:', ctx.floor, 'maxAttempts:', maxAttempts);
 
   let lastError: Error | null = null;
 
@@ -700,13 +763,6 @@ async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipelineCont
 
         const rawResult = await callMemoryAI(ctx.writeApiConfig ?? ctx.apiConfig, prompt, '请分析上述剧情并输出结构化叙事记忆 JSON。');
         const parsed = parseNarrativePayload(rawResult);
-        console.log('[记忆写入] AI 返回解析结果:', {
-          attempt,
-          hasScenePatch: !!parsed.scenePatch,
-          threadCount: Array.isArray(parsed.threadUpserts) ? parsed.threadUpserts.length : 0,
-          eventCount: Array.isArray(parsed.eventCandidates) ? parsed.eventCandidates.length : 0,
-          entityCount: Array.isArray(parsed.entityPatches) ? parsed.entityPatches.length : 0,
-        });
 
         // 冲突裁决
         if (memStore.config.writePipeline.conflictJudgeEnabled) {
@@ -732,12 +788,6 @@ async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipelineCont
 
         applyIngestToRuntime(runtime, parsed);
         memStore.bumpRuntimeVersion();
-        console.log('[记忆写入] 完成, 运行态:', {
-          scene: !!runtime.sceneAnchor,
-          threads: runtime.activeThreads.length,
-          events: runtime.eventCards.length,
-          entities: runtime.entityCards.length,
-        });
         memStore.appendWriteDebugLog({ kind: 'ingest', message: '写入完成', sourceStartIndex: ctx.floor, sourceEndIndex: ctx.floor });
         return; // 成功，退出
       } catch (err: unknown) {
@@ -790,7 +840,6 @@ async function executeMemorySummary(memStore: MemoryStore, ctx: MemoryPipelineCo
           summaryData: { otherCharacterMemories: parsed.otherCharacterMemories, playerMemories: parsed.playerMemories, itemMemories: parsed.itemMemories },
         });
         memStore.bumpRuntimeVersion();
-        console.log('[摘要保存] 完成, attempt:', attempt);
         return; // 成功，退出
       } catch (err: unknown) {
         lastError = err instanceof Error ? err : new Error(String(err));
@@ -861,7 +910,6 @@ async function executeMemoryQueryRewrite(memStore: MemoryStore, ctx: MemoryPipel
     const qrResult = parseVectorQueryRewriteResult(qrRaw);
     ctx._retrievalKeywords = qrResult.retrievalKeywords;
     ctx._semanticQuery = qrResult.semanticQuery || ctx.inputText;
-    console.log('[查询改写] 完成, 关键词:', ctx._retrievalKeywords.length, '个');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '查询改写失败';
     console.warn('[查询改写] 失败:', message);
@@ -878,7 +926,6 @@ async function executeMemoryRetrievePlan(memStore: MemoryStore, ctx: MemoryPipel
   const runtime = memStore.getMemoryRuntime();
   const allMemories = collectAllMemoriesFromRuntime(runtime);
   if (allMemories.length === 0) {
-    console.log('[检索规划] 无记忆可检索, 跳过');
     return;
   }
 
@@ -907,7 +954,6 @@ async function executeMemoryRetrievePlan(memStore: MemoryStore, ctx: MemoryPipel
     ctx._finalSelectedTitles = [...plannerResult.items.map(i => i.title)];
     ctx._candidateList = candidateList;
     ctx._allMemories = allMemories;
-    console.log('[检索规划] 完成, 选中:', ctx._finalSelectedTitles.length, '条');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '检索规划失败';
     console.warn('[检索规划] 失败:', message);
@@ -961,7 +1007,6 @@ async function executeMemoryMultiRound(memStore: MemoryStore, ctx: MemoryPipelin
         if (!ctx._finalSelectedTitles) ctx._finalSelectedTitles = [];
         ctx._finalSelectedTitles.push(...multiTitles);
         previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
-        console.log(`[多轮补充] 第 ${round} 轮, 新增 ${multiTitles.length} 条`);
       } catch {
         break;
       }
@@ -979,15 +1024,12 @@ async function executeMemoryMultiRound(memStore: MemoryStore, ctx: MemoryPipelin
 async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
   const rConfig = memStore.config.retrieval;
   if (!rConfig.useRerank) {
-    console.log('[精排] 跳过，useRerank 未启用');
     return;
   }
 
   const allMemories = ctx._allMemories || collectAllMemoriesFromRuntime(memStore.getMemoryRuntime());
   const finalSelectedTitles = ctx._finalSelectedTitles || [];
-  console.log('[精排] 检查条件:', { allMemoriesCount: allMemories.length, selectedTitlesCount: finalSelectedTitles.length });
   if (allMemories.length === 0 || finalSelectedTitles.length === 0) {
-    console.log('[精排] 跳过，无记忆或无选中标题');
     return;
   }
 
@@ -1017,7 +1059,6 @@ async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipelineCon
       .map(({ entry }) => entry);
 
     ctx._selectedEntries = sortedEntries;
-    console.log('[精排] 完成, 排序后:', sortedEntries.length, '条');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '精排失败';
     console.warn('[精排] 失败:', message);
@@ -1037,7 +1078,6 @@ async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: MemoryP
   const runtime = memStore.getMemoryRuntime();
   const allMemories = collectAllMemoriesFromRuntime(runtime);
   const rConfig = memStore.config.retrieval;
-  console.log('[检索收尾] 开始, 已有记忆:', allMemories.length, '条, 选中标题:', ctx._finalSelectedTitles?.length ?? 0, '条');
   memStore.setLoading(true, '正在检索收尾...');
 
   try {
@@ -1079,7 +1119,6 @@ async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: MemoryP
       selectedModes: deduped.map(() => 'keyword_hit'),
       strategy: `AI规划 ${ctx._plannerResult?.items.length ?? 0} 条 + 关键词补充 ${keywordSelected.length} 条 → ${deduped.length} 条`,
     });
-    console.log('[检索收尾] 完成, 最终:', deduped.length, '条');
   } finally {
     memStore.setLoading(false);
   }
@@ -1089,7 +1128,6 @@ async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: MemoryP
 
 async function executeMemoryCompile(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
   const entries = ctx._selectedEntries ?? [];
-  console.log('[记忆编译] 开始, 选中条目:', entries.length);
 
   const runtime = memStore.getMemoryRuntime();
   const parts: string[] = [];

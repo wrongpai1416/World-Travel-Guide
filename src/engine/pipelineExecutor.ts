@@ -62,7 +62,6 @@ export class PipelineExecutor {
 
   private updateStage(taskId: PipelineTaskId, updates: Partial<PipelineStageResult>) {
     this.status.stages[taskId] = { ...this.status.stages[taskId], ...updates };
-    console.log(`[管线] ${taskId} → ${updates.status || this.status.stages[taskId].status}`, updates);
     this.onUpdate();
   }
 

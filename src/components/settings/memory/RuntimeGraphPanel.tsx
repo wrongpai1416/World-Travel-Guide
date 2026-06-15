@@ -108,12 +108,6 @@ export function RuntimeGraphPanel({
       retrieveLogs: rt?.retrieveDebugLogs ?? [],
       compileLogs: rt?.compileDebugLogs ?? [],
     });
-    console.log('[RuntimeGraphPanel] graphPayload:', {
-      tabKey: activeTab,
-      hasRt: !!rt,
-      definitionLength: payload?.definition?.length,
-      definitionPreview: payload?.definition?.substring(0, 100),
-    });
     return payload;
   }, [rt, vectorMemory, activeTab, search]);
 

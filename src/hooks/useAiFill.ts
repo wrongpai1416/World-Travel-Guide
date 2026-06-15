@@ -85,15 +85,17 @@ export function useAiFill({
           if (n.name) filledNpcs.push({
             id: uuid(), name: n.name, gender: n.gender || '', age: n.age || '',
             race: n.race || '', relationshipType: n.relationship || '',
-            occupation: n.occupation || '', faction: n.faction || '', socialStatus: n.socialStatus || '',
+            occupation: n.occupation || '', socialStatus: n.socialStatus || '',
             personality: n.personality || '', hiddenPersonality: n.hiddenPersonality || '',
             currentThought: n.currentThought || '',
             appearance: n.appearance || '', currentOutfit: n.currentOutfit || '',
-            specialAbility: n.specialAbility || '',
+            currentAction: n.currentAction || '', currentLocation: n.currentLocation || '',
+            currentState: n.currentState || '',
             shortTermGoal: n.shortTermGoal || '', longTermGoal: n.longTermGoal || '',
-            psychologicalTrauma: n.psychologicalTrauma || '',
-            likes: n.likes || '', dislikes: n.dislikes || '',
             background: n.background || '',
+            chronicles: Array.isArray(n.chronicles) ? n.chronicles : [],
+            skillsList: n.skillsList && typeof n.skillsList === 'object' ? n.skillsList : {},
+            itemsList: n.itemsList && typeof n.itemsList === 'object' ? n.itemsList : {},
           });
         }
       }

@@ -10,6 +10,7 @@ import Avatar from '../../shared/Avatar';
 import EmptyState from '../../shared/EmptyState';
 import type { GameState, NPCData } from '../../../schema/variables';
 import { ExcelRow } from '../../shared/ExcelRow';
+import { getQualityColor } from '../../shared/qualityUtils';
 
 interface Props {
   gameState: GameState;
@@ -54,10 +55,9 @@ function GaugeBar({ value, color }: { value: number; color: string }) {
 
 // NPC 卡片
 function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () => void }) {
-  const rd = npc.关系数据 ?? { 好感度: 0, 信任度: 0, 关系类型: '未知', 印象标签: [], 核心锚点: [] };
-  const sj = npc.社会身份 ?? { 职业: '', 所属势力: '', 社会地位: '' };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 印象标签: [], 核心锚点: [] };
+  const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const fav = favorClass(rd.好感度);
-  const tru = favorClass(rd.信任度);
   const cat = categoryStyle(npc.人物分类);
   return (
     <div
@@ -88,20 +88,12 @@ function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () =
         </div>
       </div>
       {/* 好感度 */}
-      <div style={{ marginBottom: '4px' }}>
+      <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)', marginBottom: '2px' }}>
           <span style={{ color: 'var(--text-muted)' }}>好感度</span>
           <span style={{ color: fav.color, fontWeight: '500' }}>{rd.好感度}</span>
         </div>
         <GaugeBar value={rd.好感度} color={fav.color} />
-      </div>
-      {/* 信任度 */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)', marginBottom: '2px' }}>
-          <span style={{ color: 'var(--text-muted)' }}>信任度</span>
-          <span style={{ color: tru.color, fontWeight: '500' }}>{rd.信任度}</span>
-        </div>
-        <GaugeBar value={rd.信任度} color={tru.color} />
       </div>
     </div>
   );
@@ -145,6 +137,8 @@ function RecordGrid({ data, label }: { data: Record<string, unknown> | undefined
 
 // 列表渲染（string[] 或 Record）
 function ListOrRecord({ data, emptyText }: { data: string[] | Record<string, unknown> | undefined; emptyText?: string }) {
+  const [selected, setSelected] = useState<{ name: string; fields: [string, string][] } | null>(null);
+
   if (!data) return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>{emptyText || '无'}</span>;
   if (Array.isArray(data)) {
     if (data.length === 0) return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>{emptyText || '无'}</span>;
@@ -159,18 +153,213 @@ function ListOrRecord({ data, emptyText }: { data: string[] | Record<string, unk
   if (typeof data === 'object') {
     const entries = Object.entries(data);
     if (entries.length === 0) return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>{emptyText || '无'}</span>;
+
+    // 提取所有可展示的字段
+    const extractFields = (obj: Record<string, unknown>): [string, string][] => {
+      return Object.entries(obj)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([fk, fv]) => [fk, typeof fv === 'object' ? JSON.stringify(fv) : String(fv)]);
+    };
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        {entries.map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-size-sm)' }}>
-            <span style={{ width: '100px', color: 'var(--text-muted)', flexShrink: 0, fontSize: 'var(--font-size-sm)' }}>{k}</span>
-            <span>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+      <>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
+          {entries.map(([k, v]) => {
+            const isObject = typeof v === 'object' && v !== null;
+            const quality = isObject && (v as any).品质 ? (v as any).品质 as string : undefined;
+            const desc = isObject && (v as any).描述 ? (v as any).描述 as string : undefined;
+            const count = isObject && (v as any).数量 ? (v as any).数量 as number : undefined;
+            const qColor = quality ? getQualityColor(quality) : undefined;
+
+            return (
+              <div key={k} style={{
+                padding: '10px 12px',
+                border: `1px solid ${qColor ? qColor + '30' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-md)',
+                background: qColor ? `linear-gradient(135deg, ${qColor}08, ${qColor}03)` : 'var(--bg-primary)',
+                cursor: isObject ? 'pointer' : 'default',
+                transition: 'all 0.15s',
+              }}
+              onClick={() => {
+                if (isObject) setSelected({ name: k, fields: extractFields(v as Record<string, unknown>) });
+              }}
+              onMouseEnter={e => { if (isObject) { e.currentTarget.style.borderColor = qColor || 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={e => { if (isObject) { e.currentTarget.style.borderColor = qColor ? qColor + '30' : 'var(--border)'; e.currentTarget.style.transform = ''; } }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  {qColor && <span style={{ color: qColor, fontSize: '10px' }}>●</span>}
+                  <span style={{ fontWeight: '600', fontSize: 'var(--font-size-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
+                </div>
+                {count !== undefined && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>×{count}</div>}
+                {quality && <div style={{ fontSize: 'var(--font-size-xs)', color: qColor }}>{quality}</div>}
+                {desc && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{desc}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 详情弹窗 */}
+        {selected && (
+          <div
+            onClick={() => setSelected(null)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(2px)',
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)', padding: '20px', maxWidth: '360px', width: '90%',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <span style={{ fontWeight: '700', fontSize: 'var(--font-size-lg)' }}>{selected.name}</span>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '4px', lineHeight: 1 }}>✕</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {selected.fields.map(([fk, fv]) => (
+                  <div key={fk} style={{ display: 'flex', gap: '8px', fontSize: 'var(--font-size-sm)' }}>
+                    <span style={{ color: 'var(--text-muted)', minWidth: '56px', flexShrink: 0 }}>{fk}</span>
+                    <span style={{ color: 'var(--text-primary)', lineHeight: '1.5', wordBreak: 'break-all' }}>{fv}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
+        )}
+      </>
     );
   }
   return null;
+}
+
+// 物品背包网格 (6×8)
+function InventoryGrid({ data }: { data: Record<string, unknown> | undefined }) {
+  const [selected, setSelected] = useState<{ name: string; fields: [string, string][] } | null>(null);
+
+  const extractFields = (obj: Record<string, unknown>): [string, string][] => {
+    return Object.entries(obj)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([fk, fv]) => [fk, typeof fv === 'object' ? JSON.stringify(fv) : String(fv)]);
+  };
+
+  const entries = data ? Object.entries(data) : [];
+  const totalSlots = 48; // 6×8
+
+  return (
+    <>
+      <div className="inventory-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+        gap: '4px',
+      }}>
+        {Array.from({ length: totalSlots }).map((_, i) => {
+          const entry = entries[i];
+          if (entry) {
+            const [name, value] = entry;
+            const isObject = typeof value === 'object' && value !== null;
+            const quality = isObject && (value as any).品质 ? (value as any).品质 as string : undefined;
+            const count = isObject && (value as any).数量 ? (value as any).数量 as number : undefined;
+            const qColor = quality ? getQualityColor(quality) : 'var(--text-muted)';
+
+            return (
+              <div
+                key={name}
+                onClick={() => {
+                  if (isObject) setSelected({ name, fields: extractFields(value as Record<string, unknown>) });
+                }}
+                style={{
+                  aspectRatio: '1',
+                  padding: '6px 4px',
+                  border: `1px solid ${quality ? qColor + '40' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  background: quality ? `linear-gradient(135deg, ${qColor}08, ${qColor}03)` : 'var(--bg-primary)',
+                  cursor: isObject ? 'pointer' : 'default',
+                  transition: 'all 0.12s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  minWidth: 0,
+                }}
+                onMouseEnter={e => { if (isObject) e.currentTarget.style.borderColor = qColor; }}
+                onMouseLeave={e => { if (isObject) e.currentTarget.style.borderColor = quality ? qColor + '40' : 'var(--border)'; }}
+              >
+                {count && count > 1 && (
+                  <span style={{
+                    position: 'absolute', top: '2px', right: '3px',
+                    fontSize: '9px', fontWeight: '700', color: qColor,
+                    lineHeight: 1,
+                  }}>×{count}</span>
+                )}
+                <Backpack size={16} color={qColor} />
+                <div style={{
+                  fontSize: '9px', fontWeight: '500', marginTop: '2px',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center',
+                }}>{name}</div>
+              </div>
+            );
+          }
+          // 空格子
+          return (
+            <div
+              key={`empty-${i}`}
+              style={{
+                aspectRatio: '1',
+                border: '1px dashed var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-primary)',
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* 详情弹窗 */}
+      {selected && (
+        <div
+          onClick={() => setSelected(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderRadius: '16px', maxWidth: '340px', width: '92%', overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            }}
+          >
+            <div style={{
+              background: 'var(--bg-tertiary)', padding: '14px 18px',
+              borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontWeight: '700', fontSize: 'var(--font-size-lg)' }}>{selected.name}</span>
+              <button onClick={() => setSelected(null)} style={{
+                background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
+                width: '26px', height: '26px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
+            </div>
+            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {selected.fields.map(([fk, fv]) => (
+                <div key={fk} style={{ display: 'flex', gap: '8px', fontSize: 'var(--font-size-sm)' }}>
+                  <span style={{ color: 'var(--text-muted)', minWidth: '56px', flexShrink: 0 }}>{fk}</span>
+                  <span style={{ color: 'var(--text-primary)', lineHeight: '1.5', wordBreak: 'break-all' }}>{fv}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // 事迹弹窗组件
@@ -388,9 +577,9 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
   const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
-  const rd = npc.关系数据 ?? { 好感度: 0, 信任度: 0, 关系类型: '未知', 印象标签: [] as string[], 核心锚点: [] as any[] };
-  const sj = npc.社会身份 ?? { 职业: '', 所属势力: '', 社会地位: '' };
-  const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 特殊能力: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 印象标签: [] as string[], 核心锚点: [] as any[] };
+  const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
+  const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
   const _交互记忆 = npc.交互记忆 || {};
   const 交互记忆 = {
     未完成约定: Array.isArray(_交互记忆.未完成约定) ? _交互记忆.未完成约定 : [],
@@ -478,29 +667,15 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
                   <ExcelRow label="种族" value={npc.种族} />
                   <ExcelRow label="性别" value={npc.性别} />
                   <ExcelRow label="年龄" value={String(npc.年龄)} />
-                  <ExcelRow label="婚姻" value={npc.婚姻状态} />
-                  <ExcelRow label="联系方式" value={ext.联系方式} />
                 </Section>
 
                 <Section icon={BarChart3} title="关系数据">
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '2px' }}>好感度 {rd.好感度}</div>
-                      <GaugeBar value={rd.好感度} color={favorClass(rd.好感度).color} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '2px' }}>信任度 {rd.信任度}</div>
-                      <GaugeBar value={rd.信任度} color={favorClass(rd.信任度).color} />
-                    </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '2px' }}>好感度 {rd.好感度}</div>
+                    <GaugeBar value={rd.好感度} color={favorClass(rd.好感度).color} />
                   </div>
                   <ExcelRow label="关系类型" value={rd.关系类型} />
                 </Section>
-
-                {rd.印象标签.length > 0 && (
-                  <Section icon={Tag} title="印象标签">
-                    <TagList items={rd.印象标签} accent />
-                  </Section>
-                )}
 
                 {rd.核心锚点.length > 0 && (
                   <Section icon={Anchor} title="核心锚点">
@@ -611,9 +786,9 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
             {/* Tab 3: 技能列表 */}
             {tab === 'skills' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {pi.特殊能力 && (
+                {ext.特殊能力 && (
                   <Section icon={Sparkles} title="特殊能力">
-                    <div style={{ padding: '8px 10px', background: 'var(--accent-dim)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-base)', lineHeight: '1.5' }}>{pi.特殊能力}</div>
+                    <div style={{ padding: '8px 10px', background: 'var(--accent-dim)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-base)', lineHeight: '1.5' }}>{ext.特殊能力}</div>
                   </Section>
                 )}
 
@@ -635,18 +810,18 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
                   </Section>
                 )}
 
-                {!pi.特殊能力 && !ext.属性 && !ext.天赋 && !ext.技能列表 && (
+                {!ext.特殊能力 && !ext.属性 && !ext.天赋 && !ext.技能列表 && (
                   <EmptyState icon={Swords} message="暂无技能数据" />
                 )}
               </div>
             )}
 
-            {/* Tab 4: 物品列表 */}
+            {/* Tab 4: 物品列表 - 6×8 背包网格 */}
             {tab === 'items' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {ext.物品列表 && (
                   <Section icon={Backpack} title="物品列表">
-                    <ListOrRecord data={ext.物品列表} emptyText="暂无物品" />
+                    <InventoryGrid data={ext.物品列表} />
                   </Section>
                 )}
 

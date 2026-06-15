@@ -395,9 +395,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
                     );
                   };
 
-                  const recommended = await detectOptimalRateLimit(testCall, (msg) => {
-                    console.log('[限流调试]', msg);
-                  });
+                  const recommended = await detectOptimalRateLimit(testCall);
 
                   set('rateLimitMs', recommended);
                 }}

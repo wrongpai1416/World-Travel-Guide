@@ -230,7 +230,6 @@ export function MermaidGraphPanel({
       try {
         ensureMermaidInit();
         const id = `mermaid-graph-${currentId}-${Date.now()}`;
-        console.log('[MermaidGraphPanel] 开始渲染, id:', id);
         const { svg } = await mermaid.render(id, graphDefinition);
 
         if (!cancelled) {
@@ -253,7 +252,6 @@ export function MermaidGraphPanel({
 
               const metrics = getGraphMetrics();
               setGraphSize(metrics);
-              console.log('[MermaidGraphPanel] SVG 尺寸:', metrics);
             }
           }
         }

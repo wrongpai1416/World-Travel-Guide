@@ -52,11 +52,18 @@ export default function StepPersonalInfo({
   const removeSkill = (name: string) => {
     const next = { ...personalInfo.initialSkills }; delete next[name]; set('initialSkills', next);
   };
-  const updateSkill = (oldName: string, newName: string, field: keyof SkillData, value: string) => {
+  const updateSkillField = (name: string, field: keyof SkillData, value: string) => {
+    const next = { ...personalInfo.initialSkills };
+    const skill = next[name]; if (!skill) return;
+    next[name] = { ...skill, [field]: value };
+    set('initialSkills', next);
+  };
+  const renameSkill = (oldName: string, newName: string) => {
+    if (oldName === newName) return;
     const next = { ...personalInfo.initialSkills };
     const skill = next[oldName]; if (!skill) return;
-    const updated = { ...skill, [field]: value };
-    if (oldName !== newName) { delete next[oldName]; next[newName] = updated; } else { next[oldName] = updated; }
+    delete next[oldName];
+    next[newName] = skill;
     set('initialSkills', next);
   };
 
@@ -68,11 +75,18 @@ export default function StepPersonalInfo({
   const removeItem = (name: string) => {
     const next = { ...personalInfo.initialItems }; delete next[name]; set('initialItems', next);
   };
-  const updateItem = (oldName: string, newName: string, field: keyof InventoryItem, value: any) => {
+  const updateItemField = (name: string, field: keyof InventoryItem, value: any) => {
+    const next = { ...personalInfo.initialItems };
+    const item = next[name]; if (!item) return;
+    next[name] = { ...item, [field]: field === '数量' ? Number(value) || 1 : value };
+    set('initialItems', next);
+  };
+  const renameItem = (oldName: string, newName: string) => {
+    if (oldName === newName) return;
     const next = { ...personalInfo.initialItems };
     const item = next[oldName]; if (!item) return;
-    const updated = { ...item, [field]: field === '数量' ? Number(value) || 1 : value };
-    if (oldName !== newName) { delete next[oldName]; next[newName] = updated; } else { next[oldName] = updated; }
+    delete next[oldName];
+    next[newName] = item;
     set('initialItems', next);
   };
 
@@ -191,11 +205,11 @@ export default function StepPersonalInfo({
               {Object.entries(personalInfo.initialSkills).map(([name, skill]) => (
                 <div key={name} className="world-dynamic-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
-                    <input type="text" value={name} onChange={e => updateSkill(name, e.target.value, '描述', skill.描述)} placeholder="技能名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
-                    <select value={skill.品质} onChange={e => updateSkill(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
+                    <input type="text" defaultValue={name} onBlur={e => renameSkill(name, e.target.value)} placeholder="技能名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
+                    <select value={skill.品质} onChange={e => updateSkillField(name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
                       {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
                     </select>
-                    <input type="text" value={skill.描述} onChange={e => updateSkill(name, name, '描述', e.target.value)} placeholder="技能描述..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
+                    <input type="text" value={skill.描述} onChange={e => updateSkillField(name, '描述', e.target.value)} placeholder="技能描述..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
                   </div>
                   <button onClick={() => removeSkill(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0, alignSelf: 'flex-end' }}><Trash2 size={14} /></button>
                 </div>
@@ -209,14 +223,16 @@ export default function StepPersonalInfo({
             <div className="world-dynamic-list">
               {Object.entries(personalInfo.initialItems).map(([name, item]) => (
                 <div key={name} className="world-dynamic-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1 }}>
-                    <input type="text" value={name} onChange={e => updateItem(name, e.target.value, '备注', item.备注)} placeholder="物品名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
-                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      <input type="number" value={item.数量} onChange={e => updateItem(name, name, '数量', e.target.value)} min={1} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', width: '60px' }} />
-                      <select value={item.品质} onChange={e => updateItem(name, name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)', flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                    <input type="text" defaultValue={name} onBlur={e => renameItem(name, e.target.value)} placeholder="物品名称..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input type="number" value={item.数量} onChange={e => updateItemField(name, '数量', e.target.value)} min={1} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', width: '50px' }} placeholder="数量" />
+                      <select value={item.品质} onChange={e => updateItemField(name, '品质', e.target.value)} style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-secondary)', width: '70px' }}>
                         {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
                       </select>
+                      <input type="text" value={item.类型} onChange={e => updateItemField(name, '类型', e.target.value)} placeholder="类型(武器/防具/消耗品...)" style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px', flex: 1 }} />
                     </div>
+                    <input type="text" value={item.备注} onChange={e => updateItemField(name, '备注', e.target.value)} placeholder="备注(用途、来源等)..." style={{ fontSize: 'var(--font-size-base)', padding: '6px 8px' }} />
                   </div>
                   <button onClick={() => removeItem(name)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px', flexShrink: 0, alignSelf: 'flex-end' }}><Trash2 size={14} /></button>
                 </div>

@@ -13,12 +13,15 @@ interface Props {
 const emptyNpc = (): CustomNpc => ({
   id: uuid(),
   name: '', gender: '', age: '', race: '', relationshipType: '',
-  occupation: '', faction: '', socialStatus: '',
+  occupation: '', socialStatus: '',
   personality: '', hiddenPersonality: '', currentThought: '',
-  appearance: '', currentOutfit: '', specialAbility: '',
-  shortTermGoal: '', longTermGoal: '', psychologicalTrauma: '',
-  likes: '', dislikes: '',
+  appearance: '', currentOutfit: '',
+  currentAction: '', currentLocation: '', currentState: '',
+  shortTermGoal: '', longTermGoal: '',
   background: '',
+  chronicles: [],
+  skillsList: {},
+  itemsList: {},
 });
 
 /** 分组标题 */
@@ -92,16 +95,16 @@ export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
             <input type="text" value={npc.occupation} onChange={e => set('occupation', e.target.value)} placeholder="如: 剑士、商人..." />
           </div>
           <div className="form-group">
-            <label>所属势力</label>
-            <input type="text" value={npc.faction} onChange={e => set('faction', e.target.value)} placeholder="如: 王国骑士团..." />
-          </div>
-          <div className="form-group">
             <label>社会地位</label>
             <input type="text" value={npc.socialStatus} onChange={e => set('socialStatus', e.target.value)} placeholder="如: 贵族、平民..." />
           </div>
 
-          {/* ── 性格与内在 ── */}
-          <SectionTitle>性格与内在</SectionTitle>
+          {/* ── 外貌与性格 ── */}
+          <SectionTitle>外貌与性格</SectionTitle>
+          <div className="form-group">
+            <label>外貌</label>
+            <textarea value={npc.appearance} onChange={e => set('appearance', e.target.value)} placeholder="描述外貌特征..." rows={2} />
+          </div>
           <div className="form-group">
             <label>表性格</label>
             <textarea value={npc.personality} onChange={e => set('personality', e.target.value)} placeholder="外在表现的性格特征..." rows={2} />
@@ -110,28 +113,32 @@ export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
             <label>里性格</label>
             <textarea value={npc.hiddenPersonality} onChange={e => set('hiddenPersonality', e.target.value)} placeholder="隐藏的内心性格..." rows={2} />
           </div>
+
+          {/* ── 状态 ── */}
+          <SectionTitle>状态</SectionTitle>
+          <div className="form-group">
+            <label>穿着</label>
+            <textarea value={npc.currentOutfit} onChange={e => set('currentOutfit', e.target.value)} placeholder="描述穿着打扮..." rows={2} />
+          </div>
           <div className="form-group">
             <label>当前想法</label>
             <input type="text" value={npc.currentThought} onChange={e => set('currentThought', e.target.value)} placeholder="NPC此刻在想什么..." />
           </div>
-
-          {/* ── 外在与能力 ── */}
-          <SectionTitle>外在与能力</SectionTitle>
           <div className="form-group">
-            <label>外貌</label>
-            <textarea value={npc.appearance} onChange={e => set('appearance', e.target.value)} placeholder="描述外貌特征..." rows={2} />
+            <label>当前行动</label>
+            <input type="text" value={npc.currentAction} onChange={e => set('currentAction', e.target.value)} placeholder="NPC正在做什么..." />
           </div>
           <div className="form-group">
-            <label>当前穿着</label>
-            <textarea value={npc.currentOutfit} onChange={e => set('currentOutfit', e.target.value)} placeholder="描述穿着打扮..." rows={2} />
+            <label>当前位置</label>
+            <input type="text" value={npc.currentLocation} onChange={e => set('currentLocation', e.target.value)} placeholder="NPC在什么地方..." />
           </div>
           <div className="form-group">
-            <label>特殊能力</label>
-            <input type="text" value={npc.specialAbility} onChange={e => set('specialAbility', e.target.value)} placeholder="如: 火系魔法、剑术精通..." />
+            <label>当前状态</label>
+            <input type="text" value={npc.currentState} onChange={e => set('currentState', e.target.value)} placeholder="动作/表情/情绪..." />
           </div>
 
-          {/* ── 目标与创伤 ── */}
-          <SectionTitle>目标与创伤</SectionTitle>
+          {/* ── 目标 ── */}
+          <SectionTitle>目标</SectionTitle>
           <div className="form-group">
             <label>短期目标</label>
             <input type="text" value={npc.shortTermGoal} onChange={e => set('shortTermGoal', e.target.value)} placeholder="近期想做的事..." />
@@ -139,21 +146,6 @@ export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
           <div className="form-group">
             <label>长期目标</label>
             <input type="text" value={npc.longTermGoal} onChange={e => set('longTermGoal', e.target.value)} placeholder="人生追求..." />
-          </div>
-          <div className="form-group">
-            <label>心理创伤</label>
-            <textarea value={npc.psychologicalTrauma} onChange={e => set('psychologicalTrauma', e.target.value)} placeholder="过去的创伤经历..." rows={2} />
-          </div>
-
-          {/* ── 价值观 ── */}
-          <SectionTitle>价值观</SectionTitle>
-          <div className="form-group">
-            <label>喜好</label>
-            <input type="text" value={npc.likes} onChange={e => set('likes', e.target.value)} placeholder="逗号分隔，如: 甜食, 音乐..." />
-          </div>
-          <div className="form-group">
-            <label>厌恶</label>
-            <input type="text" value={npc.dislikes} onChange={e => set('dislikes', e.target.value)} placeholder="逗号分隔，如: 谎言, 暴力..." />
           </div>
 
           {/* ── 背景 ── */}

@@ -305,9 +305,15 @@ export async function requestStreamWithRetry(
 // 获取模型列表
 export async function fetchModels(config: ApiConfig): Promise<string[]> {
   const base = config.baseUrl.replace(/\/+$/, '');
-  let url = `${base}/models`;
+  let url: string;
   if (config.provider === 'google') {
     url = `${base}/v1beta/models?key=${config.apiKey}`;
+  } else if (base.endsWith('/v1') || base.endsWith('/openai')) {
+    url = `${base}/models`;
+  } else if (base.endsWith('/v1/chat/completions')) {
+    url = base.replace(/\/chat\/completions$/, '/models');
+  } else {
+    url = `${base}/v1/models`;
   }
 
   const headers: Record<string, string> = {};
@@ -328,7 +334,11 @@ export async function testConnection(config: ApiConfig): Promise<{ success: bool
     const result = await requestCompletion(config, [{ role: 'user', content: 'Hi' }], { maxTokens: 5 });
     return { success: true, message: `连接成功 (${result.elapsed}ms)`, elapsed: result.elapsed };
   } catch (err: any) {
-    return { success: false, message: err.message, elapsed: 0 };
+    const msg = err?.message || '';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Network request failed')) {
+      return { success: false, message: '网络请求失败，可能是 CORS 跨域限制。部分中转站不允许浏览器直接调用，请确认该站点支持 CORS，或使用支持浏览器访问的 API 端点。', elapsed: 0 };
+    }
+    return { success: false, message: msg, elapsed: 0 };
   }
 }
 
