@@ -604,7 +604,7 @@ ${perspectiveInstruction}
           }
 
           updateMessage(aiMsgId, {
-            content: result.text || accumulated,
+            content: finalContent,
             thinking: parsed.thinking || reasoning || result.reasoning,
             actionOptions: parsed.actionOptions,
             summary: parsed.summary || undefined,

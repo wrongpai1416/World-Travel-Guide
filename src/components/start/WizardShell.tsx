@@ -29,7 +29,9 @@ interface WizardShellProps {
   personalInfo: PlayerProfile;
   setPersonalInfo: (info: PlayerProfile) => void;
   isFilling: boolean;
+  fillElapsed: number;
   onAiFill: () => void;
+  onCancelFill: () => void;
   // segments (Step 4)
   segments: Record<string, string>;
   setSegments: (s: Record<string, string>) => void;
@@ -59,7 +61,7 @@ export default function WizardShell({
   step, setStep, onBackToMenu, title, subtitle, t,
   selectedWorld, setSelectedWorld,
   allWorlds, createdWorlds, worldEntry,
-  personalInfo, setPersonalInfo, isFilling, onAiFill,
+  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill,
   segments, setSegments, isGenerating, regeneratingId,
   includeAgeStages, setIncludeAgeStages,
   hasApiConfig,
@@ -139,7 +141,7 @@ export default function WizardShell({
             {step === 2 && (
               <StepPersonalInfo
                 personalInfo={personalInfo} setPersonalInfo={setPersonalInfo}
-                isFilling={isFilling} onAiFill={onAiFill}
+                isFilling={isFilling} fillElapsed={fillElapsed} onAiFill={onAiFill} onCancelFill={onCancelFill}
                 hasApiConfig={hasApiConfig}
                 worldModules={allWorlds.find(w => w.id === selectedWorld)?.modules}
                 onNext={() => setStep(3)} onPrev={() => setStep(1)}

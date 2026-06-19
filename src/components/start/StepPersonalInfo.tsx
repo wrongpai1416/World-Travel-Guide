@@ -16,7 +16,9 @@ interface StepPersonalInfoProps {
   personalInfo: PlayerProfile;
   setPersonalInfo: (info: PlayerProfile) => void;
   isFilling: boolean;
+  fillElapsed: number;
   onAiFill: () => void;
+  onCancelFill: () => void;
   hasApiConfig: boolean;
   worldModules?: WorldModule[];
   onNext: () => void;
@@ -41,7 +43,7 @@ const RIGHT_TABS: Array<{ key: RightTab; label: string; icon: React.ReactNode }>
 ];
 
 export default function StepPersonalInfo({
-  personalInfo, setPersonalInfo, isFilling, onAiFill, hasApiConfig, worldModules, onNext, onPrev,
+  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill, hasApiConfig, worldModules, onNext, onPrev,
 }: StepPersonalInfoProps) {
   const [rightTab, setRightTab] = useState<RightTab>('identity');
   const [npcEditorOpen, setNpcEditorOpen] = useState(false);
@@ -180,7 +182,7 @@ export default function StepPersonalInfo({
                 disabled={isFilling || !personalInfo.name.trim()}
                 title="AI 补全所有信息"
               >
-                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中</> : <><Wand2 size={12} /> AI 补全</>}
+                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中{fillElapsed > 0 ? ` ${fillElapsed}s` : ''}</> : <><Wand2 size={12} /> AI 补全</>}
               </button>
             )}
           </div>

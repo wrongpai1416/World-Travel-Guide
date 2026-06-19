@@ -1,0 +1,153 @@
+diff --git a/src/components/start/StartScreen.tsx b/src/components/start/StartScreen.tsx
+index a738eba..b8a2bf0 100644
+--- a/src/components/start/StartScreen.tsx
++++ b/src/components/start/StartScreen.tsx
+@@ -47,7 +47,7 @@ export default function StartScreen() {
+         selectedWorld={h.selectedWorld} setSelectedWorld={h.setSelectedWorld}
+         allWorlds={h.allWorlds} createdWorlds={h.createdWorlds} worldEntry={h.worldEntry}
+         personalInfo={h.personalInfo} setPersonalInfo={h.setPersonalInfo}
+-        isFilling={h.isFilling} onAiFill={h.handleAiFill}
++        isFilling={h.isFilling} fillElapsed={h.fillElapsed} onAiFill={h.handleAiFill} onCancelFill={h.cancelFill}
+         segments={h.segments} setSegments={h.setSegments}
+         isGenerating={h.isGenerating} regeneratingId={h.regeneratingId}
+         includeAgeStages={h.includeAgeStages} setIncludeAgeStages={h.setIncludeAgeStages}
+diff --git a/src/components/start/StepPersonalInfo.tsx b/src/components/start/StepPersonalInfo.tsx
+index c9e1622..5bdaf4a 100644
+--- a/src/components/start/StepPersonalInfo.tsx
++++ b/src/components/start/StepPersonalInfo.tsx
+@@ -16,7 +16,9 @@ interface StepPersonalInfoProps {
+   personalInfo: PlayerProfile;
+   setPersonalInfo: (info: PlayerProfile) => void;
+   isFilling: boolean;
++  fillElapsed: number;
+   onAiFill: () => void;
++  onCancelFill: () => void;
+   hasApiConfig: boolean;
+   worldModules?: WorldModule[];
+   onNext: () => void;
+@@ -41,7 +43,7 @@ const RIGHT_TABS: Array<{ key: RightTab; label: string; icon: React.ReactNode }>
+ ];
+ 
+ export default function StepPersonalInfo({
+-  personalInfo, setPersonalInfo, isFilling, onAiFill, hasApiConfig, worldModules, onNext, onPrev,
++  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill, hasApiConfig, worldModules, onNext, onPrev,
+ }: StepPersonalInfoProps) {
+   const [rightTab, setRightTab] = useState<RightTab>('identity');
+   const [npcEditorOpen, setNpcEditorOpen] = useState(false);
+@@ -180,7 +182,7 @@ export default function StepPersonalInfo({
+                 disabled={isFilling || !personalInfo.name.trim()}
+                 title="AI 补全所有信息"
+               >
+-                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中</> : <><Wand2 size={12} /> AI 补全</>}
++                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中{fillElapsed > 0 ? ` ${fillElapsed}s` : ''}</> : <><Wand2 size={12} /> AI 补全</>}
+               </button>
+             )}
+           </div>
+diff --git a/src/components/start/WizardShell.tsx b/src/components/start/WizardShell.tsx
+index 4ab060e..564aa0b 100644
+--- a/src/components/start/WizardShell.tsx
++++ b/src/components/start/WizardShell.tsx
+@@ -29,7 +29,9 @@ interface WizardShellProps {
+   personalInfo: PlayerProfile;
+   setPersonalInfo: (info: PlayerProfile) => void;
+   isFilling: boolean;
++  fillElapsed: number;
+   onAiFill: () => void;
++  onCancelFill: () => void;
+   // segments (Step 4)
+   segments: Record<string, string>;
+   setSegments: (s: Record<string, string>) => void;
+@@ -59,7 +61,7 @@ export default function WizardShell({
+   step, setStep, onBackToMenu, title, subtitle, t,
+   selectedWorld, setSelectedWorld,
+   allWorlds, createdWorlds, worldEntry,
+-  personalInfo, setPersonalInfo, isFilling, onAiFill,
++  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill,
+   segments, setSegments, isGenerating, regeneratingId,
+   includeAgeStages, setIncludeAgeStages,
+   hasApiConfig,
+@@ -139,7 +141,7 @@ export default function WizardShell({
+             {step === 2 && (
+               <StepPersonalInfo
+                 personalInfo={personalInfo} setPersonalInfo={setPersonalInfo}
+-                isFilling={isFilling} onAiFill={onAiFill}
++                isFilling={isFilling} fillElapsed={fillElapsed} onAiFill={onAiFill} onCancelFill={onCancelFill}
+                 hasApiConfig={hasApiConfig}
+                 worldModules={allWorlds.find(w => w.id === selectedWorld)?.modules}
+                 onNext={() => setStep(3)} onPrev={() => setStep(1)}
+diff --git a/src/components/start/useStartScreen.ts b/src/components/start/useStartScreen.ts
+index 9254495..a5d49d1 100644
+--- a/src/components/start/useStartScreen.ts
++++ b/src/components/start/useStartScreen.ts
+@@ -367,7 +367,7 @@ export function useStartScreen() {
+     handleCancelWorldEditor: wizard.handleCancelWorldEditor,
+     handleImportWorld: wizard.handleImportWorld,
+     // ai fill
+-    isFilling: aiFill.isFilling, handleAiFill: aiFill.handleAiFill,
++    isFilling: aiFill.isFilling, fillElapsed: aiFill.fillElapsed, handleAiFill: aiFill.handleAiFill, cancelFill: aiFill.cancelFill,
+     // character history
+     segments: charHistory.segments, setSegments: charHistory.setSegments,
+     isGenerating: charHistory.isGenerating, regeneratingId: charHistory.regeneratingId,
+diff --git a/src/engine/useGameEngine.ts b/src/engine/useGameEngine.ts
+index f25df56..b45127a 100644
+--- a/src/engine/useGameEngine.ts
++++ b/src/engine/useGameEngine.ts
+@@ -604,7 +604,7 @@ ${perspectiveInstruction}
+           }
+ 
+           updateMessage(aiMsgId, {
+-            content: result.text || accumulated,
++            content: finalContent,
+             thinking: parsed.thinking || reasoning || result.reasoning,
+             actionOptions: parsed.actionOptions,
+             summary: parsed.summary || undefined,
+diff --git a/src/hooks/useAiFill.ts b/src/hooks/useAiFill.ts
+index 5011efe..716d186 100644
+--- a/src/hooks/useAiFill.ts
++++ b/src/hooks/useAiFill.ts
+@@ -23,21 +23,28 @@ export function useAiFill({
+   setPersonalInfo, navigate, showAlert,
+ }: UseAiFillOptions) {
+   const [isFilling, setIsFilling] = useState(false);
++  const [fillElapsed, setFillElapsed] = useState(0);
+   const abortRef = useRef<AbortController | null>(null);
++  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+ 
+   const handleAiFill = async () => {
+     if (!apiConfig) { await showAlert('请先配置API'); navigate('settings'); return; }
+     if (!personalInfo.name.trim()) { await showAlert('请至少填写角色姓名'); return; }
+ 
+     setIsFilling(true);
++    setFillElapsed(0);
+     const controller = new AbortController();
+     abortRef.current = controller;
++    // 计时器：每秒更新已用时间
++    const startTime = Date.now();
++    timerRef.current = setInterval(() => setFillElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+ 
+     const worldData = allWorlds.find(w => w.id === selectedWorld);
+     const worldSetting = worldEntry?.content || worldData?.description || '自由穿越模式';
+ 
+     // 提取世界的数值属性模块配置（用于生成角色初始属性）
+     const statMod = worldData?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
++    const hasProgression = !!worldData?.modules?.some(m => m.moduleId === 'progression' && m.enabled);
+     const statRaw = (statMod?.moduleConfig || statMod?.data) as any;
+     const statModule = statRaw ? {
+       attrA: { name: statRaw.attrA?.name || '生命', max: statRaw.attrA?.max || 100 },
+@@ -176,11 +183,15 @@ export function useAiFill({
+     } finally {
+       setIsFilling(false);
+       abortRef.current = null;
++      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+     }
+   };
+ 
++  // 取消补全
++  const cancelFill = () => { abortRef.current?.abort(); };
++
+   // 清理
+   const cleanup = () => { abortRef.current?.abort(); };
+ 
+-  return { isFilling, handleAiFill, cleanup };
++  return { isFilling, fillElapsed, handleAiFill, cancelFill, cleanup };
+ }

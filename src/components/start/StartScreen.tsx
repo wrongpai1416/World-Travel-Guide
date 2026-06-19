@@ -47,7 +47,7 @@ export default function StartScreen() {
         selectedWorld={h.selectedWorld} setSelectedWorld={h.setSelectedWorld}
         allWorlds={h.allWorlds} createdWorlds={h.createdWorlds} worldEntry={h.worldEntry}
         personalInfo={h.personalInfo} setPersonalInfo={h.setPersonalInfo}
-        isFilling={h.isFilling} onAiFill={h.handleAiFill}
+        isFilling={h.isFilling} fillElapsed={h.fillElapsed} onAiFill={h.handleAiFill} onCancelFill={h.cancelFill}
         segments={h.segments} setSegments={h.setSegments}
         isGenerating={h.isGenerating} regeneratingId={h.regeneratingId}
         includeAgeStages={h.includeAgeStages} setIncludeAgeStages={h.setIncludeAgeStages}

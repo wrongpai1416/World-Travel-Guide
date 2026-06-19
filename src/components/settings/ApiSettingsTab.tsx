@@ -449,7 +449,8 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>Claude 模式</div>
               <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-                使用针对 Claude 安全机制优化的预设（破限 + NSFW）
+                使用针对 Claude 安全机制优化的预设（破限 + NSFW）<br/>
+                <span style={{ color: 'var(--accent, #eab308)' }}>⚠ 仅支持 Claude 4.6 及以下，不支持 4.8</span>
               </div>
             </div>
             <Toggle value={claudeMode} onChange={(v) => {

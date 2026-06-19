@@ -23,21 +23,28 @@ export function useAiFill({
   setPersonalInfo, navigate, showAlert,
 }: UseAiFillOptions) {
   const [isFilling, setIsFilling] = useState(false);
+  const [fillElapsed, setFillElapsed] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleAiFill = async () => {
     if (!apiConfig) { await showAlert('请先配置API'); navigate('settings'); return; }
     if (!personalInfo.name.trim()) { await showAlert('请至少填写角色姓名'); return; }
 
     setIsFilling(true);
+    setFillElapsed(0);
     const controller = new AbortController();
     abortRef.current = controller;
+    // 计时器：每秒更新已用时间
+    const startTime = Date.now();
+    timerRef.current = setInterval(() => setFillElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
     const worldData = allWorlds.find(w => w.id === selectedWorld);
     const worldSetting = worldEntry?.content || worldData?.description || '自由穿越模式';
 
     // 提取世界的数值属性模块配置（用于生成角色初始属性）
     const statMod = worldData?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
+    const hasProgression = !!worldData?.modules?.some(m => m.moduleId === 'progression' && m.enabled);
     const statRaw = (statMod?.moduleConfig || statMod?.data) as any;
     const statModule = statRaw ? {
       attrA: { name: statRaw.attrA?.name || '生命', max: statRaw.attrA?.max || 100 },
@@ -176,11 +183,15 @@ export function useAiFill({
     } finally {
       setIsFilling(false);
       abortRef.current = null;
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     }
   };
+
+  // 取消补全
+  const cancelFill = () => { abortRef.current?.abort(); };
 
   // 清理
   const cleanup = () => { abortRef.current?.abort(); };
 
-  return { isFilling, handleAiFill, cleanup };
+  return { isFilling, fillElapsed, handleAiFill, cancelFill, cleanup };
 }

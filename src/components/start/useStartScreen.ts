@@ -367,7 +367,7 @@ export function useStartScreen() {
     handleCancelWorldEditor: wizard.handleCancelWorldEditor,
     handleImportWorld: wizard.handleImportWorld,
     // ai fill
-    isFilling: aiFill.isFilling, handleAiFill: aiFill.handleAiFill,
+    isFilling: aiFill.isFilling, fillElapsed: aiFill.fillElapsed, handleAiFill: aiFill.handleAiFill, cancelFill: aiFill.cancelFill,
     // character history
     segments: charHistory.segments, setSegments: charHistory.setSegments,
     isGenerating: charHistory.isGenerating, regeneratingId: charHistory.regeneratingId,
