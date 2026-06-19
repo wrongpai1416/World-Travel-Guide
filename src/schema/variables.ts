@@ -1,5 +1,12 @@
 // 游戏变量类型定义 - 从世界漫游指南.json的Zod schema提取
 
+export interface WorldModuleRuntime {
+  moduleId: string;
+  名称: string;
+  描述: string;
+  数据: Record<string, unknown>;
+}
+
 export interface WorldState {
   时间系统: { 当前时间: string; 纪元名称: string; 当前天气: string };
   空间定位: { 当前位置: string; 区域特征: string };
@@ -11,6 +18,13 @@ export interface WorldState {
     本地消息: string;
     圈内传闻: string;
   };
+  /**
+   * 世界模块运行时数据
+   * v2: 使用 WorldSystemData 结构（数值属性/成长体系/资源管理/骰子检定）
+   * v2.1 兼容: 也支持旧的 Record<string, WorldModuleRuntime> 格式
+   * 由AI通过UpdateVariable维护
+   */
+  世界系统?: Record<string, unknown>;
 }
 
 export interface SurvivalStats {
@@ -53,6 +67,8 @@ export interface PlayerState {
   };
   当前位置?: string;
   当前目标: string;
+  性格: string;
+  外貌: string;
   技能系统: Record<string, SkillData>;
   货币资源: {
     主货币: { 名称: string; 数量: number };
@@ -79,7 +95,6 @@ export interface NPCData {
   关系数据: {
     好感度: number;
     关系类型: string;
-    印象标签: string[];
     核心锚点: CoreAnchor[];
   };
   个人信息: {
@@ -92,14 +107,8 @@ export interface NPCData {
     当前状态: string;
     备注: string;
   };
-  交互记忆: {
-    未完成约定: string[];
-    共同秘密: string[];
-    赠礼记录: string[];
-  };
   重要NPC: boolean;
   _关注: boolean;
-  重要经历: string[];
   $time: number;
   // NPC 管理扩展字段
   人物分类?: '在场' | '离场' | '重点';
@@ -144,6 +153,8 @@ export function createDefaultGameState(): GameState {
       姓名: '', 年龄: '', 性别: '',
       身份信息: { 职业: '', 阶层: '', 所属组织: '', 特殊身份: '', 背景信息: '' },
       当前目标: '',
+      性格: '',
+      外貌: '',
       技能系统: {},
       货币资源: { 主货币: { 名称: '', 数量: 500 }, 次级货币: {} },
       物品栏: {},

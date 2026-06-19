@@ -270,27 +270,39 @@ export interface ParsedContentResult {
 /**
  * 处理内联选项标记
  * 将 [选项文本] 或 【选项文本】 转换为可点击的 span 元素
+ * 只处理 HTML 标签外的文本，避免破坏已有 HTML 属性（如 data-option-text）
  */
 function processInlineOptions(html: string): string {
-  // 匹配 [选项] 或 【选项】 格式，排除 markdown 链接语法 [...](...)
-  // 选项内容不能包含换行符，长度限制在 100 字符以内
-  return html.replace(
-    /(?<!!)\[(?!\])([^\[\]]{1,100})\](?!\()/g,
-    (match, optionText) => {
-      const trimmed = optionText.trim()
-      if (!trimmed) return match
-      // 排除纯数字（可能是脚注引用）
-      if (/^\d+$/.test(trimmed)) return match
-      return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
-    }
-  ).replace(
-    /【([^【】]{1,100})】/g,
-    (match, optionText) => {
-      const trimmed = optionText.trim()
-      if (!trimmed) return match
-      return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
-    }
-  )
+  // 按 HTML 标签拆分，只处理标签外的纯文本部分
+  const parts = html.split(/(<[^>]+>)/)
+  for (let i = 0; i < parts.length; i++) {
+    // 跳过 HTML 标签（奇数索引）
+    if (i % 2 === 1) continue
+    // 跳过空文本
+    if (!parts[i].trim()) continue
+
+    parts[i] = parts[i]
+      // 匹配 [选项] 格式，排除 markdown 链接语法 [...](...)
+      .replace(
+        /(?<!!)\[(?!\])([^\[\]]{1,100})\](?!\()/g,
+        (match, optionText) => {
+          const trimmed = optionText.trim()
+          if (!trimmed) return match
+          if (/^\d+$/.test(trimmed)) return match
+          return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
+        }
+      )
+      // 匹配 【选项】 格式
+      .replace(
+        /【([^【】]{1,100})】/g,
+        (match, optionText) => {
+          const trimmed = optionText.trim()
+          if (!trimmed) return match
+          return `<span class="inline-option" data-option-text="${escapeHtml(trimmed)}">${escapeHtml(trimmed)}</span>`
+        }
+      )
+  }
+  return parts.join('')
 }
 
 /**

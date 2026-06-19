@@ -31,21 +31,28 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
   const [worldBookLoaded, setWorldBookLoaded] = useState(false);
   const [worldEntry, setWorldEntry] = useState<WorldBookEntry | null>(null);
 
+  // ─── 空白角色模板 ───
+  const emptyProfile: PlayerProfile = {
+    name: '', gender: '', age: '', background: '', personality: '', appearance: '',
+    career: '', socialClass: '', organization: '', specialIdentity: '',
+    perspective: '第三人称', initialSkills: {}, initialItems: {}, customNpcs: [],
+  };
+
   // ─── 角色信息 ───
   const [personalInfo, setPersonalInfo] = useState<PlayerProfile>({
-    name: initialPersonalInfo?.name || '',
-    gender: initialPersonalInfo?.gender || '',
-    age: initialPersonalInfo?.age || '',
-    background: initialPersonalInfo?.background || '',
-    career: initialPersonalInfo?.career || '',
-    socialClass: initialPersonalInfo?.socialClass || '',
-    organization: initialPersonalInfo?.organization || '',
-    specialIdentity: initialPersonalInfo?.specialIdentity || '',
-    perspective: initialPersonalInfo?.perspective || '第三人称',
-    initialSkills: initialPersonalInfo?.initialSkills || {},
-    initialItems: initialPersonalInfo?.initialItems || {},
-    customNpcs: initialPersonalInfo?.customNpcs || [],
+    ...emptyProfile,
+    ...(initialPersonalInfo || {}),
   });
+
+  // 返回首页时重置角色信息
+  const prevViewRef = useRef(view);
+  useEffect(() => {
+    if (prevViewRef.current === 'wizard' && view === 'main') {
+      setPersonalInfo({ ...emptyProfile });
+      setStep(1);
+    }
+    prevViewRef.current = view;
+  }, [view]);
 
   // ─── 用户创建的世界 ───
   const [createdWorlds, setCreatedWorlds] = useState<WorldDef[]>(() => {

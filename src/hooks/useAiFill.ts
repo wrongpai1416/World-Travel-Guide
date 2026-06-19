@@ -103,6 +103,8 @@ export function useAiFill({
       setPersonalInfo(prev => ({
         ...prev,
         age: data.age || prev.age,
+        personality: data.personality || prev.personality,
+        appearance: data.appearance || prev.appearance,
         background: data.background || prev.background,
         career: data.career || prev.career,
         socialClass: data.socialClass || prev.socialClass,

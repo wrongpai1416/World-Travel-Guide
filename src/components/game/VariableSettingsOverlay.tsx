@@ -8,6 +8,9 @@ import {
   X, Layers, List, Download, Upload, RefreshCw,
   ChevronDown, ChevronRight, RotateCcw, Save,
   ChevronLeft, ChevronRight as ChevronRightNav,
+  Globe, Newspaper, User, Heart, IdCard, DollarSign, BookOpen, Swords,
+  Users, Tag, Handshake, FileText, Dna, Sparkles, Backpack, ClipboardList,
+  type LucideIcon,
 } from 'lucide-react';
 import type { GameState } from '../../schema/variables';
 import type { VariableManager } from '../../engine/variableManager';
@@ -18,6 +21,16 @@ import {
   getNpcVariableValues,
   type VariableSection,
 } from '../../engine/variableStructureDefs';
+
+// Lucide 图标名称 → 组件映射（变量分区图标）
+const SECTION_ICON_MAP: Record<string, LucideIcon> = {
+  Globe, Newspaper, User, Heart, IdCard, DollarSign, BookOpen, Swords,
+  Users, Tag, Handshake, FileText, Dna, Sparkles, Backpack, ClipboardList,
+};
+
+function resolveSectionIcon(name?: string): LucideIcon {
+  return (name && SECTION_ICON_MAP[name]) || ClipboardList;
+}
 
 // ============================================================
 //  类型
@@ -734,7 +747,7 @@ function VariableTab({
               }}
             >
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <span style={{ fontSize: 'var(--font-size-md)' }}>{section.icon}</span>
+              {(() => { const Icon = resolveSectionIcon(section.icon); return <Icon size={14} />; })()}
               <span style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-primary)' }}>
                 {section.label}
               </span>
@@ -840,7 +853,7 @@ function VariableTab({
           color: 'var(--text-primary)',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span>👥 NPC 人物档案</span>
+          <Users size={14} /> NPC 人物档案
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>({npcGroups.size} 人)</span>
         </div>
       )}

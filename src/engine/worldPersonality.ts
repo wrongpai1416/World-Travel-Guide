@@ -1,5 +1,8 @@
 import { type WorldBookManager, type WorldBookEntry, createWorldBookManager, parseWorldBook } from '../worldbook/index';
 import { WORLDS, getWorldBookEntriesForWorld } from '../data/worldLoader';
+import type { WorldDef } from '../data/worlds-schema';
+import { applyModulesV2 } from '../modules/injector';
+import type { WorldSystemData } from '../modules/schema';
 
 export async function loadWorldBook(): Promise<WorldBookManager | null> {
   try {
@@ -46,3 +49,16 @@ export function applyWorld(wb: WorldBookManager, worldId: string) {
     }
   }
 }
+
+/**
+ * 将世界启用的模块注入为世界书条目
+ * - 使用新的 applyModulesV2 注入器
+ * - 支持运行时 WorldSystemData 数据
+ */
+export function applyModules(wb: WorldBookManager, world: WorldDef, worldSystem?: WorldSystemData) {
+  if (!world.modules || world.modules.length === 0) return;
+
+  // 使用新的v2注入器
+  applyModulesV2(wb, world, worldSystem);
+}
+

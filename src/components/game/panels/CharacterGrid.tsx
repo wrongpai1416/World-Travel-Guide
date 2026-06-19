@@ -2,15 +2,90 @@ import { useState } from 'react';
 import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
   BarChart3, Tag, Anchor, Briefcase, MapPin, Sparkles,
-  Brain, Dna, MessageSquare, Zap, Backpack, Shield,
-  FileText, Edit3, Trash2, Plus,
+  Brain, Dna, Zap, Backpack, Shield,
+  FileText, Edit3, Trash2, Plus, Save,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from '../../shared/Avatar';
 import EmptyState from '../../shared/EmptyState';
 import type { GameState, NPCData } from '../../../schema/variables';
+import type { CustomNpc } from '../../../storage/db';
 import { ExcelRow } from '../../shared/ExcelRow';
 import { getQualityColor } from '../../shared/qualityUtils';
+import { saveNpcTemplate } from '../../../storage/templateStore';
+import { useDialog } from '../../shared/Dialog';
+import { v4 as uuid } from 'uuid';
+
+/** 将运行时 NPCData（中文键）转换为向导 CustomNpc 格式 */
+function npcDataToCustomNpc(npc: NPCData): CustomNpc {
+  const ext = npc as any;
+  const pi = npc.个人信息 ?? {} as any;
+  const sj = npc.社会身份 ?? {} as any;
+  const rd = npc.关系数据 ?? {} as any;
+
+  // 技能列表：可能是 string[] 或 Record，统一转为 Record
+  let skillsList: CustomNpc['skillsList'] = {};
+  if (ext.技能列表 && typeof ext.技能列表 === 'object') {
+    if (Array.isArray(ext.技能列表)) {
+      ext.技能列表.forEach((s: any, i: number) => {
+        if (typeof s === 'string') skillsList[s] = { 描述: '', 类型: '', 品质: '普通' };
+        else if (s?.name) skillsList[s.name] = { 描述: s.描述 || '', 类型: s.类型 || '', 品质: s.品质 || '普通' };
+      });
+    } else {
+      for (const [k, v] of Object.entries(ext.技能列表)) {
+        if (typeof v === 'string') skillsList[k] = { 描述: v, 类型: '', 品质: '普通' };
+        else if (v && typeof v === 'object') {
+          const sv = v as any;
+          skillsList[k] = { 描述: sv.描述 || '', 类型: sv.类型 || '', 品质: sv.品质 || '普通' };
+        }
+      }
+    }
+  }
+
+  // 物品列表：同上
+  let itemsList: CustomNpc['itemsList'] = {};
+  if (ext.物品列表 && typeof ext.物品列表 === 'object') {
+    if (Array.isArray(ext.物品列表)) {
+      ext.物品列表.forEach((item: any, i: number) => {
+        if (typeof item === 'string') itemsList[item] = { 数量: 1, 类型: '', 品质: '普通', 备注: '' };
+        else if (item?.name) itemsList[item.name] = { 数量: item.数量 || 1, 类型: item.类型 || '', 品质: item.品质 || '普通', 备注: item.备注 || '' };
+      });
+    } else {
+      for (const [k, v] of Object.entries(ext.物品列表)) {
+        if (typeof v === 'string') itemsList[k] = { 数量: 1, 类型: '', 品质: '普通', 备注: v };
+        else if (v && typeof v === 'object') {
+          const iv = v as any;
+          itemsList[k] = { 数量: iv.数量 || 1, 类型: iv.类型 || '', 品质: iv.品质 || '普通', 备注: iv.备注 || '' };
+        }
+      }
+    }
+  }
+
+  return {
+    id: uuid(),
+    name: npc.姓名 || '',
+    gender: npc.性别 || '',
+    age: String(npc.年龄 ?? ''),
+    race: npc.种族 || '',
+    relationshipType: rd.关系类型 || '',
+    occupation: sj.职业 || '',
+    socialStatus: sj.社会地位 || '',
+    personality: pi.表性格 || ext.性格 || '',
+    hiddenPersonality: pi.里性格 || '',
+    currentThought: pi.当前想法 || '',
+    appearance: pi.外貌 || '',
+    currentOutfit: pi.当前穿着 || ext.穿着 || '',
+    currentAction: ext.当前行动 || pi.当前状态 || '',
+    currentLocation: pi.当前位置 || '',
+    currentState: pi.当前状态 || '',
+    shortTermGoal: ext.短期目标 || '',
+    longTermGoal: ext.长期目标 || '',
+    background: npc.背景 || pi.备注 || '',
+    chronicles: [],  // 事迹是游戏运行时数据，不存入模板
+    skillsList,
+    itemsList,
+  };
+}
 
 interface Props {
   gameState: GameState;
@@ -55,7 +130,7 @@ function GaugeBar({ value, color }: { value: number; color: string }) {
 
 // NPC 卡片
 function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () => void }) {
-  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 印象标签: [], 核心锚点: [] };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 核心锚点: [] };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const fav = favorClass(rd.好感度);
   const cat = categoryStyle(npc.人物分类);
@@ -574,18 +649,13 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
 }) {
   const [tab, setTab] = useState<DetailTab>('overview');
   const [showDeeds, setShowDeeds] = useState(false);
+  const { DialogUI, prompt: dlgPrompt, alert: dlgAlert } = useDialog();
   const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
-  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 印象标签: [] as string[], 核心锚点: [] as any[] };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 核心锚点: [] as any[] };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
-  const _交互记忆 = npc.交互记忆 || {};
-  const 交互记忆 = {
-    未完成约定: Array.isArray(_交互记忆.未完成约定) ? _交互记忆.未完成约定 : [],
-    共同秘密: Array.isArray(_交互记忆.共同秘密) ? _交互记忆.共同秘密 : [],
-    赠礼记录: Array.isArray(_交互记忆.赠礼记录) ? _交互记忆.赠礼记录 : [],
-  };
 
   const cat = categoryStyle(npc.人物分类);
 
@@ -622,6 +692,23 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
               <span style={{ fontSize: 'var(--font-size-xs)', padding: '1px 7px', borderRadius: '10px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>{npc.年龄}岁</span>
             </div>
           </div>
+          <button
+            onClick={async () => {
+              const name = await dlgPrompt('请输入NPC模板名称：', { defaultValue: npc.姓名 || 'NPC模板', title: '保存NPC模板' });
+              if (!name?.trim()) return;
+              const customNpc = npcDataToCustomNpc(npc);
+              saveNpcTemplate(name.trim(), customNpc);
+              await dlgAlert(`NPC模板「${name.trim()}」已保存 ✓`);
+            }}
+            style={{
+              border: 'none', background: 'var(--bg-tertiary)', width: '28px', height: '28px',
+              borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--accent)',
+              flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            title="保存为NPC模板"
+          >
+            <Save size={14} />
+          </button>
           <button onClick={onClose} style={{ border: 'none', background: 'var(--bg-tertiary)', width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
         </div>
 
@@ -712,6 +799,12 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
                   <ExcelRow label="穿着" value={pi.当前穿着} />
                 </Section>
 
+                {(ext.背景 || npc.背景) && (
+                  <Section icon={BookOpen} title="背景">
+                    <div style={{ fontSize: 'var(--font-size-sm)', lineHeight: '1.6', color: 'var(--text-secondary)' }}>{ext.背景 || npc.背景}</div>
+                  </Section>
+                )}
+
                 <Section icon={Brain} title="内心世界">
                   <ExcelRow label="当前想法" value={pi.当前想法 || ext.内心想法} />
                   <ExcelRow label="当前行动" value={ext.当前行动} />
@@ -727,29 +820,6 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
                       <div style={{ marginTop: '4px' }}>
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '3px' }}>种族特性</div>
                         <TagList items={ext.种族特性} />
-                      </div>
-                    )}
-                  </Section>
-                )}
-
-                {(交互记忆.未完成约定.length > 0 || 交互记忆.共同秘密.length > 0 || 交互记忆.赠礼记录.length > 0) && (
-                  <Section icon={MessageSquare} title="交互记忆">
-                    {交互记忆.未完成约定.length > 0 && (
-                      <div style={{ marginBottom: '6px' }}>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '3px' }}>未完成约定</div>
-                        <TagList items={交互记忆.未完成约定} />
-                      </div>
-                    )}
-                    {交互记忆.共同秘密.length > 0 && (
-                      <div style={{ marginBottom: '6px' }}>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '3px' }}>共同秘密</div>
-                        <TagList items={交互记忆.共同秘密} />
-                      </div>
-                    )}
-                    {交互记忆.赠礼记录.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '3px' }}>赠礼记录</div>
-                        <TagList items={交互记忆.赠礼记录} />
                       </div>
                     )}
                   </Section>
@@ -852,6 +922,8 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
           onMerge={onMergeChronicles}
         />
       )}
+
+      {DialogUI}
     </div>
   );
 }

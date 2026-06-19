@@ -166,6 +166,8 @@ export default function ProfilePanel({ gameState }: Props) {
           <ExcelRow label="姓名" value={p.姓名} />
           <ExcelRow label="性别" value={p.性别} />
           <ExcelRow label="年龄" value={String(p.年龄)} />
+          {p.性格 && <ExcelRow label="性格" value={p.性格} />}
+          {p.外貌 && <ExcelRow label="外貌" value={p.外貌} />}
           <ExcelRow label="职业" value={p.身份信息.职业} />
           <ExcelRow label="阶层" value={p.身份信息.阶层} />
           <ExcelRow label="所属组织" value={p.身份信息.所属组织} />

@@ -112,6 +112,7 @@ function createDefaultRetentionConfig(): MemoryRetentionConfig {
     agingMultiplier: 2,
     maxHotEventCards: 200,
     checkpointInterval: 12,
+    maxVectorMemories: 500,
   };
 }
 

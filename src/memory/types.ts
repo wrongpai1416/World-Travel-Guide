@@ -93,6 +93,7 @@ export interface MemoryRetentionConfig {
   agingMultiplier: number;
   maxHotEventCards: number;
   checkpointInterval: number;
+  maxVectorMemories: number;
 }
 
 export interface MemoryDebugConfig {

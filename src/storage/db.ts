@@ -44,6 +44,8 @@ interface PlayerProfile {
   gender: string;
   age: string;
   background: string;
+  personality: string;  // 性格
+  appearance: string;   // 外貌
 
   // 身份信息 → PlayerState.身份信息
   career: string;

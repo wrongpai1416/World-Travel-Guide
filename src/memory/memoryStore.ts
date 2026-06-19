@@ -194,16 +194,16 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
     sceneAnchor: safe.sceneAnchor && typeof safe.sceneAnchor === 'object'
       ? safe.sceneAnchor as SceneAnchor
       : null,
-    activeThreads: normalizeArray(safe.activeThreads) as NarrativeThread[],
-    stateSlots: normalizeArray(safe.stateSlots) as NarrativeStateSlot[],
-    relationEdges: normalizeArray(safe.relationEdges) as NarrativeRelationEdge[],
-    relationNetwork: normalizeArray(safe.relationNetwork) as NarrativeRelationNetworkItem[],
-    eventCards: normalizeArray(safe.eventCards) as NarrativeEventCard[],
-    entityCards: normalizeArray(safe.entityCards) as NarrativeEntityCard[],
-    archiveCards: normalizeArray(safe.archiveCards) as NarrativeArchiveCard[],
-    mutationLog: normalizeArray(safe.mutationLog) as NarrativeMutation[],
-    checkpoints: normalizeArray(safe.checkpoints) as NarrativeCheckpoint[],
-    summarySaveHistory: normalizeArray(safe.summarySaveHistory) as SummarySaveRecord[],
+    activeThreads: normalizeArray(safe.activeThreads).slice(-30) as NarrativeThread[],
+    stateSlots: normalizeArray(safe.stateSlots).slice(-30) as NarrativeStateSlot[],
+    relationEdges: normalizeArray(safe.relationEdges).slice(-50) as NarrativeRelationEdge[],
+    relationNetwork: normalizeArray(safe.relationNetwork).slice(-50) as NarrativeRelationNetworkItem[],
+    eventCards: normalizeArray(safe.eventCards).slice(-50) as NarrativeEventCard[],
+    entityCards: normalizeArray(safe.entityCards).slice(-30) as NarrativeEntityCard[],
+    archiveCards: normalizeArray(safe.archiveCards).slice(-30) as NarrativeArchiveCard[],
+    mutationLog: normalizeArray(safe.mutationLog).slice(-50) as NarrativeMutation[],
+    checkpoints: normalizeArray(safe.checkpoints).slice(-5) as NarrativeCheckpoint[],
+    summarySaveHistory: normalizeArray(safe.summarySaveHistory).slice(-10) as SummarySaveRecord[],
     lastSummarySave: safe.lastSummarySave && typeof safe.lastSummarySave === 'object'
       ? safe.lastSummarySave as SummarySaveRecord
       : null,
@@ -216,9 +216,9 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
     lastRetrievePlan: safe.lastRetrievePlan && typeof safe.lastRetrievePlan === 'object'
       ? safe.lastRetrievePlan as RetrievePlanSnapshot
       : null,
-    writeDebugLogs: normalizeArray(safe.writeDebugLogs) as DebugLog[],
-    retrieveDebugLogs: normalizeArray(safe.retrieveDebugLogs) as DebugLog[],
-    compileDebugLogs: normalizeArray(safe.compileDebugLogs) as DebugLog[],
+    writeDebugLogs: normalizeArray(safe.writeDebugLogs).slice(-100) as DebugLog[],
+    retrieveDebugLogs: normalizeArray(safe.retrieveDebugLogs).slice(-100) as DebugLog[],
+    compileDebugLogs: normalizeArray(safe.compileDebugLogs).slice(-100) as DebugLog[],
     vectorMemory: normalizeArray(safe.vectorMemory) as VectorMemoryItem[],
   };
 }
@@ -294,6 +294,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       loadingStage: '',
       error: null,
       runtimeVersion: 0,
+      config: createDefaultMemorySystemConfig(),
     });
   },
 
@@ -475,9 +476,13 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   },
 
   appendVectorMemories: (memories) => {
-    set((state) => ({
-      vectorMemory: [...state.vectorMemory, ...memories],
-    }));
+    set((state) => {
+      const maxVector = state.config.retention.maxVectorMemories;
+      const combined = [...state.vectorMemory, ...memories];
+      // 如果超过上限，保留最新的（后面的）
+      const trimmed = maxVector > 0 ? combined.slice(-maxVector) : combined;
+      return { vectorMemory: trimmed };
+    });
   },
 
   clearVectorMemory: () => {
@@ -490,20 +495,45 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
     const state = get();
     if (!state.memoryRuntime) return null;
 
+    // 执行 retention 策略，防止运行态数组无限增长
+    const retention = state.config.retention;
+    const currentRound = state.memoryRuntime.lastIngestCursor;
+
+    // 1. 归档已解决的 threads（超过 N 轮未更新）
+    const activeThreads = state.memoryRuntime.activeThreads.filter(t => {
+      if (t.status === 'resolved' && currentRound - (t.lastUpdatedRound || 0) > retention.archiveResolvedThreadsAfter) {
+        return false; // 移除，后续可移到 archiveCards
+      }
+      return true;
+    });
+
+    // 2. 限制 eventCards 数量（保留最新的）
+    const eventCards = state.memoryRuntime.eventCards.length > retention.maxHotEventCards
+      ? state.memoryRuntime.eventCards.slice(-retention.maxHotEventCards)
+      : state.memoryRuntime.eventCards;
+
+    // 3. 更新运行态（应用裁剪）
+    const prunedRuntime = {
+      ...state.memoryRuntime,
+      activeThreads,
+      eventCards,
+    };
+
     const checkpoint: NarrativeCheckpoint = {
       id: `cp_${Date.now()}`,
       createdAt: Date.now(),
-      lastIngestCursor: state.memoryRuntime.lastIngestCursor,
-      activeThreadCount: state.memoryRuntime.activeThreads.length,
-      eventCount: state.memoryRuntime.eventCards.length,
-      entityCount: state.memoryRuntime.entityCards.length,
-      snapshot: JSON.parse(JSON.stringify(state.memoryRuntime)),
+      lastIngestCursor: prunedRuntime.lastIngestCursor,
+      activeThreadCount: prunedRuntime.activeThreads.length,
+      eventCount: prunedRuntime.eventCards.length,
+      entityCount: prunedRuntime.entityCards.length,
+      snapshot: JSON.parse(JSON.stringify(prunedRuntime)),
     };
 
     set((s) => {
       if (!s.memoryRuntime) return s;
-      const checkpoints = [...s.memoryRuntime.checkpoints, checkpoint];
-      return { memoryRuntime: { ...s.memoryRuntime, checkpoints } };
+      const MAX_CHECKPOINTS = 5;
+      const checkpoints = [...s.memoryRuntime.checkpoints, checkpoint].slice(-MAX_CHECKPOINTS);
+      return { memoryRuntime: { ...prunedRuntime, checkpoints } };
     });
 
     return checkpoint;
@@ -528,7 +558,8 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   appendMutation: (mutation) => {
     set((state) => {
       if (!state.memoryRuntime) return state;
-      const mutationLog = [...state.memoryRuntime.mutationLog, { ...mutation, createdAt: mutation.createdAt || Date.now() }];
+      const MAX_MUTATION_LOG = 50;
+      const mutationLog = [...state.memoryRuntime.mutationLog, { ...mutation, createdAt: mutation.createdAt || Date.now() }].slice(-MAX_MUTATION_LOG);
       return { memoryRuntime: { ...state.memoryRuntime, mutationLog } };
     });
   },
@@ -538,7 +569,8 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   appendSummarySaveRecord: (record) => {
     set((state) => {
       if (!state.memoryRuntime) return state;
-      const summarySaveHistory = [...state.memoryRuntime.summarySaveHistory, record];
+      const MAX_SUMMARY_HISTORY = 10;
+      const summarySaveHistory = [...state.memoryRuntime.summarySaveHistory, record].slice(-MAX_SUMMARY_HISTORY);
       return {
         memoryRuntime: {
           ...state.memoryRuntime,

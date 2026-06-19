@@ -21,7 +21,7 @@ async function callAuxiliaryApiForEngine(
   aiContentText: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  const variableSnapshot = JSON.stringify(gameState, null, 2);
+  const variableSnapshot = JSON.stringify(gameState);
 
   let worldBookRules = '';
   if (worldBook) {

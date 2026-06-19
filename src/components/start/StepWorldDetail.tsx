@@ -1,21 +1,12 @@
-import { Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle, DollarSign, Flag, User, Sparkles, Check, Compass, Shield, Zap, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, BookOpen, Heart, Anchor, Backpack, Target, Brain, Dna, Lightbulb, Bookmark, type LucideIcon } from 'lucide-react';
+import { Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle, DollarSign, Flag, User, Sparkles } from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 import { WORLDS } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
-
-// Lucide 图标名称 → 组件映射
-const ICON_COMPONENTS: Record<string, LucideIcon> = {
-  Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle,
-  DollarSign, Flag, User, Sparkles, Check, Compass, Shield, Zap, Flame,
-  Mountain, Ship, Castle, Skull, Crown, Rocket, Star, BookOpen, Heart,
-  Anchor, Backpack, Target, Brain, Dna, Lightbulb, Bookmark,
-};
+import { resolveWorldIcon } from '../shared/worldIcons';
 
 function WorldIcon({ name, size = 28 }: { name: string; size?: number }) {
-  const IconComp = ICON_COMPONENTS[name];
-  if (IconComp) return <IconComp size={size} style={{ color: 'var(--accent)' }} />;
-  // 兼容旧数据：如果是 emoji 或未知名称，回退显示 Globe
-  return <Globe size={size} style={{ color: 'var(--accent)' }} />;
+  const IconComp = resolveWorldIcon(name);
+  return <IconComp size={size} style={{ color: 'var(--accent)' }} />;
 }
 
 interface StepWorldDetailProps {

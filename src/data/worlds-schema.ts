@@ -141,7 +141,7 @@ export interface WorldDef {
 
   // ─── 视觉/展示 ───
   tags?: string[];              // ['科幻', '封闭空间', '生存']
-  icon?: string;                // emoji：'🚀'
+  icon?: string;                // Lucide 图标名称：'Cpu'、'Swords'（见 shared/worldIcons.tsx）
   coverColor?: string;          // 主题色 hex：'#e74c3c'
 
   // ─── 世界设定 ───

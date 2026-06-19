@@ -211,6 +211,26 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     valueType: 'string',
     editable: true,
   },
+  {
+    id: 'player_personality',
+    section: 'player_core',
+    sectionLabel: '玩家核心',
+    displayName: '性格',
+    canonicalPath: '玩家.性格',
+    description: '玩家角色的性格特点',
+    valueType: 'string',
+    editable: true,
+  },
+  {
+    id: 'player_appearance',
+    section: 'player_core',
+    sectionLabel: '玩家核心',
+    displayName: '外貌',
+    canonicalPath: '玩家.外貌',
+    description: '玩家角色的外貌描写',
+    valueType: 'string',
+    editable: true,
+  },
 
   // ─── 玩家生存 ───
   {
@@ -305,6 +325,30 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     canonicalPath: '玩家.货币资源.主货币.数量',
     description: '当前持有的主货币数量',
     valueType: 'number',
+    editable: true,
+  },
+
+  // ─── 技能系统 ───
+  {
+    id: 'player_skills',
+    section: 'player_skills',
+    sectionLabel: '技能系统',
+    displayName: '技能列表',
+    canonicalPath: '玩家.技能系统',
+    description: '玩家拥有的所有技能，包含技能名称、品质、类型和效果描述',
+    valueType: 'object',
+    editable: true,
+  },
+
+  // ─── 记事本 ───
+  {
+    id: 'player_notebook',
+    section: 'player_notebook',
+    sectionLabel: '记事本',
+    displayName: '记事本',
+    canonicalPath: '玩家.记事本',
+    description: '潜在危机、当前机遇、待办事项',
+    valueType: 'object',
     editable: true,
   },
 
@@ -458,6 +502,17 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
     isNpcTemplate: true,
   },
+  {
+    id: 'npc_core_anchors',
+    section: 'npc_relation',
+    sectionLabel: 'NPC 关系',
+    displayName: '核心锚点',
+    canonicalPath: '人物档案.[NPC_ID].关系数据.核心锚点',
+    description: '影响关系的关键事件（事件+影响+权重）',
+    valueType: 'array',
+    editable: true,
+    isNpcTemplate: true,
+  },
 
   // ─── NPC 个人信息 ───
   {
@@ -526,6 +581,100 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
     isNpcTemplate: true,
   },
+
+  // ─── NPC 种族 ───
+  {
+    id: 'npc_race_desc',
+    section: 'npc_race',
+    sectionLabel: 'NPC 种族',
+    displayName: '种族描述',
+    canonicalPath: '人物档案.[NPC_ID].种族描述',
+    description: 'NPC 种族的详细描述',
+    valueType: 'string',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_race_effect',
+    section: 'npc_race',
+    sectionLabel: 'NPC 种族',
+    displayName: '种族效果',
+    canonicalPath: '人物档案.[NPC_ID].种族效果',
+    description: 'NPC 种族带来的特殊效果',
+    valueType: 'string',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_race_traits',
+    section: 'npc_race',
+    sectionLabel: 'NPC 种族',
+    displayName: '种族特性',
+    canonicalPath: '人物档案.[NPC_ID].种族特性',
+    description: 'NPC 种族的特性列表',
+    valueType: 'array',
+    editable: true,
+    isNpcTemplate: true,
+  },
+
+  // ─── NPC 能力 ───
+  {
+    id: 'npc_skills',
+    section: 'npc_ability',
+    sectionLabel: 'NPC 能力',
+    displayName: '技能列表',
+    canonicalPath: '人物档案.[NPC_ID].技能列表',
+    description: 'NPC 拥有的技能',
+    valueType: 'array',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_talents',
+    section: 'npc_ability',
+    sectionLabel: 'NPC 能力',
+    displayName: '天赋',
+    canonicalPath: '人物档案.[NPC_ID].天赋',
+    description: 'NPC 的天赋能力',
+    valueType: 'array',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_attrs',
+    section: 'npc_ability',
+    sectionLabel: 'NPC 能力',
+    displayName: '属性',
+    canonicalPath: '人物档案.[NPC_ID].属性',
+    description: 'NPC 的属性数值（如力量、敏捷等）',
+    valueType: 'object',
+    editable: true,
+    isNpcTemplate: true,
+  },
+
+  // ─── NPC 装备 ───
+  {
+    id: 'npc_items',
+    section: 'npc_equipment',
+    sectionLabel: 'NPC 装备',
+    displayName: '物品列表',
+    canonicalPath: '人物档案.[NPC_ID].物品列表',
+    description: 'NPC 携带的物品',
+    valueType: 'array',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_equipment',
+    section: 'npc_equipment',
+    sectionLabel: 'NPC 装备',
+    displayName: '装备列表',
+    canonicalPath: '人物档案.[NPC_ID].装备列表',
+    description: 'NPC 装备中的物品',
+    valueType: 'object',
+    editable: true,
+    isNpcTemplate: true,
+  },
 ];
 
 // ============================================================
@@ -536,13 +685,14 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
 export function groupVariableEntriesBySection(): VariableSection[] {
   const sectionOrder = [
     'world', 'world_info',
-    'player_core', 'player_survival', 'player_identity', 'player_currency',
-    'npc_core', 'npc_survival', 'npc_identity', 'npc_relation', 'npc_personal',
+    'player_core', 'player_survival', 'player_identity', 'player_currency', 'player_notebook', 'player_skills',
+    'npc_core', 'npc_survival', 'npc_identity', 'npc_relation', 'npc_personal', 'npc_race', 'npc_ability', 'npc_equipment',
   ];
+  // Lucide 图标名称（直接一步到位，不再绕 emoji）
   const sectionIcons: Record<string, string> = {
-    world: '🌍', world_info: '📰',
-    player_core: '👤', player_survival: '❤️', player_identity: '🪪', player_currency: '💰',
-    npc_core: '👥', npc_survival: '💚', npc_identity: '🏷️', npc_relation: '🤝', npc_personal: '📝',
+    world: 'Globe', world_info: 'Newspaper',
+    player_core: 'User', player_survival: 'Heart', player_identity: 'IdCard', player_currency: 'DollarSign', player_notebook: 'BookOpen', player_skills: 'Swords',
+    npc_core: 'Users', npc_survival: 'Heart', npc_identity: 'Tag', npc_relation: 'Handshake', npc_personal: 'FileText', npc_race: 'Dna', npc_ability: 'Sparkles', npc_equipment: 'Backpack',
   };
 
   const groups = new Map<string, VariableEntry[]>();
@@ -557,7 +707,7 @@ export function groupVariableEntriesBySection(): VariableSection[] {
     .map(key => ({
       key,
       label: groups.get(key)![0].sectionLabel,
-      icon: sectionIcons[key] || '📋',
+      icon: sectionIcons[key] || 'ClipboardList',
       entries: groups.get(key)!,
     }));
 }

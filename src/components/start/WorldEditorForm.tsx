@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import type { WorldDef } from '../../data/worldLoader';
+import type { WorldDef } from '../../data/worlds-schema';
+import { MODULE_TEMPLATES } from '../../data/modules';
 import { requestStreamWithRetry } from '../../api/client';
+import ModuleSelector, { getDefaultSelectedModules, MODULE_OPTIONS } from './ModuleSelector';
 import { useConfigStore } from '../../stores/configStore';
 import {
   X, Cpu, Pencil, Sparkles, Loader, ClipboardList, ScrollText,
@@ -70,6 +72,8 @@ type FormState = {
   conflict: WorldDef['conflict'];
   relationships: WorldDef['relationships'];
   events: WorldDef['events'];
+  // 模块化系统（v2.1）
+  modules: WorldDef['modules'];
 };
 
 const defaultForm: FormState = {
@@ -81,6 +85,7 @@ const defaultForm: FormState = {
   factions: [], presetNPCs: [], highlights: '',
   coreStats: undefined, progression: undefined, conflict: undefined,
   relationships: undefined, events: undefined,
+  modules: undefined,
 };
 
 function worldToForm(w: WorldDef): FormState {
@@ -101,6 +106,7 @@ function worldToForm(w: WorldDef): FormState {
     highlights: w.highlights?.join(', ') || '',
     coreStats: w.coreStats, progression: w.progression,
     conflict: w.conflict, relationships: w.relationships, events: w.events,
+    modules: w.modules,
   };
 }
 
@@ -117,7 +123,23 @@ export default function WorldEditorForm({
   const [aiGenName, setAiGenName] = useState('');
   const [isGeneratingWorld, setIsGeneratingWorld] = useState(false);
   const [genError, setGenError] = useState('');
+  const [selectedModules, setSelectedModules] = useState<Set<string>>(() => {
+    // 如果是编辑已有世界，从 modules 中恢复已选模块
+    if (initialWorld?.modules) {
+      return new Set(initialWorld.modules.filter(m => m.enabled).map(m => m.moduleId));
+    }
+    // 默认选中数值属性（必选）
+    return getDefaultSelectedModules();
+  });
   const aiAbortRef = useRef<AbortController | null>(null);
+
+  const toggleModule = (moduleId: string) => {
+    setSelectedModules(prev => {
+      const next = new Set(prev);
+      if (next.has(moduleId)) next.delete(moduleId); else next.add(moduleId);
+      return next;
+    });
+  };
 
   const update = (patch: Partial<FormState>) => setForm(f => ({ ...f, ...patch }));
 
@@ -138,11 +160,25 @@ export default function WorldEditorForm({
     if (!apiConfig) { setGenError('请先在设置中配置API'); return; }
     setGenError(''); setIsGeneratingWorld(true);
     const ctrl = new AbortController(); aiAbortRef.current = ctrl;
+    // 构建模块相关指令（使用MODULE_OPTIONS + MODULE_TEMPLATES的aiInstruction）
+    const enabledModuleIds = [...selectedModules];
+    const moduleDataFields = enabledModuleIds.map(id => {
+      const tpl = MODULE_TEMPLATES.find(t => t.id === id);
+      return tpl?.aiInstruction || '';
+    }).filter(Boolean);
+    const moduleDataBlock = moduleDataFields.length > 0
+      ? `\n\n【重要：玩家选择了以下系统模块，请务必为每个模块生成对应数据，并为模块取一个贴合世界观的中文名称】\n${moduleDataFields.map((inst, i) => `\n${inst}`).join('\n')}`
+      : '';
+    const moduleArrayBlock = enabledModuleIds.length > 0
+      ? `,\n\n  // 模块列表（玩家选择的系统模块）\n  "modules": [\n${enabledModuleIds.map(id => `    { "moduleId": "${id}", "name": "你根据世界观取的中文名", "description": "模块简述", "enabled": true }`).join(',\n')}\n  ]`
+      : '';
+
     const sysPrompt = `你是一位专业的世界观架构师。请根据用户给出的世界描述，生成一个完整的世界定义JSON。
+${moduleDataBlock}
 
 要求：
 1. 根据描述创意生成一个合适的中文世界名称（不要直接使用用户输入）
-2. 严格返回一个JSON对象（不要markdown标记），包含以下结构：
+2. 严格返回一个JSON对象（不要markdown标记），包含以下结构。★ 所有字段都必须生成，不可省略 ★：
 {
   "name": "创意中文世界名称（根据描述生成，不要直接用用户输入）",
   "description": "一句话简介（20字以内）",
@@ -200,7 +236,7 @@ export default function WorldEditorForm({
   "presetNPCs": [
     { "name": "NPC名", "role": "角色定位", "description": "简介", "personality": "性格" }
   ],
-  "highlights": ["特色1", "特色2", "特色3"]
+  "highlights": ["特色1", "特色2", "特色3"]${moduleArrayBlock}
 }`;
     try {
       const result = await requestStreamWithRetry(apiConfig, [
@@ -230,6 +266,7 @@ export default function WorldEditorForm({
         conflict: data.conflict || undefined,
         relationships: data.relationships || undefined,
         events: Array.isArray(data.events) ? data.events : undefined,
+        modules: Array.isArray(data.modules) ? data.modules : undefined,
       });
       setEditorMode('manual');
     } catch (err: any) {
@@ -257,6 +294,7 @@ export default function WorldEditorForm({
     conflict: form.conflict,
     relationships: form.relationships,
     events: form.events,
+    modules: form.modules,
     author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
   });
 
@@ -303,6 +341,11 @@ export default function WorldEditorForm({
                 <button className="btn-primary" onClick={handleAIGenerate} disabled={isGeneratingWorld} style={{ padding: '8px 20px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{isGeneratingWorld ? <><Loader size={14} className="animate-spin" /> 生成中...</> : <><Sparkles size={14} style={{ flexShrink: 0 }} /> 生成</>}</button>
                 {isGeneratingWorld && <button className="btn-ghost" onClick={() => aiAbortRef.current?.abort()} style={{ padding: '8px 12px', color: '#ef4444' }}>{t('common.cancel')}</button>}
               </div>
+              {/* 模块选择 */}
+              <ModuleSelector
+                selected={selectedModules}
+                onToggle={toggleModule}
+              />
               {genError && <div style={{ color: '#ef4444', fontSize: 'var(--font-size-sm)', marginTop: 8 }}>{genError}</div>}
               {isGeneratingWorld && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, color: 'var(--accent)' }}><div className="ai-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /><span style={{ fontSize: 'var(--font-size-base)' }}>AI 正在构建世界...</span></div>}
             </div>

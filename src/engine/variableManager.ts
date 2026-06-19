@@ -168,7 +168,7 @@ export class VariableManager {
         if (!this.state.人物档案[npcId]) {
           (this.state.人物档案 as any)[npcId] = {};
         }
-        // 人物事迹：数组拼接（追加）而非替换
+        // 人物事迹：数组拼接（追加）而非替换，硬上限 30 条
         const npcData = data as Record<string, unknown>;
         const incomingChronicles = npcData.人物事迹;
         if (Array.isArray(incomingChronicles)) {
@@ -177,7 +177,12 @@ export class VariableManager {
           const existingArr = Array.isArray(existing) ? existing : [];
           // 去重追加：只添加不存在的新条目
           const newEntries = incomingChronicles.filter(c => !existingArr.includes(c));
-          (this.state.人物档案[npcId] as any).人物事迹 = [...existingArr, ...newEntries];
+          const CHRONICLE_HARD_CAP = 30;
+          const merged = [...existingArr, ...newEntries];
+          // 超过硬上限时，保留最新的条目（去掉最旧的）
+          (this.state.人物档案[npcId] as any).人物事迹 = merged.length > CHRONICLE_HARD_CAP
+            ? merged.slice(-CHRONICLE_HARD_CAP)
+            : merged;
         }
         _.merge(this.state.人物档案[npcId], npcData);
       }

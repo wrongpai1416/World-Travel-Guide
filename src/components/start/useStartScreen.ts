@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
 import { useDialog } from '../shared/Dialog';
-import { useSaveStore } from '../../stores/saveStore';
+import { useSaveStore, resetForNewGame } from '../../stores/saveStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useWizard } from '../../hooks/useWizard';
 import { useAiFill } from '../../hooks/useAiFill';
@@ -11,10 +11,11 @@ import type { GameSave, PlayerProfile } from '../../storage/db';
 import { saveGame as saveGameToDb } from '../../storage/db';
 import type { GameState } from '../../schema/variables';
 import { createDefaultGameState } from '../../schema/variables';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule } from '../../modules/defaults';
 import { v4 as uuid } from 'uuid';
 
 export function useStartScreen() {
-  const { navigate, state, dispatch, engine } = useGame();
+  const { navigate, state, dispatch, engine, markNewGameStarted } = useGame();
   const savesMeta = useSaveStore(s => s.savesMeta);
   const currentSaveId = useSaveStore(s => s.currentSaveId);
   const createNewGame = useSaveStore(s => s.createNewGame);
@@ -63,10 +64,38 @@ export function useStartScreen() {
   const buildInitialState = (): GameState => {
     const gs = createDefaultGameState();
     const pi = wizard.personalInfo;
+
+    // 初始化世界系统模块数据（根据所选世界的 modules 配置）
+    const selectedWorldDef = wizard.allWorlds.find(w => w.id === wizard.selectedWorld);
+    if (selectedWorldDef?.modules?.length) {
+      const worldSystem: Record<string, unknown> = {};
+      for (const mod of selectedWorldDef.modules) {
+        if (!mod.enabled) continue;
+        switch (mod.moduleId) {
+          case 'stat':
+            worldSystem.数值属性 = createDefaultStatModule();
+            break;
+          case 'progression':
+            worldSystem.成长体系 = createDefaultProgressionModule();
+            break;
+          case 'resource':
+            worldSystem.资源管理 = createDefaultResourceModule();
+            break;
+          case 'dice':
+            worldSystem.骰子检定 = createDefaultDiceModule();
+            break;
+        }
+      }
+      if (Object.keys(worldSystem).length > 0) {
+        gs.世界.世界系统 = worldSystem;
+      }
+    }
     gs.玩家.姓名 = pi.name;
     gs.玩家.性别 = pi.gender;
     gs.玩家.年龄 = pi.age;
     gs.玩家.身份信息.背景信息 = pi.background;
+    gs.玩家.性格 = pi.personality || '';
+    gs.玩家.外貌 = pi.appearance || '';
     gs.玩家.身份信息.职业 = pi.career || '';
     gs.玩家.身份信息.阶层 = pi.socialClass || '';
     gs.玩家.身份信息.所属组织 = pi.organization || '';
@@ -87,7 +116,7 @@ export function useStartScreen() {
           职业: npc.occupation || '',
           社会地位: npc.socialStatus || '',
         },
-        关系数据: { 好感度: 50, 关系类型: npc.relationshipType || '同伴', 印象标签: [], 核心锚点: [] },
+        关系数据: { 好感度: 50, 关系类型: npc.relationshipType || '同伴', 核心锚点: [] },
         个人信息: {
           外貌: npc.appearance || '',
           表性格: npc.personality || '',
@@ -97,9 +126,8 @@ export function useStartScreen() {
           当前位置: npc.currentLocation || '', 当前状态: npc.currentState || '',
           备注: '',
         },
-        交互记忆: { 未完成约定: [], 共同秘密: [], 赠礼记录: [] },
         重要NPC: true, _关注: true,
-        重要经历: [], $time: Date.now(), 人物分类: '在场',
+        $time: Date.now(), 人物分类: '在场',
         当前行动: npc.currentAction || '',
         短期目标: npc.shortTermGoal || '',
         长期目标: npc.longTermGoal || '',
@@ -113,6 +141,9 @@ export function useStartScreen() {
 
   // ─── 开始游戏 ───
   const handleStartGame = async () => {
+    // 重置存档模块级变量，防止旧存档数据污染新存档
+    resetForNewGame();
+    markNewGameStarted();
     // 开始游戏时清除缓存，下次进向导从头开始
     clearSegmentsCache();
     const characterHistory = charHistory.buildFullCharacterHistory();
@@ -144,7 +175,8 @@ export function useStartScreen() {
     dispatch({ type: 'SET_PERSONAL_INFO', info: wizard.personalInfo });
     dispatch({ type: 'SET_CHARACTER_HISTORY', history: characterHistory });
 
-    engine.reset();
+    const currentWorldDef = wizard.allWorlds.find(w => w.id === wizard.selectedWorld);
+    engine.reset(currentWorldDef);
     engine.setPlayerProfile(wizard.personalInfo);
 
     if (wizard.personalInfo.customNpcs.length > 0) {

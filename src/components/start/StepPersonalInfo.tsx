@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { PlayerProfile, CustomNpc } from '../../storage/db';
 import type { SkillData, InventoryItem } from '../../schema/variables';
 import NpcEditorModal from './NpcEditorModal';
+import TemplatePickerDialog from '../shared/TemplatePickerDialog';
+import { useDialog } from '../shared/Dialog';
 import {
   User, Briefcase, Sparkles, Package, Users,
-  Plus, Trash2, Pencil, Wand2, Loader,
+  Plus, Trash2, Pencil, Wand2, Loader, Save, Download, Upload, ChevronDown, BookMarked,
 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { savePlayerPreset, downloadJSON, exportPlayerPresetJSON } from '../../storage/templateStore';
 
 interface StepPersonalInfoProps {
   personalInfo: PlayerProfile;
@@ -40,6 +43,41 @@ export default function StepPersonalInfo({
   const [rightTab, setRightTab] = useState<RightTab>('identity');
   const [npcEditorOpen, setNpcEditorOpen] = useState(false);
   const [editingNpc, setEditingNpc] = useState<CustomNpc | null>(null);
+  const [npcPickerOpen, setNpcPickerOpen] = useState(false);
+  const [playerPickerOpen, setPlayerPickerOpen] = useState(false);
+  const [presetMenuOpen, setPresetMenuOpen] = useState(false);
+  const presetMenuRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    if (!presetMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (presetMenuRef.current && !presetMenuRef.current.contains(e.target as Node)) {
+        setPresetMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [presetMenuOpen]);
+
+  // ─── 对话框 ───
+  const { DialogUI, prompt: dlgPrompt, alert: dlgAlert } = useDialog();
+
+  // ─── 主角预设操作 ───
+  const handleSavePreset = async () => {
+    const name = await dlgPrompt('请输入预设名称：', { defaultValue: personalInfo.name || '我的预设', title: '保存预设' });
+    if (!name?.trim()) return;
+    savePlayerPreset(name.trim(), personalInfo);
+    await dlgAlert(`预设「${name.trim()}」已保存 ✓`);
+  };
+
+  const handleExportPreset = async () => {
+    const name = await dlgPrompt('请输入导出文件名：', { defaultValue: personalInfo.name || 'my-preset', title: '导出预设' });
+    if (!name?.trim()) return;
+    const preset = savePlayerPreset(name.trim(), personalInfo);
+    const json = exportPlayerPresetJSON(preset);
+    downloadJSON(json, `player-preset-${name.trim()}.json`);
+  };
 
   const set = <K extends keyof PlayerProfile>(key: K, val: PlayerProfile[K]) =>
     setPersonalInfo({ ...personalInfo, [key]: val });
@@ -109,17 +147,40 @@ export default function StepPersonalInfo({
         <div className="pi-box-header">
           <User size={16} />
           <span>基本信息</span>
-          {hasApiConfig && (
-            <button
-              className="pi-ai-btn"
-              onClick={onAiFill}
-              disabled={isFilling || !personalInfo.name.trim()}
-              title="AI 补全所有信息"
-              style={{ marginLeft: 'auto' }}
-            >
-              {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中</> : <><Wand2 size={12} /> AI 补全</>}
-            </button>
-          )}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {/* 预设下拉菜单 */}
+            <div ref={presetMenuRef} style={{ position: 'relative' }}>
+              <button
+                className="pi-ai-btn"
+                onClick={() => setPresetMenuOpen(!presetMenuOpen)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+              >
+                <BookMarked size={12} /> 预设 <ChevronDown size={10} style={{ transform: presetMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+              </button>
+              {presetMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: '4px',
+                  background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
+                  minWidth: '140px', zIndex: 200, overflow: 'hidden',
+                }}>
+                  <DropdownItem icon={<Download size={13} />} label="导入预设" onClick={() => { setPresetMenuOpen(false); setPlayerPickerOpen(true); }} />
+                  <DropdownItem icon={<Save size={13} />} label="保存预设" disabled={!personalInfo.name.trim()} onClick={() => { setPresetMenuOpen(false); handleSavePreset(); }} />
+                  <DropdownItem icon={<Upload size={13} />} label="导出 JSON" disabled={!personalInfo.name.trim()} onClick={() => { setPresetMenuOpen(false); handleExportPreset(); }} />
+                </div>
+              )}
+            </div>
+            {hasApiConfig && (
+              <button
+                className="pi-ai-btn"
+                onClick={onAiFill}
+                disabled={isFilling || !personalInfo.name.trim()}
+                title="AI 补全所有信息"
+              >
+                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中</> : <><Wand2 size={12} /> AI 补全</>}
+              </button>
+            )}
+          </div>
         </div>
         <div className="pi-box-body">
           <div className="form-group">
@@ -143,8 +204,16 @@ export default function StepPersonalInfo({
             </div>
           </div>
           <div className="form-group">
+            <label>性格</label>
+            <textarea value={personalInfo.personality} onChange={e => set('personality', e.target.value)} placeholder="如：温柔善良、外冷内热、沉默寡言..." rows={2} />
+          </div>
+          <div className="form-group">
+            <label>外貌</label>
+            <textarea value={personalInfo.appearance} onChange={e => set('appearance', e.target.value)} placeholder="如：黑发碧眼、身材高挑、左脸有一道疤痕..." rows={2} />
+          </div>
+          <div className="form-group">
             <label>背景描述</label>
-            <textarea value={personalInfo.background} onChange={e => set('background', e.target.value)} placeholder="简单描述你的角色性格、特长、来历等..." rows={5} />
+            <textarea value={personalInfo.background} onChange={e => set('background', e.target.value)} placeholder="简单描述你的角色特长、来历、动机等..." rows={5} />
           </div>
           <div className="form-group">
             <label>叙事视角</label>
@@ -256,7 +325,7 @@ export default function StepPersonalInfo({
                   <button onClick={() => removeNpc(npc.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}><Trash2 size={14} /></button>
                 </div>
               ))}
-              <button className="btn-ghost" onClick={() => { setEditingNpc(null); setNpcEditorOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-base)' }}><Plus size={14} /> 创建NPC</button>
+              <button className="btn-ghost" onClick={() => setNpcPickerOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-base)' }}><Plus size={14} /> 创建NPC</button>
             </div>
           )}
         </div>
@@ -279,6 +348,49 @@ export default function StepPersonalInfo({
       {npcEditorOpen && (
         <NpcEditorModal initial={editingNpc} onSave={handleSaveNpc} onCancel={() => { setNpcEditorOpen(false); setEditingNpc(null); }} />
       )}
+
+      {npcPickerOpen && (
+        <TemplatePickerDialog
+          mode="npc"
+          onClose={() => setNpcPickerOpen(false)}
+          onBlank={() => { setEditingNpc(null); setNpcEditorOpen(true); }}
+          onImportTemplate={(npc) => { setEditingNpc(npc); setNpcEditorOpen(true); }}
+        />
+      )}
+
+      {playerPickerOpen && (
+        <TemplatePickerDialog
+          mode="player"
+          currentProfile={personalInfo}
+          onClose={() => setPlayerPickerOpen(false)}
+          onApplyPreset={(profile) => setPersonalInfo(profile)}
+        />
+      )}
+
+      {DialogUI}
     </div>
+  );
+}
+
+/** 下拉菜单项 */
+function DropdownItem({ icon, label, disabled, onClick }: {
+  icon: React.ReactNode; label: string; disabled?: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+        padding: '8px 12px', border: 'none', background: 'none',
+        color: disabled ? 'var(--text-muted)' : 'var(--text-primary)',
+        fontSize: 'var(--font-size-sm)', cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1, textAlign: 'left',
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+    >
+      {icon} {label}
+    </button>
   );
 }

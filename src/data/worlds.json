@@ -4,7 +4,7 @@
     "name": "赛博朋克",
     "description": "霓虹掩映下的罪恶、资本与极致享乐之城。",
     "entryId": null,
-    "icon": "🌃",
+    "icon": "Cpu",
     "coverColor": "#00d4ff",
     "tags": [
       "赛博朋克",
@@ -70,7 +70,7 @@
     "name": "欲望魔都",
     "description": "欲望交织的繁华不夜城",
     "entryId": null,
-    "icon": "💋",
+    "icon": "Heart",
     "coverColor": "#e74c8b",
     "tags": [
       "现代都市",
@@ -134,7 +134,7 @@
     "name": "末日废土",
     "description": "核战后的荒芜世界，异能与辐射怪物共存。",
     "entryId": null,
-    "icon": "☢️",
+    "icon": "Skull",
     "coverColor": "#795548",
     "tags": [
       "末日生存",
@@ -198,7 +198,7 @@
     "name": "日式校园",
     "description": "充满青春、社团与青涩恋爱的日式高中生活。",
     "entryId": null,
-    "icon": "🌸",
+    "icon": "Flower2",
     "coverColor": "#ffb7c5",
     "tags": [
       "青春",
@@ -263,7 +263,7 @@
     "name": "武侠世界",
     "description": "剑气纵横的架空武林，恩怨情仇交织的江湖。",
     "entryId": null,
-    "icon": "⚔️",
+    "icon": "Swords",
     "coverColor": "#8d6e63",
     "tags": [
       "武侠",
@@ -352,7 +352,7 @@
     "name": "云汉皇朝·深宫",
     "description": "红墙黄瓦下，权谋与爱恨交织的华丽囚笼。",
     "entryId": null,
-    "icon": "🪭",
+    "icon": "Crown",
     "coverColor": "#c62828",
     "tags": [
       "宫斗",

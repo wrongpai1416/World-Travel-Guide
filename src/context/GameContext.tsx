@@ -76,6 +76,7 @@ interface GameContextType {
   navigate: (screen: Screen) => void;
   goBack: () => void;
   engine: GameEngine;
+  markNewGameStarted: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -144,6 +145,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { engineRef.current = engine; }, [engine]);
 
+  // 跟踪新游戏是否已开始，防止 auto-restore 覆盖新游戏状态
+  const newGameStartedRef = useRef(false);
+
   // ─── F5 刷新恢复 ───
   // 加载存档数据到内存，但不自动跳转游戏页面
   // 用户在主页点击"继续游戏"或"读取存档"后才进入游戏
@@ -152,6 +156,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const savedId = localStorage.getItem(ACTIVE_SAVE_KEY);
     if (savedId) {
       loadGameFromDb(savedId).then(save => {
+        // 如果新游戏已开始，不应用旧存档数据
+        if (newGameStartedRef.current) return;
         if (!cancelled && save && save.messages && save.messages.length > 0) {
           useSaveStore.setState({ currentSaveId: savedId, currentSaveName: save.name });
           dispatch({ type: 'LOAD_SAVE', save });
@@ -185,8 +191,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [engine]);
 
+  // 标记新游戏已开始，防止 auto-restore 覆盖
+  const markNewGameStarted = useCallback(() => {
+    newGameStartedRef.current = true;
+  }, []);
+
   return (
-    <GameContext.Provider value={{ state, dispatch, navigate, goBack, engine }}>
+    <GameContext.Provider value={{ state, dispatch, navigate, goBack, engine, markNewGameStarted }}>
       {children}
     </GameContext.Provider>
   );

@@ -1,6 +1,10 @@
-import { Clock, MapPin, Cloud, Landmark, Globe, Brain, Star } from 'lucide-react';
-import Avatar from '../../shared/Avatar';
+import { Clock, MapPin, Cloud, Landmark, Globe, Brain, Heart, Zap } from 'lucide-react';
 import type { GameState } from '../../../schema/variables';
+import { extractWorldSystemData } from '../../../modules/runtime';
+import type { WorldSystemData } from '../../../modules/schema';
+import { BaseStatsCard, SixDimCard, ProgressionCard, ResourceCard, DiceCard } from './modules';
+import { getModuleTemplate, type ModuleRenderType } from '../../../data/modules';
+import ModuleCard from './ModuleCard';
 
 interface Props {
   gameState: GameState;
@@ -16,10 +20,32 @@ function StatusRow({ icon, text, muted }: { icon: React.ReactNode; text: string;
   );
 }
 
+// 生存状态条
+function GaugeBar({ label, value, max, color, icon }: { label: string; value: number; max: number; color: string; icon: React.ReactNode }) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
+      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>{icon}</span>
+      <span style={{ width: '32px', fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{label}</span>
+      <div style={{ flex: 1, height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '3px', transition: 'width 0.3s' }} />
+      </div>
+      <span style={{ width: '50px', fontSize: 'var(--font-size-xs)', textAlign: 'right', color: 'var(--text-secondary)' }}>{value}/{max}</span>
+    </div>
+  );
+}
+
 export default function RightPanel({ gameState }: Props) {
   const world = gameState.世界;
-  const npcs = gameState.人物档案;
-  const notebook = gameState.玩家.记事本;
+  const player = gameState.玩家;
+  const notebook = player.记事本;
+
+  // 提取世界系统数据（兼容v2.1旧格式和v2新格式）
+  const worldSystem = extractWorldSystemData(world.世界系统);
+  const hasStatModule = !!worldSystem.数值属性;
+
+  // 兼容旧格式：如果没有新格式数据，尝试从旧格式提取
+  const legacyModules = !hasStatModule && world.世界系统 ? world.世界系统 as Record<string, any> : null;
 
   return (
     <div style={{
@@ -54,53 +80,52 @@ export default function RightPanel({ gameState }: Props) {
       </div>
 
       {/* 当前目标 */}
-      {gameState.玩家.当前目标 && (
+      {player.当前目标 && (
         <div className="surface-card" style={{ padding: '1rem' }}>
           <h4 style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             当前目标
           </h4>
           <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--accent)' }}>
-            {gameState.玩家.当前目标}
+            {player.当前目标}
           </div>
         </div>
       )}
 
-      {/* NPC列表 */}
-      {Object.keys(npcs).length > 0 && (
+      {/* 生存状态（无数值属性模块时显示默认血量/体力） */}
+      {!hasStatModule && !legacyModules && (
         <div className="surface-card" style={{ padding: '1rem' }}>
           <h4 style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            人物档案 ({Object.keys(npcs).length})
+            生存状态
           </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {Object.entries(npcs).map(([id, npc]) => (
-              <div key={id} style={{
-                padding: '8px',
-                background: 'var(--bg-primary)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 'var(--font-size-sm)',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    <Avatar name={npc.姓名 || id} size="sm" />
-                    <span style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{npc.姓名 || id}</span>
-                  </div>
-                  {npc.重要NPC && <Star size={12} fill="var(--warning)" color="var(--warning)" style={{ flexShrink: 0 }} />}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '4px', fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', paddingLeft: '36px' }}>
-                  <span>好感 {npc.关系数据?.好感度 ?? 0}</span>
-                </div>
-                {/* 生存状态条 */}
-                {npc.生存状态 && (
-                  <div style={{ marginTop: '4px', display: 'flex', gap: '4px', paddingLeft: '36px' }}>
-                    <MiniBar value={npc.生存状态.血量 ?? 100} color="#e74c3c" />
-                    <MiniBar value={npc.生存状态.体力值 ?? 100} color="#f39c12" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <GaugeBar icon={<Heart size={11} color="#ef4444" />} label="血量" value={player.生存状态.血量} max={100} color="#ef4444" />
+          <GaugeBar icon={<Zap size={11} color="#f59e0b" />} label="体力" value={player.生存状态.体力值} max={100} color="#f59e0b" />
         </div>
       )}
+
+      {/* ── v2 模块卡片（新格式） ── */}
+      {worldSystem.数值属性 && (
+        <>
+          <BaseStatsCard data={worldSystem.数值属性} />
+          <SixDimCard data={worldSystem.数值属性} />
+        </>
+      )}
+      {worldSystem.成长体系 && (
+        <ProgressionCard data={worldSystem.成长体系} />
+      )}
+      {worldSystem.资源管理 && (
+        <ResourceCard data={worldSystem.资源管理} />
+      )}
+      {worldSystem.骰子检定 && (
+        <DiceCard data={worldSystem.骰子检定} statData={worldSystem.数值属性} />
+      )}
+
+      {/* ── v2.1 旧格式兼容渲染 ── */}
+      {legacyModules && Object.entries(legacyModules).map(([key, mod]) => {
+        if (!mod || typeof mod !== 'object' || !('moduleId' in mod)) return null;
+        return (
+          <LegacyModuleCard key={key} moduleKey={key} mod={mod as any} />
+        );
+      })}
 
       {/* 待办事项 */}
       {Object.keys(notebook.待办事项).length > 0 && (
@@ -124,7 +149,7 @@ export default function RightPanel({ gameState }: Props) {
         </div>
       )}
 
-      {/* 信息层级 */}
+      {/* 最新消息 */}
       {world.信息层级.本地消息 && (
         <div className="surface-card" style={{ padding: '1rem' }}>
           <h4 style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -139,10 +164,15 @@ export default function RightPanel({ gameState }: Props) {
   );
 }
 
-function MiniBar({ value, color }: { value: number; color: string }) {
+// ── 旧格式兼容卡片 ──
+function LegacyModuleCard({ moduleKey, mod }: { moduleKey: string; mod: { moduleId: string; 名称: string; 描述: string; 数据: Record<string, unknown> } }) {
+  const template = getModuleTemplate(mod.moduleId);
+  const renderType: ModuleRenderType = (template?.renderType || 'stats') as ModuleRenderType;
   return (
-    <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
-      <div style={{ width: `${value}%`, height: '100%', background: color, borderRadius: '2px' }} />
-    </div>
+    <ModuleCard
+      module={mod}
+      moduleKey={moduleKey}
+      renderType={renderType}
+    />
   );
 }

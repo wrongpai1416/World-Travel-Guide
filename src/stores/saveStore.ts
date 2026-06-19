@@ -222,3 +222,14 @@ let _autoSaveBuilder: (() => GameSave | null) | null = null;
 export function setAutoSaveBuilder(builder: () => GameSave | null) {
   _autoSaveBuilder = builder;
 }
+
+/** 重置模块级变量，防止新建存档时旧存档的数据污染 */
+export function resetForNewGame() {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer);
+    _saveTimer = null;
+  }
+  _saveQueued = false;
+  _savePromise = null;
+  _autoSaveBuilder = null;
+}

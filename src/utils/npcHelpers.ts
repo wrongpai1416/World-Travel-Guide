@@ -188,9 +188,8 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       if (n.社会身份.社会地位 === undefined || n.社会身份.社会地位 === '') n.社会身份.社会地位 = '普通';
     }
     if (!n.关系数据 || typeof n.关系数据 !== 'object') {
-      n.关系数据 = { 好感度: 0, 关系类型: '陌生人', 印象标签: [], 核心锚点: [] };
+      n.关系数据 = { 好感度: 0, 关系类型: '陌生人', 核心锚点: [] };
     } else {
-      if (!Array.isArray(n.关系数据.印象标签)) n.关系数据.印象标签 = [];
       if (!Array.isArray(n.关系数据.核心锚点)) n.关系数据.核心锚点 = [];
       if (typeof n.关系数据.好感度 !== 'number') n.关系数据.好感度 = 0;
     }
@@ -209,14 +208,6 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       if (n.个人信息.当前穿着 === '') n.个人信息.当前穿着 = '未知';
       if (n.个人信息.当前位置 === '') n.个人信息.当前位置 = '未知';
     }
-    if (!n.交互记忆 || typeof n.交互记忆 !== 'object') {
-      n.交互记忆 = { 未完成约定: [], 共同秘密: [], 赠礼记录: [] };
-    } else {
-      if (!Array.isArray(n.交互记忆.未完成约定)) n.交互记忆.未完成约定 = [];
-      if (!Array.isArray(n.交互记忆.共同秘密)) n.交互记忆.共同秘密 = [];
-      if (!Array.isArray(n.交互记忆.赠礼记录)) n.交互记忆.赠礼记录 = [];
-    }
-    if (!Array.isArray(n.重要经历)) n.重要经历 = [];
     if (n.重要NPC === undefined) n.重要NPC = false;
   }
 }
@@ -327,6 +318,17 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   if (relationType) relationParts.push(`关系:${relationType}`);
   if (relationParts.length > 0) lines.push(`> 关系: ${relationParts.join(', ')}`);
 
+  // 核心锚点（影响关系的关键事件）
+  const anchors = Array.isArray(rd.核心锚点) ? rd.核心锚点 : [];
+  if (anchors.length > 0) {
+    const anchorText = anchors.slice(-3).map((a: any) => {
+      const event = a.事件 ?? '';
+      const impact = a.影响 ?? '';
+      return event + (impact ? `(${impact})` : '');
+    }).filter(Boolean).join('; ');
+    if (anchorText) lines.push(`> 关键事件: ${truncate(anchorText, 80)}`);
+  }
+
   // 外貌与性格
   const appearance = truncate(pi.外貌 ?? ext.外貌, 40);
   const personality = truncate(pi.表性格 ?? ext.性格, 20);
@@ -371,6 +373,59 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
     lines.push(`> 事迹: ${chronicleText}`);
   }
 
+  // 种族描述
+  const raceDesc = truncate(ext.种族描述, 40);
+  const raceEffect = truncate(ext.种族效果, 30);
+  if (raceDesc || raceEffect) {
+    const parts = [];
+    if (raceDesc) parts.push(`描述:${raceDesc}`);
+    if (raceEffect) parts.push(`效果:${raceEffect}`);
+    lines.push(`> 种族: ${parts.join(' | ')}`);
+  }
+  const raceTraits = Array.isArray(ext.种族特性) ? ext.种族特性 : [];
+  if (raceTraits.length > 0) {
+    lines.push(`> 种族特性: ${raceTraits.slice(0, 3).join('、')}`);
+  }
+
+  // 天赋
+  const talents = Array.isArray(ext.天赋) ? ext.天赋 : [];
+  if (talents.length > 0) {
+    lines.push(`> 天赋: ${talents.slice(0, 3).join('、')}`);
+  }
+
+  // 技能列表
+  const skillList = ext.技能列表;
+  if (skillList) {
+    if (Array.isArray(skillList) && skillList.length > 0) {
+      lines.push(`> 技能: ${skillList.slice(0, 5).join('、')}`);
+    } else if (typeof skillList === 'object') {
+      const entries = Object.entries(skillList).slice(0, 5).map(([k, v]: [string, any]) => {
+        return v?.描述 ? `${k}(${truncate(v.描述, 20)})` : k;
+      });
+      if (entries.length > 0) lines.push(`> 技能: ${entries.join('、')}`);
+    }
+  }
+
+  // 物品/装备
+  const items = ext.物品列表;
+  if (items) {
+    if (Array.isArray(items) && items.length > 0) {
+      lines.push(`> 物品: ${items.slice(0, 5).join('、')}`);
+    } else if (typeof items === 'object') {
+      const entries = Object.entries(items).slice(0, 5).map(([k, v]: [string, any]) => {
+        return v?.数量 && v.数量 > 1 ? `${k}×${v.数量}` : k;
+      });
+      if (entries.length > 0) lines.push(`> 物品: ${entries.join('、')}`);
+    }
+  }
+
+  // 属性（简要）
+  const attrs = ext.属性;
+  if (attrs && typeof attrs === 'object') {
+    const entries = Object.entries(attrs).slice(0, 6).map(([k, v]) => `${k}:${v}`);
+    if (entries.length > 0) lines.push(`> 属性: ${entries.join(' | ')}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -409,6 +464,32 @@ export function formatSnapshotForMainAI(state: GameState): string {
     lines.push(`> ${parts.join(' | ')}`);
   }
 
+  // 社会环境
+  const social = world.社会环境;
+  if (social && typeof social === 'object') {
+    const power = (social as any).权力结构 ?? '';
+    const atm = (social as any).社会氛围 ?? '';
+    if (power || atm) {
+      lines.push(`### 【社会环境】`);
+      const parts = [];
+      if (power) parts.push(`权力结构:${power}`);
+      if (atm) parts.push(`社会氛围:${atm}`);
+      lines.push(`> ${parts.join(' | ')}`);
+    }
+  }
+
+  // 信息层级（只取最重要的）
+  const info = world.信息层级;
+  if (info && typeof info === 'object') {
+    const global = (info as any).全局重大事件 ?? '';
+    const faction = (info as any).势力动态 ?? '';
+    if (global || faction) {
+      lines.push(`### 【信息层级】`);
+      if (global) lines.push(`> 全局重大事件: ${global}`);
+      if (faction) lines.push(`> 势力动态: ${faction}`);
+    }
+  }
+
   // 玩家状态
   const player = state.玩家 ?? ({} as any);
   const playerName = player.姓名 ?? (player as any).name ?? '';
@@ -419,6 +500,98 @@ export function formatSnapshotForMainAI(state: GameState): string {
     if (playerName) lines.push(`> 姓名: ${playerName}`);
     if (playerLocation) lines.push(`> 位置: ${playerLocation}`);
     if (playerGoal) lines.push(`> 目标: ${playerGoal}`);
+  }
+
+  // 玩家生存状态
+  const survival = player.生存状态;
+  if (survival && typeof survival === 'object') {
+    const hp = (survival as any).生命值 ?? (survival as any).生命;
+    const stamina = (survival as any).体力值 ?? (survival as any).体力;
+    const hunger = (survival as any).饥饿值 ?? (survival as any).饥饿;
+    if (hp != null || stamina != null || hunger != null) {
+      lines.push(`### 【生存状态】`);
+      const parts = [];
+      if (hp != null) parts.push(`生命:${hp}`);
+      if (stamina != null) parts.push(`体力:${stamina}`);
+      if (hunger != null) parts.push(`饥饿:${hunger}`);
+      lines.push(`> ${parts.join(' | ')}`);
+    }
+  }
+
+  // 技能系统
+  const skills = player.技能系统;
+  if (skills && typeof skills === 'object' && Object.keys(skills).length > 0) {
+    lines.push(`### 【技能系统】`);
+    for (const [name, data] of Object.entries(skills)) {
+      if (!data || typeof data !== 'object') continue;
+      const d = data as any;
+      const quality = d.品质 || '';
+      const desc = d.描述 || '';
+      const type = d.类型 || '';
+      const parts = [`【${name}】`];
+      if (quality) parts.push(`品质:${quality}`);
+      if (type) parts.push(`类型:${type}`);
+      if (desc) parts.push(`效果:${desc}`);
+      lines.push(`> ${parts.join(' | ')}`);
+    }
+  }
+
+  // 物品栏
+  const inventory = player.物品栏;
+  if (Array.isArray(inventory) && inventory.length > 0) {
+    lines.push(`### 【物品栏】`);
+    for (const item of inventory) {
+      if (!item || typeof item !== 'object') continue;
+      const it = item as any;
+      const name = it.名称 ?? it.name ?? '';
+      const qty = it.数量 ?? 1;
+      const desc = it.描述 ?? '';
+      if (name) lines.push(`> ${name}${qty > 1 ? `×${qty}` : ''}${desc ? `：${desc}` : ''}`);
+    }
+  }
+
+  // 货币资源
+  const currency = player.货币资源;
+  if (currency && typeof currency === 'object') {
+    const entries = Object.entries(currency).filter(([, v]) => v != null);
+    if (entries.length > 0) {
+      lines.push(`### 【货币资源】`);
+      lines.push(`> ${entries.map(([k, v]) => `${k}:${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ')}`);
+    }
+  }
+
+  // 记事本
+  const notebook = player.记事本;
+  if (notebook && typeof notebook === 'object') {
+    const crises = Object.entries(notebook.潜在危机 ?? {}).filter(([, v]) => v && typeof v === 'object');
+    const opportunities = Object.entries(notebook.当前机遇 ?? {}).filter(([, v]) => v && typeof v === 'object');
+    const todos = Object.entries(notebook.待办事项 ?? {}).filter(([, v]) => v && typeof v === 'object');
+    if (crises.length > 0 || opportunities.length > 0 || todos.length > 0) {
+      lines.push(`### 【记事本】`);
+      if (crises.length > 0) {
+        for (const [name, data] of crises.slice(0, 3)) {
+          const d = data as any;
+          const severity = d.严重程度 ?? '';
+          const measure = d.应对措施 ?? '';
+          lines.push(`> [危机] ${name}${severity ? `(${severity})` : ''}${measure ? `：${measure}` : ''}`);
+        }
+      }
+      if (opportunities.length > 0) {
+        for (const [name, data] of opportunities.slice(0, 3)) {
+          const d = data as any;
+          const plan = d.行动计划 ?? '';
+          lines.push(`> [机遇] ${name}${plan ? `：${plan}` : ''}`);
+        }
+      }
+      if (todos.length > 0) {
+        for (const [name, data] of todos.slice(0, 3)) {
+          const d = data as any;
+          const priority = d.优先级 ?? '';
+          const status = d.状态 ?? '';
+          lines.push(`> [待办] ${name}${priority ? `(${priority})` : ''}${status ? `(${status})` : ''}`);
+        }
+      }
+    }
   }
 
   // 人物档案

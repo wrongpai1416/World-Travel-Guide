@@ -11,7 +11,11 @@ import type { WorldBookManager } from '../worldbook/index';
 import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import { sanitizeForContext } from './contextManager';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
-import { loadWorldBook, applyWorld } from './worldPersonality';
+import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
+import { WORLDS } from '../data/worldLoader';
+import type { WorldDef } from '../data/worlds-schema';
+import { extractWorldSystemData } from '../modules/runtime';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
@@ -79,19 +83,39 @@ export function useGameEngine(
     messagesRef.current = messages;
   }, [messages]);
 
+  // 辅助：根据 worldId 查找 WorldDef（内置 + 自建）
+  const findWorldDef = useCallback((worldId: string): WorldDef | undefined => {
+    const builtIn = WORLDS.find(w => w.id === worldId);
+    if (builtIn) return builtIn;
+    try {
+      const custom: WorldDef[] = JSON.parse(localStorage.getItem('chuanye_custom_worlds') || '[]');
+      return custom.find((w: WorldDef) => w.id === worldId);
+    } catch { return undefined; }
+  }, []);
+
+  // 辅助：应用世界 + 模块注入（v2: 传入运行时数据以生成更精确的prompt）
+  const applyWorldAndModules = useCallback((wb: WorldBookManager, worldId: string, worldSystem?: Record<string, unknown>) => {
+    applyWorld(wb, worldId);
+    const world = findWorldDef(worldId);
+    if (world) {
+      const systemData = extractWorldSystemData(worldSystem);
+      applyModules(wb, world, systemData);
+    }
+  }, [findWorldDef]);
+
   useEffect(() => {
     loadWorldBook().then(wb => {
       worldBookRef.current = wb;
       if (wb && !initializedRef.current) {
         initializedRef.current = true;
-        applyWorld(wb, selectedWorld);
+        applyWorldAndModules(wb, selectedWorld);
       }
     });
   }, []);
 
   useEffect(() => {
     if (worldBookRef.current && initializedRef.current) {
-      applyWorld(worldBookRef.current, selectedWorld);
+      applyWorldAndModules(worldBookRef.current, selectedWorld);
     }
   }, [selectedWorld]);
 
@@ -270,7 +294,7 @@ export function useGameEngine(
       ? Math.max(...save.messages.map(m => m.round))
       : 0;
     if (save.worldId && worldBookRef.current) {
-      applyWorld(worldBookRef.current, save.worldId);
+      applyWorldAndModules(worldBookRef.current, save.worldId, save.gameState?.世界?.世界系统);
     }
     // 先完全重置记忆系统，防止跨存档污染
     const memStore = useMemoryStore.getState();
@@ -461,15 +485,32 @@ ${npcLines}
 - 姓名：${playerProfileRef.current.name}
 - 性别：${playerProfileRef.current.gender || '未设定'}
 - 年龄：${playerProfileRef.current.age || '未设定'}
+- 性格：${playerProfileRef.current.personality || '未设定'}
+- 外貌：${playerProfileRef.current.appearance || '未设定'}
 - 背景描述：${playerProfileRef.current.background || '无'}
 - 职业：${playerProfileRef.current.career || '未设定'}
 - 阶层：${playerProfileRef.current.socialClass || '未设定'}
 - 所属组织：${playerProfileRef.current.organization || '无'}
 - 特殊身份：${playerProfileRef.current.specialIdentity || '无'}
 - 叙事视角：${playerProfileRef.current.perspective || '第三人称'}
+${(() => {
+  const skills = (state as any).玩家?.技能系统;
+  if (skills && typeof skills === 'object' && Object.keys(skills).length > 0) {
+    const lines = Object.entries(skills).map(([name, data]: [string, any]) => {
+      const parts = [`【${name}】`];
+      if (data.品质) parts.push(`品质:${data.品质}`);
+      if (data.类型) parts.push(`类型:${data.类型}`);
+      if (data.描述) parts.push(`效果:${data.描述}`);
+      return `- ${parts.join(' | ')}`;
+    });
+    return `- 技能：\n${lines.join('\n')}`;
+  }
+  return '';
+})()}
 ${characterHistoryRef.current ? `- 角色经历：\n${characterHistoryRef.current}` : ''}
 ${customNpcsBlock}
 在故事开始时，玩家应以此身份登场。NPC 应以该角色的姓名和身份进行称呼和互动。
+使用技能时，必须严格遵循技能描述中的效果，不要自行编造技能功能。
 ${perspectiveInstruction}
 </PlayerProfile>
 `;
@@ -580,7 +621,7 @@ ${perspectiveInstruction}
 
   const cancel = useCallback(() => { cancelRef.current?.abort(); }, []);
 
-  const reset = useCallback(() => {
+  const reset = useCallback((worldDef?: WorldDef) => {
     cancelRef.current?.abort();
     setIsGenerating(false);
     setMessages([]);
@@ -593,6 +634,24 @@ ${perspectiveInstruction}
     memStore.setCompiledContext(null);
     memStore.setRuntimeFlow(null);
     memStore.setRetrievePlan(null);
+    // 初始化世界系统模块数据
+    if (worldDef?.modules?.length) {
+      const state = varMgrRef.current.getState();
+      const worldSystem: Record<string, unknown> = {};
+      for (const mod of worldDef.modules) {
+        if (!mod.enabled) continue;
+        switch (mod.moduleId) {
+          case 'stat': worldSystem.数值属性 = createDefaultStatModule(); break;
+          case 'progression': worldSystem.成长体系 = createDefaultProgressionModule(); break;
+          case 'resource': worldSystem.资源管理 = createDefaultResourceModule(); break;
+          case 'dice': worldSystem.骰子检定 = createDefaultDiceModule(); break;
+        }
+      }
+      if (Object.keys(worldSystem).length > 0) {
+        state.世界.世界系统 = worldSystem;
+        varMgrRef.current.setState(state);
+      }
+    }
   }, [selectedWorld]);
 
   const setPlayerProfile = useCallback((profile: PlayerProfile) => {
@@ -602,6 +661,8 @@ ${perspectiveInstruction}
     state.玩家.性别 = profile.gender;
     state.玩家.年龄 = profile.age;
     state.玩家.身份信息.背景信息 = profile.background;
+    state.玩家.性格 = profile.personality || '';
+    state.玩家.外貌 = profile.appearance || '';
     // 身份信息
     state.玩家.身份信息.职业 = profile.career || '';
     state.玩家.身份信息.阶层 = profile.socialClass || '';
@@ -641,7 +702,7 @@ ${perspectiveInstruction}
         关系数据: {
           好感度: 50,
           关系类型: npc.relationshipType || '同伴',
-          印象标签: [], 核心锚点: [],
+          核心锚点: [],
         },
         个人信息: {
           外貌: npc.appearance || '',
@@ -653,10 +714,8 @@ ${perspectiveInstruction}
           当前状态: npc.currentState || '',
           备注: '',
         },
-        交互记忆: { 未完成约定: [], 共同秘密: [], 赠礼记录: [] },
         重要NPC: true,
         _关注: true,
-        重要经历: [],
         $time: Date.now(),
         人物分类: '在场',
         当前行动: npc.currentAction || '',
@@ -672,10 +731,12 @@ ${perspectiveInstruction}
     initialSnapshotRef.current = varMgrRef.current.createSnapshot();
   }, []);
 
+  // 使用 getter 确保 variableManager 总是返回最新的 ref 值
+  // （reset 会创建新的 VariableManager 实例，旧的 engine 对象仍需能访问到新实例）
   return {
     sendMessage, cancel, isGenerating, messages,
-    variableManager: varMgrRef.current,
-    worldBook: worldBookRef.current,
+    get variableManager() { return varMgrRef.current; },
+    get worldBook() { return worldBookRef.current; },
     pipelineStatus,
     deleteSingleMessage, editMessage, resendFromMessage, resendFromAssistantMessage,
     loadSave, reset, setPlayerProfile, setInitialNPCs, addMessage,
