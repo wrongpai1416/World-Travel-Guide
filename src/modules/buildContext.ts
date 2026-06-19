@@ -3,7 +3,7 @@
 //  管线执行过程中传递的上下文数据
 // ============================================================
 
-import type { StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, TalentModuleSchema } from './schema';
+import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from './schema';
 import type { WorldBookEntryDef } from '../data/worlds-schema';
 
 /** 数值属性配置（静态，存入世界定义/世界书） */
@@ -56,11 +56,25 @@ export interface ProgressionConfig {
   xpFormula: { baseXP: number; exponent: number; scaleFactor: number };
 }
 
-/** 资源管理配置（静态，存入世界定义/世界书） */
-export interface ResourceConfig {
+/** 生存资源配置（静态，存入世界定义/世界书） */
+export interface SurvivalConfig {
   description: string;
-  items: Array<{ id: string; name: string; symbol: string; max?: number; scarce: boolean; description: string }>;
-  currency?: { name: string; symbol: string; description?: string };
+  resources: Array<{
+    id: string; name: string; symbol: string;
+    amount: number; max: number; scarce: boolean;
+    gatherRate?: string; usage?: string;
+    description: string;
+  }>;
+  rules: {
+    cycleName: string;
+    consumePerCycle: string;
+    criticalThreshold: number;
+  };
+}
+
+/** 经营资产配置（静态，存入世界定义/世界书）（占位） */
+export interface BusinessConfig {
+  description: string;
 }
 
 /** 世界创建管线的上下文数据 */
@@ -87,8 +101,10 @@ export interface BuildContext {
   statData?: StatModuleSchema;
   /** 阶段2生成的成长数据（原始格式，用于合成） */
   progressionData?: ProgressionModuleSchema;
-  /** 阶段3生成的资源数据（原始格式，用于合成） */
-  resourceData?: ResourceModuleSchema;
+  /** 阶段2生成的生存资源数据（原始格式，用于合成）（占位） */
+  survivalData?: SurvivalModuleSchema;
+  /** 阶段2生成的经营资产数据（原始格式，用于合成）（占位） */
+  businessData?: BusinessModuleSchema;
   /** 阶段3生成的天赋数据 */
   talentData?: TalentModuleSchema;
   /** 阶段4生成的世界书条目 */
@@ -101,9 +117,13 @@ export interface BuildContext {
   statState?: StatState;
   /** 成长体系配置 */
   progressionConfig?: ProgressionConfig;
-  /** 资源管理配置 */
-  resourceConfig?: ResourceConfig;
+  /** 生存资源配置（占位） */
+  survivalConfig?: SurvivalConfig;
+  /** 经营资产配置（占位） */
+  businessConfig?: BusinessConfig;
 
+  /** 用户对生存资源的额外描述（可选） */
+  survivalUserDesc?: string;
   /** 阶段5合成的最终结果 */
   result?: Record<string, unknown>;
 }

@@ -3,6 +3,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { ChatMessage } from '../engine/types';
 import type { GameState } from '../schema/variables';
 import { STORAGE_KEYS } from '@/config/storageKeys';
+import { slimMemoryRuntimeForSave } from '@/memory/memoryStore';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -99,6 +100,8 @@ interface GameSave {
   memoryConfig?: unknown;
   /** 向量记忆数据 */
   vectorMemory?: unknown[];
+  /** 变量提取 API 配置（per-save） */
+  variableConfig?: { apiPresetId?: string };
 }
 
 /** 轻量元数据（写入 global store，运行时缓存用于列表展示） */
@@ -213,6 +216,11 @@ export function invalidateSaveMetaCache(): void {
 /** 保存完整存档（写入 saves store） */
 export async function saveGame(save: GameSave): Promise<void> {
   try {
+    // 存档大小防护：超阈值时告警（不阻断保存，避免丢数据）
+    const estimatedSize = JSON.stringify(save).length;
+    if (estimatedSize > 50 * 1024 * 1024) {
+      console.warn(`[DB] 存档大小 ${(estimatedSize / 1024 / 1024).toFixed(1)}MB 超过 50MB 阈值，可能导致加载缓慢或崩溃`);
+    }
     const db = await getDB();
     await db.put(SAVES_STORE, save);
   } catch (err) {
@@ -236,24 +244,31 @@ export async function loadGame(id: string): Promise<GameSave | undefined> {
 export async function deleteSave(id: string): Promise<void> {
   try {
     const db = await getDB();
-    // 先确认存档确实存在
-    const existing = await db.get(SAVES_STORE, id);
-    if (!existing) {
-      console.warn(`[DB] 删除存档 ${id} 时发现已不存在`);
-    }
     await db.delete(SAVES_STORE, id);
-    // 验证删除是否生效
-    const verify = await db.get(SAVES_STORE, id);
-    if (verify) {
-      console.error(`[DB] 删除存档 ${id} 后仍能读到！`);
-    } else {
-      console.log(`[DB] 存档 ${id} 已从 IndexedDB 删除`);
-    }
-    // 同时失效元数据缓存
-    cachedSaveMeta = null;
+    console.log(`[DB] 存档 ${id} 已删除`);
   } catch (err) {
     console.error('[DB] 删除失败:', err);
     throw new Error('存档删除失败');
+  }
+}
+
+/** 强制删除存档（不读取数据，直接按 key 删除，用于处理损坏/膨胀存档） */
+export async function forceDeleteSave(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete(SAVES_STORE, id);
+    // 同时清理元数据中的对应条目
+    const metas = await getAllSaveMeta();
+    const filtered = metas.filter(s => s.id !== id);
+    await saveAllSaveMeta(filtered);
+    // 清理 localStorage 活跃存档引用
+    if (localStorage.getItem(ACTIVE_SAVE_KEY) === id) {
+      localStorage.removeItem(ACTIVE_SAVE_KEY);
+    }
+    console.log(`[DB] 强制删除存档 ${id} 完成`);
+  } catch (err) {
+    console.error('[DB] 强制删除失败:', err);
+    throw new Error('强制删除失败');
   }
 }
 
@@ -318,10 +333,12 @@ export async function exportSave(saveId: string): Promise<Blob> {
       worldId: save.worldId,
       personalInfo: save.personalInfo,
       characterHistory: save.characterHistory,
+      memoryRuntime: save.memoryRuntime ? slimMemoryRuntimeForSave(save.memoryRuntime) : undefined,
+      memoryConfig: save.memoryConfig,
     },
   };
 
-  return new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  return new Blob([JSON.stringify(exportData)], { type: 'application/json' });
 }
 
 /** 从文件导入存档，返回新 SaveMeta */
@@ -373,6 +390,7 @@ export async function importSaveFromData(rawData: any): Promise<SaveMeta> {
     memoryRuntime: save.memoryRuntime || undefined,
     memoryConfig: save.memoryConfig || undefined,
     vectorMemory: Array.isArray(save.vectorMemory) ? save.vectorMemory : undefined,
+    variableConfig: save.variableConfig || undefined,
   };
 
   await saveGame(saveData);

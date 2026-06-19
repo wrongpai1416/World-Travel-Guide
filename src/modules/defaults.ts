@@ -6,7 +6,8 @@
 import type {
   StatModuleSchema,
   ProgressionModuleSchema,
-  ResourceModuleSchema,
+  SurvivalModuleSchema,
+  BusinessModuleSchema,
   DiceModuleSchema,
   TalentModuleSchema,
   WorldSystemData,
@@ -33,10 +34,16 @@ export const PROGRESSION_DEFAULTS = {
   initialXP: 0,
 };
 
-/** 资源管理模块默认值 */
-export const RESOURCE_DEFAULTS = {
+/** 生存资源模块默认值 */
+export const SURVIVAL_DEFAULTS = {
+  initialAmount: 5,
+  maxAmount: 10,
+  criticalThreshold: 2,
+};
+
+/** 经营资产模块默认值（占位） */
+export const BUSINESS_DEFAULTS = {
   initialCurrencyAmount: 500,
-  initialItemAmount: 10,
 };
 
 /** 骰子检定模块默认值 */
@@ -75,11 +82,23 @@ export function createDefaultProgressionModule(): ProgressionModuleSchema {
   };
 }
 
-/** 创建默认的资源管理模块数据 */
-export function createDefaultResourceModule(): ResourceModuleSchema {
+/** 创建默认的生存资源模块数据 */
+export function createDefaultSurvivalModule(): SurvivalModuleSchema {
   return {
     description: '',
-    items: [],
+    resources: [],
+    rules: {
+      cycleName: '一天',
+      consumePerCycle: '',
+      criticalThreshold: SURVIVAL_DEFAULTS.criticalThreshold,
+    },
+  };
+}
+
+/** 创建默认的经营资产模块数据（占位） */
+export function createDefaultBusinessModule(): BusinessModuleSchema {
+  return {
+    description: '',
   };
 }
 

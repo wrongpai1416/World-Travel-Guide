@@ -4,13 +4,15 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import {
-  Layers, Download, Upload, RefreshCw,
+  Layers, Download, Upload, RefreshCw, Settings,
   ChevronDown, ChevronRight, RotateCcw, Save,
   ChevronLeft, ChevronRight as ChevronRightNav,
 } from 'lucide-react';
 import type { GameState } from '../../../schema/variables';
 import type { VariableManager } from '../../../engine/variableManager';
 import type { ChatMessage } from '../../../engine/types';
+import { loadPresets } from '../../settings/apiPresetUtils';
+import { useConfigStore } from '../../../stores/configStore';
 
 // ============================================================
 //  类型
@@ -50,6 +52,35 @@ export default function VariableSnapshotPanel({
   const [layerEditTexts, setLayerEditTexts] = useState<Record<string, string>>({});
   const [layerModified, setLayerModified] = useState<Set<string>>(new Set());
   const [confirmRollback, setConfirmRollback] = useState<SnapshotLayer | null>(null);
+  const [showApiSettings, setShowApiSettings] = useState(false);
+
+  // ─── 变量提取 API 配置（per-save） ───
+  const apiPresets = loadPresets();
+  const [varApiPresetId, setVarApiPresetId] = useState<string>(() => {
+    try { return localStorage.getItem('world_travel_guide_variable_api_preset') || ''; } catch { return ''; }
+  });
+
+  const { setAuxiliaryConfig, setApiMode } = useConfigStore();
+
+  const handleSaveApiSettings = useCallback(() => {
+    localStorage.setItem('world_travel_guide_variable_api_preset', varApiPresetId);
+    // 同步到 configStore 的 auxiliaryConfig（让运行中的引擎立即生效）
+    if (varApiPresetId) {
+      const preset = apiPresets.find(p => p.id === varApiPresetId);
+      if (preset) {
+        setAuxiliaryConfig({
+          endpoint: preset.config.baseUrl,
+          apiKey: preset.config.apiKey,
+          model: preset.config.model,
+        });
+        setApiMode('auxiliary');
+      }
+    } else {
+      setAuxiliaryConfig(null);
+      setApiMode('default');
+    }
+    onSave?.();
+  }, [varApiPresetId, apiPresets, setAuxiliaryConfig, setApiMode, onSave]);
 
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -236,6 +267,56 @@ export default function VariableSnapshotPanel({
           <ToolBtn onClick={() => importRef.current?.click()} title="导入快照"><Upload size={14} /></ToolBtn>
           <ToolBtn onClick={() => setSnapshotPage(0)} title="刷新"><RefreshCw size={14} /></ToolBtn>
         </div>
+      </div>
+
+      {/* API 设置（可折叠） */}
+      <div style={{ borderBottom: '1px solid var(--border)' }}>
+        <button
+          onClick={() => setShowApiSettings(!showApiSettings)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            width: '100%', padding: '10px 16px',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)',
+          }}
+        >
+          <Settings size={14} />
+          <span>变量提取 API 设置</span>
+          <span style={{ marginLeft: 'auto', fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+            {varApiPresetId ? (apiPresets.find(p => p.id === varApiPresetId)?.name || '自定义') : '跟随主 API'}
+          </span>
+          {showApiSettings ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {showApiSettings && (
+          <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>API 预设</span>
+              <select
+                value={varApiPresetId}
+                onChange={e => { setVarApiPresetId(e.target.value); }}
+                style={{
+                  padding: '4px 8px', fontSize: 'var(--font-size-sm)',
+                  background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                  borderRadius: '6px', color: 'var(--text-primary)', width: '160px',
+                }}
+              >
+                <option value="">跟随主 API</option>
+                {apiPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={handleSaveApiSettings}
+              style={{
+                padding: '6px 16px', fontSize: 'var(--font-size-sm)',
+                border: 'none', borderRadius: '6px',
+                background: 'var(--accent)', color: '#fff',
+                cursor: 'pointer', fontWeight: '600', alignSelf: 'flex-end',
+              }}
+            >
+              保存设置
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 内容区 */}

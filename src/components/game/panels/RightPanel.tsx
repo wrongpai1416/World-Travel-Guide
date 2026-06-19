@@ -2,13 +2,21 @@ import { Clock, MapPin, Cloud, Landmark, Globe, Brain, Heart, Zap } from 'lucide
 import type { GameState } from '../../../schema/variables';
 import type { WorldDef } from '../../../data/worlds-schema';
 import { extractWorldSystemData } from '../../../modules/runtime';
-import type { WorldSystemData, ProgressionConfig } from '../../../modules/schema';
-import { BaseStatsCard, SixDimCard, ProgressionCard, ResourceCard, TalentCard } from './modules';
+import type { WorldSystemData, ProgressionConfig, SurvivalRecipe } from '../../../modules/schema';
+import { BaseStatsCard, SixDimCard, ProgressionCard, SurvivalCard, BusinessCard, TalentCard } from './modules';
 import { findWorldDef } from '../../../data/worldLoader';
 
 interface Props {
   gameState: GameState;
   worldId?: string;
+  /** 生存资源：生成配方回调 */
+  onSurvivalGenerateRecipe?: (request: string) => Promise<void>;
+  /** 生存资源：制作回调 */
+  onSurvivalCraft?: (recipe: SurvivalRecipe) => void;
+  /** 生存资源：删除配方回调 */
+  onSurvivalDeleteRecipe?: (recipeId: string) => void;
+  /** 是否正在生成配方 */
+  isGeneratingRecipe?: boolean;
 }
 
 // 世界状态行 - Lucide 图标 + 文字
@@ -39,7 +47,7 @@ function GaugeBar({ label, value, max, color, icon }: { label: string; value: nu
   );
 }
 
-export default function RightPanel({ gameState, worldId }: Props) {
+export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecipe, onSurvivalCraft, onSurvivalDeleteRecipe, isGeneratingRecipe }: Props) {
   const world = gameState.世界;
   const player = gameState.玩家;
   const notebook = player.记事本;
@@ -153,8 +161,18 @@ export default function RightPanel({ gameState, worldId }: Props) {
           } : undefined}
         />
       )}
-      {worldSystem.资源管理 && (
-        <ResourceCard data={worldSystem.资源管理} title={moduleNames?.['资源管理']} />
+      {worldSystem.生存资源 && (
+        <SurvivalCard
+          data={worldSystem.生存资源}
+          title={moduleNames?.['生存资源']}
+          onGenerateRecipe={onSurvivalGenerateRecipe}
+          onCraft={onSurvivalCraft}
+          onDeleteRecipe={onSurvivalDeleteRecipe}
+          isGeneratingRecipe={isGeneratingRecipe}
+        />
+      )}
+      {worldSystem.经营资产 && (
+        <BusinessCard data={worldSystem.经营资产} title={moduleNames?.['经营资产']} />
       )}
       {worldSystem.天赋体系 && (
         <TalentCard data={worldSystem.天赋体系} title={moduleNames?.['天赋体系']} />

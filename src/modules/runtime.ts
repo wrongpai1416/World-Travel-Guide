@@ -3,7 +3,7 @@
 //  管理 WorldSystemData 的读取和更新
 // ============================================================
 
-import type { WorldSystemData, StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, DiceModuleSchema, TalentModuleSchema } from './schema';
+import type { WorldSystemData, StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, DiceModuleSchema, TalentModuleSchema } from './schema';
 import { getXpForNextTier, getTierProgress } from './xpAlgorithm';
 
 /**
@@ -17,7 +17,7 @@ export function extractWorldSystemData(
 
   // 新格式：直接是 WorldSystemData
   if ('数值属性' in worldSystem || '成长体系' in worldSystem ||
-      '资源管理' in worldSystem || '骰子检定' in worldSystem) {
+      '生存资源' in worldSystem || '经营资产' in worldSystem || '骰子检定' in worldSystem) {
     const result = { ...worldSystem } as WorldSystemData;
     // 兼容：数值属性可能是嵌套格式 { config, initialState }，需要展平为 StatModuleSchema
     const statRaw = result.数值属性 as any;
@@ -57,8 +57,11 @@ export function extractWorldSystemData(
         case 'progression':
           result.成长体系 = data as unknown as ProgressionModuleSchema;
           break;
-        case 'resource':
-          result.资源管理 = data as unknown as ResourceModuleSchema;
+        case 'survival':
+          result.生存资源 = data as unknown as SurvivalModuleSchema;
+          break;
+        case 'business':
+          result.经营资产 = data as unknown as BusinessModuleSchema;
           break;
         case 'dice':
           result.骰子检定 = data as unknown as DiceModuleSchema;

@@ -170,6 +170,19 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
   },
 
+  // ─── 世界系统 ───
+  {
+    id: 'survival_resources',
+    section: 'world_system',
+    sectionLabel: '世界系统',
+    displayName: '生存资源',
+    canonicalPath: '世界.世界系统.生存资源.resources',
+    description: '生存资源列表及当前数量',
+    valueType: 'object',
+    editable: true,
+    isNpcTemplate: false,
+  },
+
   // ─── 玩家核心 ───
   {
     id: 'player_name',

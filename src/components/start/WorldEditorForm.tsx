@@ -4,12 +4,12 @@ import { requestStreamWithRetry } from '../../api/client';
 import ModuleSelector, { getDefaultSelectedModules } from './ModuleSelector';
 import { useConfigStore } from '../../stores/configStore';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
-import type { StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, TalentModuleSchema } from '../../modules/schema';
+import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from '../../modules/schema';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
 import { createBuildContext } from '../../modules/buildContext';
 import { waitForRateLimit } from '../../api/rateLimiter';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
-import { buildStatGenPrompt, buildProgressionGenPrompt, buildResourceGenPrompt } from '../../modules/prompts';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
+import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
 import {
   X, Cpu, Pencil, Sparkles, Loader, ClipboardList, ScrollText,
   Swords, DollarSign, Flag, User, Save, Plus,
@@ -122,6 +122,7 @@ export default function WorldEditorForm({
   }, [initialWorld]);
 
   const [aiGenName, setAiGenName] = useState('');
+  const [survivalGenDesc, setSurvivalGenDesc] = useState('');
   const [isGeneratingWorld, setIsGeneratingWorld] = useState(false);
   const [isGeneratingTalent, setIsGeneratingTalent] = useState(false);
   const [generatingModule, setGeneratingModule] = useState<string | null>(null);
@@ -139,23 +140,56 @@ export default function WorldEditorForm({
   const DEFAULT_MODULE_FACTORIES: Record<string, () => unknown> = {
     stat: createDefaultStatModule,
     progression: createDefaultProgressionModule,
-    resource: createDefaultResourceModule,
+    survival: createDefaultSurvivalModule,
+    business: createDefaultBusinessModule,
     dice: createDefaultDiceModule,
     talent: createDefaultTalentModule,
   };
   const MODULE_NAME_MAP: Record<string, string> = {
-    stat: '数值属性', progression: '成长体系', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+    stat: '数值属性', progression: '成长体系', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
   };
+
+  // 模块互斥规则：生存资源 与 数值属性/成长体系/天赋体系 互斥
+  const MUTEX: Record<string, string[]> = {
+    survival: ['stat', 'progression', 'talent'],
+    stat: ['survival'],
+    progression: ['survival'],
+    talent: ['survival'],
+  };
+
+  // 计算因互斥而被禁用的模块集合
+  const disabledByConflict = new Set<string>();
+  for (const id of selectedModules) {
+    for (const conflict of (MUTEX[id] || [])) {
+      if (!selectedModules.has(conflict)) {
+        disabledByConflict.add(conflict);
+      }
+    }
+  }
 
   const toggleModule = (moduleId: string) => {
     setSelectedModules(prev => {
       const next = new Set(prev);
       const adding = !next.has(moduleId);
-      if (adding) next.add(moduleId); else next.delete(moduleId);
+
+      if (adding) {
+        next.add(moduleId);
+        // 互斥：移除冲突模块
+        for (const conflict of (MUTEX[moduleId] || [])) {
+          next.delete(conflict);
+        }
+      } else {
+        next.delete(moduleId);
+      }
+
       // 同步 form.modules
       setForm(f => {
         let modules = f.modules ? [...f.modules] : [];
         if (adding) {
+          // 移除冲突模块
+          for (const conflict of (MUTEX[moduleId] || [])) {
+            modules = modules.filter(m => m.moduleId !== conflict);
+          }
           // 添加：如果不存在则创建默认数据
           if (!modules.find(m => m.moduleId === moduleId)) {
             const data = DEFAULT_MODULE_FACTORIES[moduleId]?.();
@@ -291,6 +325,10 @@ export default function WorldEditorForm({
         await waitForRateLimit();
         const worldDesc = baseData.setting?.overview || aiGenName.trim();
         const ctx = createBuildContext(worldDesc, enabledModuleIds);
+        // 如果用户填写了生存资源描述，附加到上下文
+        if (survivalGenDesc.trim()) {
+          ctx.survivalUserDesc = survivalGenDesc.trim();
+        }
 
         await executeBuildPipeline(ctx, {
           callAI,
@@ -299,7 +337,7 @@ export default function WorldEditorForm({
 
         // 从管线结果构建 modules 数组（管线失败的模块用默认数据兜底）
         const moduleIdToKey: Record<string, string> = {
-          stat: '数值属性', progression: '成长体系', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+          stat: '数值属性', progression: '成长体系', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
         };
         const modules = enabledModuleIds.map(id => {
           const key = moduleIdToKey[id];
@@ -424,8 +462,10 @@ export default function WorldEditorForm({
         prompt = buildStatGenPrompt({ theme: desc, attrAName: '生命', attrBName: '能量', dim1Name: '攻击', dim2Name: '防御', dim3Name: '速度', dim4Name: '智力', dim5Name: '魅力', dim6Name: '幸运' });
       } else if (moduleId === 'progression') {
         prompt = buildProgressionGenPrompt({ theme: desc, tone: '中等', era: '现代' });
-      } else if (moduleId === 'resource') {
-        prompt = buildResourceGenPrompt({ theme: desc, tone: '中等', statNames: '', progressionInfo: '' });
+      } else if (moduleId === 'survival') {
+        prompt = buildSurvivalGenPrompt({ theme: desc, tone: '中等' });
+      } else if (moduleId === 'business') {
+        prompt = buildBusinessGenPrompt({ theme: desc, tone: '中等' });
       } else {
         return;
       }
@@ -517,7 +557,25 @@ export default function WorldEditorForm({
               <ModuleSelector
                 selected={selectedModules}
                 onToggle={toggleModule}
+                disabledByConflict={disabledByConflict}
               />
+              {/* 生存资源：额外描述输入 */}
+              {selectedModules.has('survival') && (
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    type="text"
+                    value={survivalGenDesc}
+                    onChange={e => setSurvivalGenDesc(e.target.value)}
+                    placeholder="描述你想要的生存资源系统（如：荒岛求生，需要淡水/食物/木材/药草，初期紧张后期富足...）"
+                    style={{
+                      width: '100%', background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border)', borderRadius: 6,
+                      padding: '8px 10px', color: 'var(--text-primary)',
+                      fontSize: 'var(--font-size-sm)',
+                    }}
+                  />
+                </div>
+              )}
               {genError && <div style={{ color: '#ef4444', fontSize: 'var(--font-size-sm)', marginTop: 8 }}>{genError}</div>}
               {isGeneratingWorld && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, color: 'var(--accent)' }}><div className="ai-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /><span style={{ fontSize: 'var(--font-size-base)' }}>AI 正在构建世界...</span></div>}
             </div>
@@ -632,7 +690,7 @@ export default function WorldEditorForm({
               {/* ── 模块选择 ── */}
               <div className="world-form-section">
                 <h4><BarChart3 size={15} style={{ marginRight: 4, flexShrink: 0 }} /> 系统模块</h4>
-                <ModuleSelector selected={selectedModules} onToggle={toggleModule} />
+                <ModuleSelector selected={selectedModules} onToggle={toggleModule} disabledByConflict={disabledByConflict} />
               </div>
 
               {/* ── 模块数据编辑 ── */}
@@ -655,8 +713,11 @@ export default function WorldEditorForm({
                         {mod.moduleId === 'progression' && mod.data && (
                           <ProgressionModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'resource' && mod.data && (
-                          <ResourceModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'survival' && mod.data && (
+                          <SurvivalModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        )}
+                        {mod.moduleId === 'business' && mod.data && (
+                          <BusinessModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
                         {mod.moduleId === 'dice' && (
                           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>骰子检定无需初始数据，运行时自动计算</div>
@@ -915,52 +976,98 @@ function ProgressionModuleEditor({ data, onChange }: { data: ProgressionModuleSc
   );
 }
 
-/** 资源管理编辑器 */
-function ResourceModuleEditor({ data, onChange }: { data: ResourceModuleSchema; onChange: (d: Record<string, unknown>) => void }) {
-  const set = (path: string, value: unknown) => {
+/** 生存资源编辑器 */
+function SurvivalModuleEditor({ data, onChange }: {
+  data: SurvivalModuleSchema; onChange: (d: Record<string, unknown>) => void;
+}) {
+  const commit = (next: SurvivalModuleSchema) => onChange(next as any);
+
+  const addResource = () => {
     const next = JSON.parse(JSON.stringify(data));
-    const parts = path.split('.');
-    let obj: any = next;
-    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
-    obj[parts[parts.length - 1]] = value;
-    onChange(next);
+    next.resources.push({ id: `res_${Date.now()}`, name: '新资源', symbol: '📦', amount: 5, max: 10, scarce: false, gatherRate: '', usage: '', description: '' });
+    commit(next);
   };
 
-  const addItem = () => {
+  const removeResource = (i: number) => {
     const next = JSON.parse(JSON.stringify(data));
-    next.items.push({ id: `res_${Date.now()}`, name: '新资源', symbol: '📦', amount: 0, scarce: false, description: '' });
-    onChange(next);
+    next.resources.splice(i, 1);
+    commit(next);
   };
 
-  const removeItem = (i: number) => {
+  const setResField = (i: number, field: string, value: unknown) => {
     const next = JSON.parse(JSON.stringify(data));
-    next.items.splice(i, 1);
-    onChange(next);
+    next.resources[i][field] = value;
+    commit(next);
+  };
+
+  const setRulesField = (field: string, value: unknown) => {
+    const next = JSON.parse(JSON.stringify(data));
+    if (!next.rules) next.rules = { cycleName: '一天', consumePerCycle: '', criticalThreshold: 2 };
+    next.rules[field] = value;
+    commit(next);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div><label style={labelStyle}>整体描述</label><input style={inputStyle} value={data.description} onChange={e => set('description', e.target.value)} /></div>
-      {data.currency && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
-          <div><label style={labelStyle}>货币名</label><input style={inputStyle} value={data.currency.name} onChange={e => set('currency.name', e.target.value)} /></div>
-          <div><label style={labelStyle}>符号</label><input style={inputStyle} value={data.currency.symbol} onChange={e => set('currency.symbol', e.target.value)} /></div>
-          <div><label style={labelStyle}>初始数量</label><input style={inputStyle} type="number" value={data.currency.amount} onChange={e => set('currency.amount', Number(e.target.value) || 0)} /></div>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--font-size-xs)' }}>
+      {/* 整体描述 */}
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ color: 'var(--text-muted)' }}>整体描述</span>
+        <input value={data.description || ''} onChange={e => commit({ ...data, description: e.target.value })} placeholder="一句话描述生存资源系统" style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+      </label>
+
+      {/* 生存规则 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ color: 'var(--text-muted)' }}>结算周期</span>
+          <input value={data.rules?.cycleName || '一天'} onChange={e => setRulesField('cycleName', e.target.value)} style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ color: 'var(--text-muted)' }}>危机阈值</span>
+          <input type="number" value={data.rules?.criticalThreshold ?? 2} onChange={e => setRulesField('criticalThreshold', Number(e.target.value))} style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+        </label>
+      </div>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ color: 'var(--text-muted)' }}>每周期消耗 <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>(AI参考描述，非固定值)</span></span>
+        <input value={data.rules?.consumePerCycle || ''} onChange={e => setRulesField('consumePerCycle', e.target.value)} placeholder="如：每人每天消耗1份口粮+1份水，人数增加时等比增长" style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+      </label>
+
+      {/* 资源列表 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>资源列表</span>
+        <button className="btn-ghost" onClick={addResource} style={{ fontSize: 'var(--font-size-xs)', padding: '2px 8px' }}>+ 添加</button>
+      </div>
+      {data.resources.length === 0 && (
+        <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>暂无资源，点击"添加"创建</div>
       )}
-      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>资源列表</div>
-      {data.items.map((item, i) => (
-        <div key={item.id} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <input style={{ ...inputStyle, width: 30 }} value={item.symbol} onChange={e => set(`items.${i}.symbol`, e.target.value)} placeholder="符" />
-          <input style={{ ...inputStyle, flex: 1 }} value={item.name} onChange={e => set(`items.${i}.name`, e.target.value)} placeholder="资源名" />
-          <input style={{ ...inputStyle, width: 50 }} type="number" value={item.amount} onChange={e => set(`items.${i}.amount`, Number(e.target.value) || 0)} />
-          <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
-            <input type="checkbox" checked={item.scarce} onChange={e => set(`items.${i}.scarce`, e.target.checked)} /> 稀缺
-          </label>
-          <button onClick={() => removeItem(i)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '2px 4px' }}>✕</button>
+      {data.resources.map((res, i) => (
+        <div key={res.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <input value={res.symbol} onChange={e => setResField(i, 'symbol', e.target.value)} style={{ width: 32, textAlign: 'center', padding: '4px', fontSize: 'var(--font-size-sm)' }} placeholder="图标" />
+            <input value={res.name} onChange={e => setResField(i, 'name', e.target.value)} style={{ flex: 1, padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} placeholder="资源名" />
+            <input type="number" value={res.amount} onChange={e => setResField(i, 'amount', Number(e.target.value))} style={{ width: 48, padding: '4px', fontSize: 'var(--font-size-xs)' }} title="初始数量" />
+            <span style={{ color: 'var(--text-muted)' }}>/</span>
+            <input type="number" value={res.max} onChange={e => setResField(i, 'max', Number(e.target.value))} style={{ width: 48, padding: '4px', fontSize: 'var(--font-size-xs)' }} title="上限" />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 2, color: 'var(--text-muted)' }}>
+              <input type="checkbox" checked={res.scarce} onChange={e => setResField(i, 'scarce', e.target.checked)} /> 稀缺
+            </label>
+            <button className="btn-ghost" onClick={() => removeResource(i)} style={{ color: '#ef4444', padding: '2px 6px', fontSize: 'var(--font-size-xs)' }}>✕</button>
+          </div>
+          <input value={res.description || ''} onChange={e => setResField(i, 'description', e.target.value)} placeholder="获取方式与用途" style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+            <input value={res.gatherRate || ''} onChange={e => setResField(i, 'gatherRate', e.target.value)} placeholder="采集描述（如：初期每天3单位，后期可增长）" style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+            <input value={res.usage || ''} onChange={e => setResField(i, 'usage', e.target.value)} placeholder="消耗描述（如：初期每天1单位，人数增加时等比）" style={{ padding: '4px 8px', fontSize: 'var(--font-size-xs)' }} />
+          </div>
         </div>
       ))}
-      <button className="btn-ghost" onClick={addItem} style={{ fontSize: 'var(--font-size-xs)', padding: '2px 8px' }}>+ 添加资源</button>
+    </div>
+  );
+}
+
+/** 经营资产编辑器（占位） */
+function BusinessModuleEditor({ data, onChange }: { data: BusinessModuleSchema; onChange: (d: Record<string, unknown>) => void }) {
+  return (
+    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+      经营资产编辑器（待实现）
     </div>
   );
 }

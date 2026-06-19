@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Palette, Cpu, BarChart3, Brain, ArrowLeft } from 'lucide-react';
+import { Palette, Cpu, ArrowLeft, ImageIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useUISettings } from '../context/UISettingsContext';
@@ -8,92 +8,41 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import type { ApiConfig } from '../api/types';
 import GeneralSettingsTab from './settings/GeneralSettingsTab';
 import ApiSettingsTab, { type ApiSettingsRef } from './settings/ApiSettingsTab';
-import VariableSettingsTab, { type VariableSettingsRef } from './settings/VariableSettingsTab';
-import MemorySettingsTab from './settings/MemorySettingsTab';
-import { type ApiPreset, loadPresets, VARIABLE_ENABLED_KEY } from './settings/apiPresetUtils';
+import ImageGenSettingsTab from './settings/ImageGenSettingsTab';
 
-type SettingsTab = 'general' | 'api' | 'variable' | 'memory';
+type SettingsTab = 'general' | 'api' | 'image';
 
-// 主页设置：只有通常设置和 API 设置
-const HOME_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
+const SETTINGS_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
   { id: 'general', icon: Palette, label: '通常设置' },
   { id: 'api', icon: Cpu, label: 'API 设置' },
-];
-
-// 游戏内设置：全部 4 个 tab
-const GAME_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
-  { id: 'general', icon: Palette, label: '通常设置' },
-  { id: 'api', icon: Cpu, label: 'API 设置' },
-  { id: 'variable', icon: BarChart3, label: '变量系统' },
-  { id: 'memory', icon: Brain, label: '记忆系统' },
+  { id: 'image', icon: ImageIcon, label: '生图设置' },
 ];
 
 export default function SettingsScreen() {
-  const { goBack, engine, state } = useGame();
-  const isInGame = state.currentScreen === 'game'; // 判断是否从游戏内进入设置
+  const { goBack } = useGame();
   const { t } = useUISettings();
   const isMobile = useIsMobile(768);
   const apiConfig = useConfigStore(s => s.apiConfig);
-  const apiMode = useConfigStore(s => s.apiMode);
-  const auxiliaryConfig = useConfigStore(s => s.auxiliaryConfig);
   const setApiConfig = useConfigStore(s => s.setApiConfig);
-  const setApiMode = useConfigStore(s => s.setApiMode);
-  const setAuxiliaryConfig = useConfigStore(s => s.setAuxiliaryConfig);
   const [tab, setTab] = useState<SettingsTab>('general');
-  const presets = loadPresets();
 
-  // 确保当前 tab 在可用的 tab 列表中
-  const availableTabs = isInGame ? GAME_TABS : HOME_TABS;
   useEffect(() => {
-    if (!availableTabs.find(t => t.id === tab)) {
+    if (!SETTINGS_TABS.find(t => t.id === tab)) {
       setTab('general');
     }
-  }, [isInGame, tab, availableTabs]);
+  }, [tab]);
 
   const apiRef = useRef<ApiSettingsRef>(null);
-  const varRef = useRef<VariableSettingsRef>(null);
-
-  // 计算初始辅助 API 预设 ID
-  const initialAuxPresetId = (() => {
-    if (apiMode !== 'auxiliary' || !auxiliaryConfig) return '';
-    const match = presets.find(p =>
-      p.config.baseUrl === auxiliaryConfig.endpoint &&
-      p.config.apiKey === auxiliaryConfig.apiKey &&
-      p.config.model === auxiliaryConfig.model
-    );
-    return match?.id || '';
-  })();
 
   const handleSave = useCallback(() => {
     const apiValues = apiRef.current?.getValues();
-    const varValues = varRef.current?.getValues();
 
     if (apiValues) {
       setApiConfig(apiValues.config);
     }
 
-    if (varValues) {
-      if (varValues.auxPresetId) {
-        const preset = presets.find(p => p.id === varValues.auxPresetId);
-        if (preset) {
-          setAuxiliaryConfig({
-            endpoint: preset.config.baseUrl,
-            apiKey: preset.config.apiKey,
-            model: preset.config.model,
-          });
-          setApiMode('auxiliary');
-        }
-      } else {
-        setAuxiliaryConfig(null);
-        setApiMode('default');
-      }
-      localStorage.setItem(VARIABLE_ENABLED_KEY, String(varValues.variableEnabled));
-      localStorage.setItem('chuanyue_variable_delay', String(varValues.varDelay));
-      localStorage.setItem('chuanyue_variable_retries', String(varValues.varRetries));
-    }
-
     goBack();
-  }, [goBack, presets, setApiConfig, setApiMode, setAuxiliaryConfig]);
+  }, [goBack, setApiConfig]);
 
   return (
     <div
@@ -133,7 +82,7 @@ export default function SettingsScreen() {
       {/* 移动端：顶部标签页 */}
       {isMobile && (
         <div className="settings-mobile-tabs">
-          {(isInGame ? GAME_TABS : HOME_TABS).map(t => {
+          {SETTINGS_TABS.map(t => {
             const TabIcon = t.icon;
             return (
               <button
@@ -167,7 +116,7 @@ export default function SettingsScreen() {
             borderRight: '1px solid var(--border)',
             background: 'var(--bg-secondary)',
           }}>
-            {(isInGame ? GAME_TABS : HOME_TABS).map(t => {
+            {SETTINGS_TABS.map(t => {
               const TabIcon = t.icon;
               return (
                 <button
@@ -193,21 +142,12 @@ export default function SettingsScreen() {
         }}>
           {tab === 'general' && <GeneralSettingsTab />}
           {tab === 'api' && <ApiSettingsTab ref={apiRef} initialConfig={apiConfig} t={t} onSave={handleSave} onBack={goBack} />}
-          {tab === 'variable' && (
-            <VariableSettingsTab
-              ref={varRef}
-              variableManager={engine.variableManager}
-              presets={presets}
-              initialAuxPresetId={initialAuxPresetId}
-              messages={engine.messages}
-            />
-          )}
-          {tab === 'memory' && <MemorySettingsTab onBack={() => setTab('general')} />}
+          {tab === 'image' && <ImageGenSettingsTab />}
         </div>
       </div>
 
-      {/* 底部保存按钮（API 和 Memory tab 有自己的按钮，此处隐藏） */}
-      {tab !== 'api' && tab !== 'memory' && (
+      {/* 底部保存按钮（API tab 有自己的按钮，此处隐藏） */}
+      {tab !== 'api' && (
         <div style={{
           padding: isMobile ? '12px 16px' : '12px 24px',
           borderTop: '1px solid var(--border)',

@@ -1,7 +1,6 @@
 // ============================================================
 // 记忆系统 Zustand Store
 // 核心状态管理 + 配置 + 运行态 + 公开 API
-// 移植自 yijiekkk useMemorySystem.js → React Zustand
 // ============================================================
 
 import { create } from 'zustand';
@@ -248,6 +247,82 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
     retrieveDebugLogs: normalizeArray(safe.retrieveDebugLogs).slice(-100) as DebugLog[],
     compileDebugLogs: normalizeArray(safe.compileDebugLogs).slice(-100) as DebugLog[],
     vectorMemory: normalizeArray(safe.vectorMemory) as VectorMemoryItem[],
+  };
+}
+
+// ─── 存档瘦身 ───
+
+const SUMMARY_TEXT_MAX_LENGTH = 240;
+const SUMMARY_KEYWORDS_MAX = 8;
+const SUMMARY_ITEMS_MAX = 8;
+
+/** 截断 summaryData 中的长文本和条数，防止存档膨胀（兜底安全网） */
+function slimSummaryData(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  const slim = (items: any[] | undefined) => {
+    if (!Array.isArray(items)) return items;
+    // 保留最新的条目（slice(-N)），丢弃最旧的
+    return items.slice(-SUMMARY_ITEMS_MAX).map((item: any) => {
+      if (!item || typeof item !== 'object') return item;
+      return {
+        ...item,
+        summary: typeof item.summary === 'string' ? item.summary.slice(0, SUMMARY_TEXT_MAX_LENGTH) : item.summary,
+        keywords: Array.isArray(item.keywords) ? item.keywords.slice(0, SUMMARY_KEYWORDS_MAX) : item.keywords,
+      };
+    });
+  };
+  return {
+    ...data,
+    otherCharacterMemories: slim(data.otherCharacterMemories),
+    playerMemories: slim(data.playerMemories),
+    itemMemories: slim(data.itemMemories),
+  };
+}
+
+/** 瘦身 checkpoint 内的 snapshot：清空 debug logs、嵌套 checkpoints，截断 summaryData */
+function slimCheckpointSnapshot(snapshot: any): any {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  return {
+    ...snapshot,
+    writeDebugLogs: [],
+    retrieveDebugLogs: [],
+    compileDebugLogs: [],
+    checkpoints: [],
+    summarySaveHistory: Array.isArray(snapshot.summarySaveHistory)
+      ? snapshot.summarySaveHistory.map((r: any) => ({
+          ...r,
+          summaryData: r.summaryData ? slimSummaryData(r.summaryData) : r.summaryData,
+        }))
+      : snapshot.summarySaveHistory,
+    lastSummarySave: snapshot.lastSummarySave
+      ? { ...snapshot.lastSummarySave, summaryData: snapshot.lastSummarySave.summaryData ? slimSummaryData(snapshot.lastSummarySave.summaryData) : undefined }
+      : snapshot.lastSummarySave,
+  };
+}
+
+/** 瘦身 memoryRuntime 用于存档：清空 debug logs、截断 summaryData、瘦身 checkpoint snapshots */
+export function slimMemoryRuntimeForSave(runtime: any): any {
+  if (!runtime || typeof runtime !== 'object') return runtime;
+  return {
+    ...runtime,
+    writeDebugLogs: [],
+    retrieveDebugLogs: [],
+    compileDebugLogs: [],
+    summarySaveHistory: Array.isArray(runtime.summarySaveHistory)
+      ? runtime.summarySaveHistory.map((r: any) => ({
+          ...r,
+          summaryData: r.summaryData ? slimSummaryData(r.summaryData) : r.summaryData,
+        }))
+      : runtime.summarySaveHistory,
+    lastSummarySave: runtime.lastSummarySave
+      ? { ...runtime.lastSummarySave, summaryData: runtime.lastSummarySave.summaryData ? slimSummaryData(runtime.lastSummarySave.summaryData) : undefined }
+      : runtime.lastSummarySave,
+    checkpoints: Array.isArray(runtime.checkpoints)
+      ? runtime.checkpoints.map((cp: any) => ({
+          ...cp,
+          snapshot: cp.snapshot ? slimCheckpointSnapshot(cp.snapshot) : cp.snapshot,
+        }))
+      : runtime.checkpoints,
   };
 }
 
@@ -560,7 +635,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       activeThreadCount: prunedRuntime.activeThreads.length,
       eventCount: prunedRuntime.eventCards.length,
       entityCount: prunedRuntime.entityCards.length,
-      snapshot: JSON.parse(JSON.stringify(prunedRuntime)),
+      snapshot: JSON.parse(JSON.stringify(slimCheckpointSnapshot(prunedRuntime))),
     };
 
     set((s) => {
@@ -604,12 +679,21 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
     set((state) => {
       if (!state.memoryRuntime) return state;
       const MAX_SUMMARY_HISTORY = 10;
-      const summarySaveHistory = [...state.memoryRuntime.summarySaveHistory, record].slice(-MAX_SUMMARY_HISTORY);
+      // 写入时截断：防止 AI 产出过多条目导致存档膨胀
+      const cappedRecord = record.summaryData ? {
+        ...record,
+        summaryData: {
+          otherCharacterMemories: (record.summaryData.otherCharacterMemories ?? []).slice(0, 4),
+          playerMemories: (record.summaryData.playerMemories ?? []).slice(0, 1),
+          itemMemories: (record.summaryData.itemMemories ?? []).slice(0, 3),
+        },
+      } : record;
+      const summarySaveHistory = [...state.memoryRuntime.summarySaveHistory, cappedRecord].slice(-MAX_SUMMARY_HISTORY);
       return {
         memoryRuntime: {
           ...state.memoryRuntime,
           summarySaveHistory,
-          lastSummarySave: record,
+          lastSummarySave: cappedRecord,
         },
       };
     });
@@ -717,7 +801,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   toJSON: () => {
     const state = get();
     return {
-      memoryRuntime: state.memoryRuntime,
+      memoryRuntime: state.memoryRuntime ? slimMemoryRuntimeForSave(state.memoryRuntime) : null,
       vectorMemory: state.vectorMemory,
       config: state.config,
     };
@@ -730,8 +814,9 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       ? normalizeMemorySystemConfig(data.config)
       : currentConfig;
 
+    // 加载时瘦身：旧存档可能包含膨胀的 debug logs、嵌套 checkpoint 等冗余数据
     const memoryRuntime = data.memoryRuntime
-      ? normalizeMemoryRuntime(data.memoryRuntime)
+      ? slimMemoryRuntimeForSave(normalizeMemoryRuntime(data.memoryRuntime))
       : null;
 
     const vectorMemory = Array.isArray(data.vectorMemory)

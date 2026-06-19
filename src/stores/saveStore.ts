@@ -4,6 +4,7 @@ import {
   saveGame as saveGameToDb,
   loadGame as loadGameFromDb,
   deleteSave as deleteSaveFromDb,
+  forceDeleteSave as forceDeleteSaveFromDb,
   getAllSaveMeta,
   saveAllSaveMeta,
   invalidateSaveMetaCache,
@@ -30,6 +31,7 @@ interface SaveState {
   createNewGame: (saveName: string) => Promise<string>;
   loadSave: (saveId: string) => Promise<GameSave | null>;
   deleteSave: (saveId: string) => Promise<void>;
+  forceDeleteSave: (saveId: string) => Promise<void>;
   renameSave: (saveId: string, newName: string) => Promise<void>;
   importSave: (data: any) => Promise<SaveMeta | null>;
   exportSave: (saveId: string) => Promise<Blob>;
@@ -111,6 +113,23 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     invalidateSaveMetaCache();
     await saveAllSaveMeta(updated);
     console.log(`[存档] 删除完成，已持久化 ${updated.length} 条元数据`);
+  },
+
+  forceDeleteSave: async (saveId) => {
+    console.log(`[存档] 强制删除: ${saveId}`);
+    await forceDeleteSaveFromDb(saveId);
+    const { savesMeta, currentSaveId } = get();
+    const updated = savesMeta.filter(s => s.id !== saveId);
+
+    const changes: Partial<SaveState> = { savesMeta: updated };
+    if (currentSaveId === saveId) {
+      changes.currentSaveId = null;
+      changes.currentSaveName = '';
+    }
+
+    set(changes);
+    invalidateSaveMetaCache();
+    console.log(`[存档] 强制删除完成`);
   },
 
   renameSave: async (saveId, newName) => {

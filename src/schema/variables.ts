@@ -20,7 +20,7 @@ export interface WorldState {
   };
   /**
    * 世界模块运行时数据
-   * v2: 使用 WorldSystemData 结构（数值属性/成长体系/资源管理/骰子检定）
+   * v2: 使用 WorldSystemData 结构（数值属性/成长体系/生存资源/经营资产/骰子检定）
    * v2.1 兼容: 也支持旧的 Record<string, WorldModuleRuntime> 格式
    * 由AI通过UpdateVariable维护
    */
@@ -83,6 +83,8 @@ export interface PlayerState {
   当前经验值?: number;
   /** 可用属性点 */
   可用属性点?: number;
+  /** 六维+特色属性（数值属性模块启用时填充） */
+  属性?: Record<string, number>;
 }
 
 export interface CoreAnchor {

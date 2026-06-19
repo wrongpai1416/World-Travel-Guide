@@ -82,10 +82,6 @@ if (existsSync('./manifest.json')) {
   copyFileSync('./manifest.json', join(DIST, 'manifest.json'));
   console.log('   ✅ manifest.json');
 }
-if (existsSync('./sw.js')) {
-  copyFileSync('./sw.js', join(DIST, 'sw.js'));
-  console.log('   ✅ sw.js');
-}
 if (existsSync('./icon.png')) {
   copyFileSync('./icon.png', join(DIST, 'icon.png'));
   console.log('   ✅ icon.png');

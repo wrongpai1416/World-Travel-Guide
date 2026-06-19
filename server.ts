@@ -69,13 +69,16 @@ Bun.serve({
       }
     }
 
-    // 应用入口 - 返回打包后的JS
+    // 应用入口 - 返回打包后的JS（禁止缓存）
     if (pathname === '/app.js' || pathname === '/src/main.tsx') {
       try {
         const output = await getBundle();
         if (output) {
           return new Response(output, {
-            headers: { 'Content-Type': 'application/javascript' },
+            headers: {
+              'Content-Type': 'application/javascript',
+              'Cache-Control': 'no-store, no-cache, must-revalidate',
+            },
           });
         }
         return new Response(`console.error("构建输出为空")`, {
@@ -89,10 +92,12 @@ Bun.serve({
       }
     }
 
-    // 静态文件
+    // 静态文件（禁止缓存，避免旧代码）
     const file = Bun.file(`.${pathname}`);
     if (await file.exists()) {
-      return new Response(file);
+      return new Response(file, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     // SPA fallback

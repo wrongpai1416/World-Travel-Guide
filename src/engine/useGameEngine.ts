@@ -15,12 +15,11 @@ import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
 import { WORLDS } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
-import { extractWorldSystemData } from '../modules/runtime';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
+import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
-import { getBuiltinPreset } from '../data/builtinPresets';
+import { getBuiltinPreset, getClaudePreset } from '../data/builtinPresets';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
 import { assembleSystemPrompt, injectAtDepthEntries } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
@@ -103,19 +102,12 @@ export function useGameEngine(
     } catch { return undefined; }
   }, []);
 
-  // 辅助：应用世界 + 模块注入（v2: 传入运行时数据以生成更精确的prompt）
-  const applyWorldAndModules = useCallback((wb: WorldBookManager, worldId: string, worldSystem?: Record<string, unknown>) => {
+  // 辅助：应用世界 + 模块注入
+  const applyWorldAndModules = useCallback((wb: WorldBookManager, worldId: string) => {
     applyWorld(wb, worldId);
     const world = findWorldDef(worldId);
     if (world) {
-      const systemData = extractWorldSystemData(worldSystem);
-      // 获取玩家状态（动态数据）
-      const state = varMgrRef.current.getState();
-      const playerState = {
-        当前段位索引: state.玩家.当前段位索引,
-        当前经验值: state.玩家.当前经验值,
-      };
-      applyModules(wb, world, systemData, playerState);
+      applyModules(wb, world);
     }
   }, [findWorldDef]);
 
@@ -310,7 +302,7 @@ export function useGameEngine(
       ? save.messages.reduce((max, m) => Math.max(max, m.round), 0)
       : 0;
     if (save.worldId && worldBookRef.current) {
-      applyWorldAndModules(worldBookRef.current, save.worldId, save.gameState?.世界?.世界系统);
+      applyWorldAndModules(worldBookRef.current, save.worldId);
     }
     // 先完全重置记忆系统，防止跨存档污染
     const memStore = useMemoryStore.getState();
@@ -325,6 +317,10 @@ export function useGameEngine(
         config: save.memoryConfig,
         vectorMemory: save.vectorMemory,
       });
+    }
+    // 恢复变量提取 API 配置
+    if (save.variableConfig?.apiPresetId) {
+      localStorage.setItem('world_travel_guide_variable_api_preset', save.variableConfig.apiPresetId);
     }
   }, []);
 
@@ -546,7 +542,7 @@ ${perspectiveInstruction}
           const compiledMemoryContext = memStore.lastCompiledContext?.fullText || '';
 
           // 使用结构化预设 + 宏引擎组装系统提示
-          const preset = getBuiltinPreset('default');
+          const preset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
           const macroEngine = new MacroEngine();
           const systemPrompt = assembleSystemPrompt(preset, {
             varSnapshot,
@@ -744,7 +740,7 @@ ${perspectiveInstruction}
         } : undefined,
 
         // mainTask 为空（跳过）
-        mainTask: async () => ({ text: aiMsg.content, parsed: { content: aiMsg.content } }),
+        mainTask: async () => ({ text: aiMsg.content, parsed: { content: aiMsg.content, updateVariable: null, thinking: '', actionOptions: [], summary: null, rawText: aiMsg.content } }),
       });
 
       // 重试成功后重新保存快照
@@ -798,7 +794,7 @@ ${perspectiveInstruction}
 
         // 模块ID到中文名的映射
         const mapKey: Record<string, string> = {
-          stat: '数值属性', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+          stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
         };
         const key = mapKey[mod.moduleId];
         if (!key) continue;
@@ -856,8 +852,8 @@ ${perspectiveInstruction}
             state.玩家.当前经验值 = progData.currentXP ?? 0;
           }
 
-          // 其他模块（资源、骰子、天赋）的 data 存入世界系统
-          if (['resource', 'dice', 'talent'].includes(mod.moduleId)) {
+          // 其他模块（生存资源、经营资产、骰子、天赋）的 data 存入世界系统
+          if (['survival', 'business', 'dice', 'talent'].includes(mod.moduleId)) {
             worldSystem[key] = mod.data;
           }
         }
@@ -865,7 +861,8 @@ ${perspectiveInstruction}
         // 如果没有 data 也没有 initialState，使用默认值
         if (!mod.data && !mod.initialState) {
           const defaults: Record<string, () => unknown> = {
-            resource: createDefaultResourceModule,
+            survival: createDefaultSurvivalModule,
+            business: createDefaultBusinessModule,
             dice: createDefaultDiceModule,
             talent: createDefaultTalentModule,
           };

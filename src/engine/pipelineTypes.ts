@@ -54,6 +54,8 @@ export interface PipelineConfig {
   variableMaxRetries: number;
   /** 记忆系统是否启用 */
   memoryEnabled: boolean;
+  /** Claude 模式：使用 Claude 专用预设（针对 Claude 安全机制优化的破限） */
+  claudeMode: boolean;
 }
 
 /**
@@ -126,6 +128,7 @@ export function loadPipelineConfig(): PipelineConfig {
   let variableDelayMs = 1000;
   let variableMaxRetries = 3;
   let memoryEnabled = true;
+  let claudeMode = false;
 
   try { variableEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_enabled`) !== 'false'; } catch {}
   try {
@@ -134,6 +137,7 @@ export function loadPipelineConfig(): PipelineConfig {
   } catch {}
   try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch {}
   try { memoryEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_memory_enabled`) !== 'false'; } catch {}
+  try { claudeMode = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch {}
 
   return {
     executionOrder: DEFAULT_EXECUTION_ORDER,
@@ -141,5 +145,6 @@ export function loadPipelineConfig(): PipelineConfig {
     variableDelayMs,
     variableMaxRetries,
     memoryEnabled,
+    claudeMode,
   };
 }

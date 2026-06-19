@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback, useRef, useImperativeHandle, forwardRef
 import {
   BarChart3, Cpu, Layers, Download, Upload,
   ChevronDown, ChevronRight, RotateCcw, Save,
-  ChevronLeft, ChevronRight as ChevronRightNav,
+  ChevronLeft, ChevronRight as ChevronRightNav, Bot,
 } from 'lucide-react';
 import type { GameState } from '../../schema/variables';
 import type { VariableManager } from '../../engine/variableManager';
@@ -20,7 +20,7 @@ import { STORAGE_KEYS } from '@/config/storageKeys';
 // ============================================================
 
 export interface VariableSettingsRef {
-  getValues: () => { variableEnabled: boolean; auxPresetId: string; varDelay: number; varRetries: number };
+  getValues: () => { variableEnabled: boolean; auxPresetId: string; varDelay: number; varRetries: number; varModel: string };
 }
 
 interface SnapshotLayer {
@@ -57,9 +57,15 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
     const [varRetries, setVarRetries] = useState<number>(() => {
       try { return Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch { return 3; }
     });
+    const [varModel, setVarModel] = useState<string>(() => {
+      try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_model`) || ''; } catch { return ''; }
+    });
+    const [claudeMode, setClaudeMode] = useState<boolean>(() => {
+      try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { return false; }
+    });
 
     useImperativeHandle(ref, () => ({
-      getValues: () => ({ variableEnabled, auxPresetId, varDelay, varRetries }),
+      getValues: () => ({ variableEnabled, auxPresetId, varDelay, varRetries, varModel, claudeMode }),
     }));
 
     // ─── 快照管理状态 ───
@@ -157,6 +163,15 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
           </SettingRow>
         </Section>
 
+        <Section icon={<Bot size={15} />} title="模型适配">
+          <SettingRow label="Claude 模式" desc="使用针对 Claude 安全机制优化的预设（破限+NSFW）">
+            <Toggle value={claudeMode} onChange={(v) => {
+              setClaudeMode(v);
+              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`, String(v)); } catch {}
+            }} />
+          </SettingRow>
+        </Section>
+
         {variableEnabled && (
           <>
             <Section icon={<Cpu size={15} />} title="变量提取 API">
@@ -164,6 +179,20 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
                 <Select
                   options={[{ label: '跟随主 API', value: '' }, ...presets.map(p => ({ label: p.name, value: p.id }))]}
                   value={auxPresetId} onChange={v => setAuxPresetId(v)} width="160px"
+                />
+              </SettingRow>
+              <SettingRow label="提取模型" desc="留空使用所选 API 的模型，填写则覆盖（可用轻量模型加速）">
+                <input
+                  type="text"
+                  value={varModel}
+                  onChange={e => setVarModel(e.target.value)}
+                  placeholder="留空=默认模型"
+                  style={{
+                    width: '160px', padding: '4px 8px',
+                    fontSize: 'var(--font-size-sm)',
+                    background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                    borderRadius: '6px', color: 'var(--text-primary)',
+                  }}
                 />
               </SettingRow>
             </Section>

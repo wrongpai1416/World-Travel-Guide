@@ -15,6 +15,9 @@ export interface PipelineCallbacks {
   onUpdate: () => void;
 }
 
+/** 纯本地操作的阶段 ID（不调用 API，无需限流等待） */
+const LOCAL_ONLY_STAGES = new Set(['memory_retrieve_finalize', 'memory_compile']);
+
 /** 管线执行结果 */
 export interface PipelineResult {
   mainResult: {
@@ -94,8 +97,10 @@ export class PipelineExecutor {
       const hasMain = step.includes('main');
       const otherTasks = step.filter(t => t !== 'main');
 
-      // 正文生成不限流（第一次调用），后续阶段等待限流
-      if (!hasMain) {
+      // 正文生成不限流（第一次调用）
+      // 纯本地操作（finalize/compile）也不限流，因为不调 API
+      const hasApiTask = step.some(t => !LOCAL_ONLY_STAGES.has(t));
+      if (!hasMain && hasApiTask) {
         await waitForRateLimit();
       }
 

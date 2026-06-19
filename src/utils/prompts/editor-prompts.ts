@@ -3,7 +3,7 @@
  * 管理角色补全、变量提取等编辑器功能的 prompt
  */
 
-import type { StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, DiceModuleSchema, TalentModuleSchema } from '../../modules/schema';
+import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, DiceModuleSchema, TalentModuleSchema, WorldSystemData } from '../../modules/schema';
 import { extractWorldSystemData } from '../../modules/runtime';
 import { getXpForNextTier } from '../../modules/xpAlgorithm';
 
@@ -212,7 +212,7 @@ JSON字段必须完全如下：
 function generateModuleUpdateRules(worldSystem?: Record<string, unknown>, progressionConfig?: Record<string, unknown>): string {
   if (!worldSystem && !progressionConfig) return '';
 
-  const data = worldSystem ? extractWorldSystemData(worldSystem) : {};
+  const data = worldSystem ? extractWorldSystemData(worldSystem) : ({} as WorldSystemData);
   const rules: string[] = [];
 
   // ── 数值属性 ──
@@ -255,17 +255,26 @@ function generateModuleUpdateRules(worldSystem?: Record<string, unknown>, progre
     }
   }
 
-  // ── 资源管理 ──
-  if (data.资源管理) {
-    const r = data.资源管理 as ResourceModuleSchema;
-    if (r.items.length > 0) {
-      const itemList = r.items.map(item => `${item.name}(${item.id})${item.scarce ? '[稀缺]' : ''}`).join('、');
-      rules.push(`   【资源管理更新规则】
-   - 资源列表：${itemList}
-   - 数量变化：{"世界系统":{"资源管理":{"items":[{"id":"${r.items[0]?.id}","amount":新数量}]}}}
-   ${r.currency ? `  - 货币（${r.currency.name}）：{"世界系统":{"资源管理":{"currency":{"amount":新数量}}}}` : ''}
-   - amount不能为负数${r.items.some(i => i.max != null) ? '，有max的不能超过max' : ''}`);
-    }
+  // ── 生存资源 ──
+  if (data.生存资源) {
+    const s = data.生存资源 as SurvivalModuleSchema;
+    const resList = Array.isArray(s.resources) ? s.resources.map(r =>
+      `${r.name}(${r.id})${r.scarce ? '[稀缺]' : ''} ${r.amount}/${r.max}`
+    ).join('、') : '';
+    const threshold = s.rules?.criticalThreshold ?? 2;
+    rules.push(`   【生存资源更新规则】
+   - 当前资源：${resList}
+   - 每轮消耗：${s.rules?.consumePerCycle || '按世界设定消耗'}
+   - 数量变化：{"世界系统":{"生存资源":{"resources":{"${s.resources?.[0]?.id || 'resource_id'}":{"amount":新数量}}}}}
+   - amount不能为负数，不能超过max
+   - 低于${threshold}时触发危机事件`);
+  }
+
+  // ── 经营资产 ──
+  if (data.经营资产) {
+    rules.push(`   【经营资产更新规则】
+   - 经营资产数据变化时通过 世界系统.经营资产 更新
+   - 只输出变化的字段，未变化的不要输出`);
   }
 
   // ── 骰子检定 ──

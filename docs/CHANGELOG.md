@@ -1,5 +1,22 @@
 # 更新日志
 
+## v1.6.1 — 生存资源制作系统 + SW 缓存修复 (2026-06-19)
+
+### ✨ 新功能
+
+- **生存资源制作系统**：支持配方生成、手动制作、资源消耗与产出，完整闭环
+- **配方 AI 生成**：输入需求自动生成 JSON 配方，带错误容错和 ID 唯一保证
+- **配方管理 UI**：制作面板支持查看配方列表、一键制作、删除配方
+
+### 🔧 改进
+
+- **生存资源配置提取**：补全 `amount` 字段提取，修复变量提取漏字段问题
+- **apiConfig TDZ 修复**：将 `useConfigStore` 调用移到回调定义之前，消除变量提升错误
+- **Vite 残留清理**：统一为 Bun 构建，移除所有 Vite 相关引用
+- **Service Worker 缓存策略**：开发环境 `/app.js` 改为网络优先，避免缓存旧代码
+
+---
+
 ## v1.6.0 — NPC 模块同步 + NSFW 重写 + PWA 支持 (2026-06-19)
 
 ### ✨ 新功能
@@ -22,7 +39,7 @@
 ### 🏗 技术架构
 
 - React 18 + TypeScript + Zustand
-- Vite + Bun 开发环境
+- Bun 开发环境 + 构建打包
 - IndexedDB 持久化存储
 - CSS Layers 设计系统 (base/layout/state/theme/print/a11y)
 - PWA: Service Worker + Web App Manifest
@@ -48,5 +65,5 @@
 ### 🏗 技术架构
 
 - React 18 + TypeScript + Zustand
-- Vite + Bun 开发环境
+- Bun 开发环境 + 构建打包
 - IndexedDB 持久化存储

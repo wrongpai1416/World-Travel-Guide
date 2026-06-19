@@ -155,24 +155,17 @@ export class VariableManager {
       }
     }
 
-    // 校验资源管理模块
-    const resData = worldSystem.资源管理;
-    if (resData && typeof resData === 'object') {
-      // 校验货币
-      if (resData.currency && typeof resData.currency === 'object') {
-        resData.currency.amount = safeClamp(resData.currency.amount, 0, Infinity, 0);
-      }
-
-      // 校验资源列表
-      if (Array.isArray(resData.items)) {
-        for (const item of resData.items) {
-          if (item && typeof item === 'object') {
-            item.amount = safeClamp(item.amount, 0, Infinity, 0);
-            // 如果有 max，也不能超过 max
-            if (item.max != null) {
-              const maxVal = safeClamp(item.max, 1, Infinity, 9999);
-              item.max = maxVal;
-              item.amount = Math.min(item.amount, maxVal);
+    // 校验生存资源模块
+    const survData = worldSystem.生存资源;
+    if (survData && typeof survData === 'object') {
+      if (Array.isArray(survData.resources)) {
+        for (const res of survData.resources) {
+          if (res && typeof res === 'object') {
+            res.amount = safeClamp(res.amount, 0, Infinity, 0);
+            if (res.max != null) {
+              const maxVal = safeClamp(res.max, 1, Infinity, 9999);
+              res.max = maxVal;
+              res.amount = Math.min(res.amount, maxVal);
             }
           }
         }
@@ -279,7 +272,7 @@ export class VariableManager {
 
   /**
    * 按 id 合并数组（解决 lodash _.merge 按索引合并的问题）
-   * 用于 数值属性.special、资源管理.items 等需要按 id 匹配的数组字段
+   * 用于 数值属性.special、生存资源.items 等需要按 id 匹配的数组字段
    */
   private mergeArrayById(existing: unknown[], incoming: unknown[], idField = 'id'): unknown[] {
     if (!Array.isArray(incoming)) return incoming;
@@ -307,7 +300,7 @@ export class VariableManager {
 
   /**
    * 处理世界系统模块数据的特殊合并逻辑
-   * 解决 数值属性.special、资源管理.items 等数组字段按 id 合并的问题
+   * 解决 数值属性.special、生存资源.items 等数组字段按 id 合并的问题
    */
   private mergeWorldSystem(existing: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
     const result = { ...existing };
@@ -343,18 +336,19 @@ export class VariableManager {
         continue;
       }
 
-      // 处理资源管理模块的 items 数组
-      if (moduleKey === '资源管理') {
+      // 处理生存资源模块的 items 数组
+      if (moduleKey === '生存资源') {
         const merged = { ...(existingModule as Record<string, unknown>) };
         const incomingModule = moduleValue as Record<string, unknown>;
 
-        if (Array.isArray(incomingModule.items) && Array.isArray((existingModule as any).items)) {
-          merged.items = this.mergeArrayById(
-            (existingModule as any).items,
-            incomingModule.items,
+        // 合并 resources 数组（按 id 匹配）
+        if (Array.isArray(incomingModule.resources) && Array.isArray((existingModule as any).resources)) {
+          merged.resources = this.mergeArrayById(
+            (existingModule as any).resources,
+            incomingModule.resources,
             'id'
           );
-          delete incomingModule.items;
+          delete incomingModule.resources;
         }
 
         // 其他字段正常合并

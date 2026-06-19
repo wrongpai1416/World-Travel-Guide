@@ -275,11 +275,12 @@ export function getDefaultNarrativeSummaryPrompt(): string {
 5. 严禁使用括号解释。
 6. 每条 summary 都必须显式写出故事发生时间。
 7. title 采用"稳定命名 + 一眼可检索"的格式。
+8. 严格控制条数：otherCharacterMemories 最多 4 条，playerMemories 最多 1 条，itemMemories 最多 3 条。超出时合并同类条目，优先保留最重要的。
 
 【三分类说明】
-- otherCharacterMemories：重要角色在本层的行为、态度变化、立场变化
-- playerMemories：本层剧情的总摘要
-- itemMemories：重要物品、道具、资源的来源、获得方式、状态变化
+- otherCharacterMemories：重要角色在本层的行为、态度变化、立场变化（最多 4 条）
+- playerMemories：本层剧情的总摘要（最多 1 条）
+- itemMemories：重要物品、道具、资源的来源、获得方式、状态变化（最多 3 条）
 
 【输出要求】
 只返回合法 JSON 对象：

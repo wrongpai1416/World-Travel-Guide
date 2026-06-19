@@ -11,7 +11,7 @@ import { optimizeSnapshots } from '../storage/db';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
 import type { ChatMessage } from './types';
-import { getBuiltinPreset } from '../data/builtinPresets';
+import { getBuiltinPreset, getClaudePreset } from '../data/builtinPresets';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
 import { assembleSystemPrompt, injectAtDepthEntries } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
@@ -280,7 +280,7 @@ ${perspectiveInstruction}
           const compiledMemoryContext = memStore.lastCompiledContext?.fullText || '';
 
           // 使用结构化预设 + 宏引擎组装系统提示
-          const preset = getBuiltinPreset('default');
+          const preset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
           const macroEngine = new MacroEngine();
           const systemPrompt = assembleSystemPrompt(preset, {
             varSnapshot,

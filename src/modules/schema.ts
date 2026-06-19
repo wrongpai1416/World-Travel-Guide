@@ -103,32 +103,49 @@ export interface ProgressionState {
  */
 export interface ProgressionModuleSchema extends ProgressionConfig, ProgressionState {}
 
-// ─── 资源管理模块 ───
+// ─── 生存资源模块 ───
 
-/** 单个资源 */
-export interface ResourceItem {
-  id: string;             // 英文标识
-  name: string;           // AI生成的资源名
-  symbol: string;         // AI生成的符号（如💰💎⚔️📦）
+/** 单个生存资源 */
+export interface SurvivalResource {
+  id: string;             // 英文标识 (如 'water', 'food')
+  name: string;           // 资源名（如"淡水"、"木材"）
+  symbol: string;         // 符号（如💧🪵）
   amount: number;         // 当前数量
-  max?: number;           // 上限（可选，无上限则不填）
+  max: number;            // 上限（生存资源必须有上限）
   scarce: boolean;        // 是否稀缺
-  description: string;    // AI生成的描述（获取方式与用途）
+  gatherRate?: string;    // 采集速率描述（AI参考，如"每天可采集3单位"）
+  usage?: string;         // 消耗速率描述（AI参考，如"每天消耗1单位"）
+  description: string;    // 获取方式与用途
 }
 
-/** 货币（可选） */
-export interface CurrencyDef {
-  name: string;           // AI生成的货币名
-  symbol: string;         // AI生成的符号
-  amount: number;         // 当前数量
-  description?: string;   // AI生成的描述
+/** 制作配方 */
+export interface SurvivalRecipe {
+  id: string;
+  name: string;           // 制作结果名称
+  inputs: Record<string, number>;  // 输入资源 { "木材": 2, "石头": 1 }
+  output: { resourceId: string; amount: number };
+  description: string;
 }
 
-/** 完整的资源管理模块 */
-export interface ResourceModuleSchema {
-  description: string;    // AI生成的资源系统整体描述
-  items: ResourceItem[];  // AI生成的资源列表（3-8种）
-  currency?: CurrencyDef; // 货币系统（可选）
+/** 完整的生存资源模块 */
+export interface SurvivalModuleSchema {
+  description: string;
+  resources: SurvivalResource[];
+  recipes?: SurvivalRecipe[];
+  rules: {
+    cycleName: string;          // 结算周期名（"一天"/"一个回合"）
+    consumePerCycle: string;    // 每周期自动消耗描述（AI参考）
+    criticalThreshold: number;  // 低于此值触发危机（默认2）
+  };
+  /** AI可添加自定义字段 */
+  [key: string]: unknown;
+}
+
+// ─── 经营资产模块 ───（TODO: 待设计完善，当前为占位）
+
+/** 完整的经营资产模块 */
+export interface BusinessModuleSchema {
+  description: string;
   /** AI可添加自定义字段 */
   [key: string]: unknown;
 }
@@ -185,7 +202,8 @@ export interface TalentModuleSchema {
 export interface WorldSystemData {
   数值属性?: StatModuleSchema;
   成长体系?: ProgressionModuleSchema;
-  资源管理?: ResourceModuleSchema;
+  生存资源?: SurvivalModuleSchema;
+  经营资产?: BusinessModuleSchema;
   骰子检定?: DiceModuleSchema;
   天赋体系?: TalentModuleSchema;
   /** 保留扩展性：自定义模块数据 */

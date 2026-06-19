@@ -140,6 +140,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         memoryRuntime: memData.memoryRuntime,
         memoryConfig: memData.config,
         vectorMemory: memData.vectorMemory,
+        variableConfig: {
+          apiPresetId: localStorage.getItem('world_travel_guide_variable_api_preset') || undefined,
+        },
       };
     });
   }, []);

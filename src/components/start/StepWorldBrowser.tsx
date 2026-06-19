@@ -393,7 +393,7 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
 function SystemsTab({ world }: { world: WorldDef }) {
   const statMod = world.modules?.find(m => m.moduleId === 'stat' && m.enabled);
   const progMod = world.modules?.find(m => m.moduleId === 'progression' && m.enabled);
-  const resMod = world.modules?.find(m => m.moduleId === 'resource' && m.enabled);
+  const survMod = world.modules?.find(m => m.moduleId === 'survival' && m.enabled);
 
   const statData = statMod?.moduleConfig as any;
   const hasNewStat = !!statData?.attrA;
@@ -406,14 +406,14 @@ function SystemsTab({ world }: { world: WorldDef }) {
   const tiers: Array<{ name: string; description?: string }> = progData?.tiers || [];
   const progDesc = progData ? (progData.mode === 'tiered' ? '段位制' : '等级制') : '';
 
-  const resData = resMod?.moduleConfig as any;
-  const resources = resData?.items || [];
-  const resDesc = resData?.description;
+  const survData = (survMod?.moduleConfig || survMod?.data) as any;
+  const resources = survData?.resources || [];
+  const resDesc = survData?.description;
 
   return (
     <div className="tab-section">
       {/* 数值属性（只显示六维+特殊，不露attrA/attrB） */}
-      {(dims.length > 0 || specials.length > 0 || oldImportant.length > 0 || oldNormal.length > 0) && (
+      {(dims.length > 0 || specials.length > 0) && (
         <div className="detail-block">
           <div className="detail-block-title"><BarChart3 size={15} />数值属性</div>
           <div className="detail-block-body">
@@ -473,10 +473,10 @@ function SystemsTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 资源管理 */}
+      {/* 生存资源 */}
       {resources.length > 0 && (
         <div className="detail-block">
-          <div className="detail-block-title"><Flag size={15} />资源管理</div>
+          <div className="detail-block-title"><Flag size={15} />生存资源</div>
           <div className="detail-block-body">
             {resDesc && <p>{resDesc}</p>}
             <div className="resources-list">
@@ -493,6 +493,8 @@ function SystemsTab({ world }: { world: WorldDef }) {
           </div>
         </div>
       )}
+
+      {/* 经营资产（占位） */}
 
 
       {/* 关系系统 */}
@@ -534,14 +536,18 @@ function SystemsTab({ world }: { world: WorldDef }) {
   );
 }
 
-/** 经济 Tab — 优先从 modules[].moduleConfig 读取资源，fallback 到 modules[].data */
+/** 经济 Tab — 从 modules[] 读取生存资源/经营资产 */
 function EconomyTab({ world }: { world: WorldDef }) {
-  const resMod = world.modules?.find(m => m.moduleId === 'resource' && m.enabled);
-  // 兼容新格式（moduleConfig）和旧格式（data）
-  const resData = (resMod?.moduleConfig || resMod?.data) as any;
-  const resources = resData?.items || world.resources?.resources || [];
-  const currency = resData?.currency || world.economy?.currency;
-  const resDesc = resData?.description || world.resources?.description;
+  // 生存资源（新模块 ID: 'survival'）
+  const survMod = world.modules?.find(m => m.moduleId === 'survival' && m.enabled);
+  const survData = (survMod?.moduleConfig || survMod?.data) as any;
+  const resources = survData?.resources || [];
+  const recipes = survData?.recipes || [];
+  const rules = survData?.rules;
+  const resDesc = survData?.description;
+
+  // 经济系统（旧格式兼容）
+  const currency = world.economy?.currency;
 
   return (
     <div className="tab-section">
@@ -563,26 +569,44 @@ function EconomyTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 资源系统 */}
+      {/* 生存资源 */}
       {resources.length > 0 && (
         <div className="detail-block">
-          <div className="detail-block-title"><Flag size={15} />资源管理</div>
+          <div className="detail-block-title"><Flag size={15} />生存资源</div>
           <div className="detail-block-body">
             {resDesc && <p>{resDesc}</p>}
+            {rules?.consumePerCycle && (
+              <div className="detail-row"><strong>每周期消耗：</strong>{rules.consumePerCycle}</div>
+            )}
             <div className="resources-list">
               {resources.map((res: any) => (
                 <div key={res.id} className={`resource-item${res.scarce ? ' scarce' : ''}`}>
                   <div className="resource-header">
                     <span className="resource-name">{res.symbol ? `${res.symbol} ` : ''}{res.name}</span>
                     {res.scarce && <span className="resource-scarce">稀缺</span>}
+                    <span className="resource-amount">{res.amount}/{res.max}</span>
                   </div>
                   <div className="resource-desc">{res.description}</div>
+                  {res.gatherRate && <div className="resource-rate">采集：{res.gatherRate}</div>}
+                  {res.usage && <div className="resource-rate">消耗：{res.usage}</div>}
                 </div>
               ))}
             </div>
+            {recipes.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <strong style={{ fontSize: 'var(--font-size-xs)' }}>制作配方：</strong>
+                {recipes.map((r: any) => (
+                  <div key={r.id} style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', paddingLeft: 8 }}>
+                    {r.name}: {Object.entries(r.inputs).map(([k, v]) => `${k}×${v}`).join(' + ')} → {r.output.resourceId}×{r.output.amount}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* 经营资产（占位） */}
 
       {/* 时间系统 */}
       {world.timeSystem && (

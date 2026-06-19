@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ArrowLeft, Save, Trash2, User, MessageSquare, FolderOpen, Download, Upload, Edit3, Check, X } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, User, MessageSquare, FolderOpen, Download, Upload, Edit3, Check, X, AlertTriangle } from 'lucide-react';
 import EmptyState from '../shared/EmptyState';
 import type { SaveMeta, GameSave } from '../../storage/db';
 import { loadGame as loadGameFromDb } from '../../storage/db';
@@ -11,13 +11,14 @@ interface SavesViewProps {
   onBack: () => void;
   onLoadSave: (save: GameSave) => void;
   onDeleteSave: (id: string) => void;
+  onForceDeleteSave: (id: string) => void;
   onRenameSave: (id: string, newName: string) => void;
   onImportSave: (file: File) => void;
   onExportSave: (id: string) => void;
 }
 
 export default function SavesView({
-  allSaves, locale, currentSaveId, onBack, onLoadSave, onDeleteSave, onRenameSave, onImportSave, onExportSave,
+  allSaves, locale, currentSaveId, onBack, onLoadSave, onDeleteSave, onForceDeleteSave, onRenameSave, onImportSave, onExportSave,
 }: SavesViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -221,6 +222,26 @@ export default function SavesView({
               }}
             >
               <Download size={14} /> 导出存档
+            </button>
+          )}
+
+          {selectedId && (
+            <button
+              onClick={() => onForceDeleteSave(selectedId)}
+              style={{
+                padding: '10px 20px',
+                border: '1px solid var(--danger, #e74c3c)',
+                borderRadius: 'var(--radius-md)',
+                background: 'transparent',
+                color: 'var(--danger, #e74c3c)',
+                cursor: 'pointer',
+                fontSize: 'var(--font-size-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <AlertTriangle size={14} /> 强制删除
             </button>
           )}
 

@@ -110,7 +110,7 @@ function createDefaultRetentionConfig(): MemoryRetentionConfig {
     archiveResolvedThreadsAfter: 6,
     archiveColdEventsAfter: 20,
     agingMultiplier: 2,
-    maxHotEventCards: 200,
+    maxHotEventCards: 50,
     checkpointInterval: 12,
     maxVectorMemories: 500,
   };

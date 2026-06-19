@@ -11,7 +11,8 @@ import type { WorldBookEntry } from '../worldbook/index';
 const MODULE_KEYWORDS: Record<string, string[]> = {
   stat: ['属性', '数值', '战斗', '能力值', '六维'],
   progression: ['段位', '等级', '境界', '修炼', '经验', '升级'],
-  resource: ['资源', '货币', '物品', '背包', '金币', '材料'],
+  survival: ['生存', '资源', '采集', '制作', '消耗', '食物', '淡水', '木材'],
+  business: ['经营', '资产', '收入', '支出', '利润', '员工', '店铺'],
   dice: ['骰子', '检定', '判定', '掷骰'],
   talent: ['天赋', '能力', '血脉', '体质', '灵根'],
 };
@@ -95,28 +96,15 @@ function formatProgressionModule(data: Record<string, unknown>): string {
   return lines.join('\n');
 }
 
-function formatResourceModule(data: Record<string, unknown>): string {
-  const lines: string[] = ['【资源管理系统】'];
+function formatSurvivalModule(data: Record<string, unknown>): string {
+  const lines: string[] = ['【生存资源系统】（TODO: 待设计完善）'];
+  if (data.description) lines.push(String(data.description));
+  return lines.join('\n');
+}
 
-  if (data.description) {
-    lines.push(String(data.description));
-  }
-
-  const items = data.items as Array<Record<string, unknown>> | undefined;
-  if (items && items.length > 0) {
-    lines.push('资源列表：');
-    for (const item of items) {
-      const scarce = item.scarce ? ' [稀缺]' : '';
-      const maxStr = item.max != null ? ` 上限:${item.max}` : '';
-      lines.push(`  ${item.symbol || '•'} ${item.name}（${item.id}）：${item.description || ''}${scarce}${maxStr}`);
-    }
-  }
-
-  const currency = data.currency as Record<string, unknown> | undefined;
-  if (currency) {
-    lines.push(`货币：${currency.symbol || ''} ${currency.name} - ${currency.description || ''}`);
-  }
-
+function formatBusinessModule(data: Record<string, unknown>): string {
+  const lines: string[] = ['【经营资产系统】（TODO: 待设计完善）'];
+  if (data.description) lines.push(String(data.description));
   return lines.join('\n');
 }
 
@@ -155,7 +143,8 @@ export function convertModulesToWorldBookEntries(
   const formatters: Record<string, (data: Record<string, unknown>) => string> = {
     stat: formatStatModule,
     progression: formatProgressionModule,
-    resource: formatResourceModule,
+    survival: formatSurvivalModule,
+    business: formatBusinessModule,
     talent: formatTalentModule,
   };
 

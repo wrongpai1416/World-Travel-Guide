@@ -31,6 +31,7 @@ export default function StartScreen() {
           onBack={() => h.setView('main')}
           onLoadSave={h.handleLoadSave}
           onDeleteSave={h.handleDeleteSave}
+          onForceDeleteSave={h.handleForceDeleteSave}
           onRenameSave={h.handleRenameSave}
           onImportSave={h.handleImportSave}
           onExportSave={h.handleExportSave}

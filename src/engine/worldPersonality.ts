@@ -2,7 +2,6 @@ import { type WorldBookManager, type WorldBookEntry, createWorldBookManager, par
 import { WORLDS, getWorldBookEntriesForWorld } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { applyModulesV2 } from '../modules/injector';
-import type { WorldSystemData } from '../modules/schema';
 
 export async function loadWorldBook(): Promise<WorldBookManager | null> {
   try {
@@ -67,19 +66,10 @@ export function applyWorld(wb: WorldBookManager, worldId: string) {
 
 /**
  * 将世界启用的模块注入为世界书条目
- * - 使用新的 applyModulesV2 注入器
- * - 支持运行时 WorldSystemData 数据
- * @param playerState 玩家状态（动态数据，如当前段位索引、当前经验值）
+ * 使用管线生成的世界书条目（world.worldBookEntries）
  */
-export function applyModules(
-  wb: WorldBookManager,
-  world: WorldDef,
-  worldSystem?: WorldSystemData,
-  playerState?: { 当前段位索引?: number; 当前经验值?: number }
-) {
+export function applyModules(wb: WorldBookManager, world: WorldDef) {
   if (!world.modules || world.modules.length === 0) return;
-
-  // 使用新的v2注入器
-  applyModulesV2(wb, world, worldSystem, playerState);
+  applyModulesV2(wb, world);
 }
 

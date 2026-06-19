@@ -3,7 +3,8 @@ import { fetchModels, testConnection } from '../../api/client';
 import type { ApiConfig, ApiProvider } from '../../api/types';
 import { Toggle } from './SettingsUIComponents';
 import { type ApiPreset, loadPresets, savePresets } from './apiPresetUtils';
-import { CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, Bot } from 'lucide-react';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 const PROVIDERS: { value: ApiProvider; label: string }[] = [
   { value: 'openai', label: 'OpenAI 兼容' },
@@ -42,6 +43,9 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
   const [loadingModels, setLoadingModels] = useState(false);
   const [presets, setPresets] = useState<ApiPreset[]>(loadPresets);
   const [presetName, setPresetName] = useState('');
+  const [claudeMode, setClaudeMode] = useState<boolean>(() => {
+    try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { return false; }
+  });
 
   useImperativeHandle(ref, () => ({
     getValues: () => ({ config }),
@@ -428,6 +432,28 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* ===== 模型适配 ===== */}
+      <div style={{ marginBottom: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+          <Bot size={16} />
+          <span style={{ fontWeight: '600', fontSize: 'var(--font-size-md)' }}>模型适配</span>
+        </div>
+        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={rowStyle}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>Claude 模式</div>
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+                使用针对 Claude 安全机制优化的预设（破限 + NSFW）
+              </div>
+            </div>
+            <Toggle value={claudeMode} onChange={(v) => {
+              setClaudeMode(v);
+              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`, String(v)); } catch {}
+            }} />
+          </div>
         </div>
       </div>
 

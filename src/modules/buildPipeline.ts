@@ -1,24 +1,27 @@
 // ============================================================
 //  世界模块化系统 v2 — 管线执行器
-//  用于多步骤世界创建管线（主题提取 → 顺序生成 → 资源生成 → 世界书生成 → 合成验证）
+//  用于多步骤世界创建管线（主题提取 → 顺序生成 → 世界书生成 → 合成验证）
 //
 //  依赖关系：
 //  - 数值系统：独立存在
 //  - 成长系统：依赖数值系统（需要知道属性名称、范围）
-//  - 资源系统：可以独立存在
+//  - 生存系统：与数值/成长/天赋互斥
+//  - 经营系统：可与任何模块共存
 // ============================================================
 
-import type { BuildContext, StatConfig, StatState, ProgressionConfig, ResourceConfig } from './buildContext';
+import type { BuildContext, StatConfig, StatState, ProgressionConfig, SurvivalConfig, BusinessConfig } from './buildContext';
 import type { WorldBookEntryDef } from '../data/worlds-schema';
-import type { StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema } from './schema';
+import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema } from './schema';
 import {
   buildStatThemePrompt,
   buildStatGenPrompt,
   buildProgressionGenPrompt,
-  buildResourceGenPrompt,
+  buildSurvivalGenPrompt,
+  buildBusinessGenPrompt,
   STAT_UPDATE_RULES,
   PROGRESSION_UPDATE_RULES,
-  RESOURCE_UPDATE_RULES,
+  SURVIVAL_UPDATE_RULES,
+  BUSINESS_UPDATE_RULES,
   DICE_RULES_PROMPT,
   DICE_UPDATE_RULES,
   TALENT_UPDATE_RULES,
@@ -133,37 +136,35 @@ export async function executeBuildPipeline(
     } catch { /* 解析失败则不设置 */ }
   }
 
-  // 2c. 生成资源系统（如果选了，独立存在，不依赖数值系统）
-  if (hasModule('resource')) {
+  // 2c. 生成生存资源系统
+  if (hasModule('survival')) {
     await waitForRateLimit();
-    onProgress?.('阶段2', '生成资源系统...');
-    const statNames = ctx.statData
-      ? [
-          ctx.statData.dim1?.name, ctx.statData.dim2?.name, ctx.statData.dim3?.name,
-          ctx.statData.dim4?.name, ctx.statData.dim5?.name, ctx.statData.dim6?.name,
-          ...(Array.isArray(ctx.statData.special) ? ctx.statData.special.map(s => s?.name) : []),
-        ].filter(Boolean).join('、')
-      : '';
-    const progressionInfo = ctx.progressionData
-      ? (ctx.progressionData.tiers?.map(t => t.name).join('、') || `等级制 0~${ctx.progressionData.levelData?.maxLevel ?? '?'}级`)
-      : '';
-
-    // 资源系统独立存在：如果有 theme 就用，没有就用世界描述作为主题
-    const resourceTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
-    const resourceTone = ctx.theme?.tone || '中等';
-
-    const resPrompt = buildResourceGenPrompt({
-      theme: resourceTheme,
-      tone: resourceTone,
-      statNames,
-      progressionInfo,
-    });
-    const resRaw = await callAI([{ role: 'user', content: resPrompt }]);
+    onProgress?.('阶段2', '生成生存资源系统...');
+    const survivalTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
+    const survivalTone = ctx.theme?.tone || '中等';
+    const userDesc = ctx.survivalUserDesc ? `\n\n用户对生存资源的具体要求：${ctx.survivalUserDesc}` : '';
+    const survPrompt = buildSurvivalGenPrompt({ theme: survivalTheme, tone: survivalTone }) + userDesc;
+    const survRaw = await callAI([{ role: 'user', content: survPrompt }]);
     try {
-      ctx.resourceData = JSON.parse(extractJSON(resRaw)) as ResourceModuleSchema;
-      // 提取配置
-      if (ctx.resourceData) {
-        ctx.resourceConfig = extractResourceConfig(ctx.resourceData);
+      ctx.survivalData = JSON.parse(extractJSON(survRaw)) as SurvivalModuleSchema;
+      if (ctx.survivalData) {
+        ctx.survivalConfig = extractSurvivalConfig(ctx.survivalData);
+      }
+    } catch { /* 解析失败则不设置 */ }
+  }
+
+  // 2d. 生成经营资产系统（占位，TODO: 待设计完善）
+  if (hasModule('business')) {
+    await waitForRateLimit();
+    onProgress?.('阶段2', '生成经营资产系统...');
+    const businessTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
+    const businessTone = ctx.theme?.tone || '中等';
+    const bizPrompt = buildBusinessGenPrompt({ theme: businessTheme, tone: businessTone });
+    const bizRaw = await callAI([{ role: 'user', content: bizPrompt }]);
+    try {
+      ctx.businessData = JSON.parse(extractJSON(bizRaw)) as BusinessModuleSchema;
+      if (ctx.businessData) {
+        ctx.businessConfig = extractBusinessConfig(ctx.businessData);
       }
     } catch { /* 解析失败则不设置 */ }
   }
@@ -282,24 +283,32 @@ function extractProgressionConfig(progData: ProgressionModuleSchema): Progressio
 }
 
 /**
- * 从资源管理原始数据中提取配置（静态部分）
+ * 从生存资源原始数据中提取配置
  */
-function extractResourceConfig(resData: ResourceModuleSchema): ResourceConfig {
+function extractSurvivalConfig(survData: SurvivalModuleSchema): SurvivalConfig {
   return {
-    description: resData.description,
-    items: resData.items.map(item => ({
-      id: item.id,
-      name: item.name,
-      symbol: item.symbol,
-      max: item.max,
-      scarce: item.scarce,
-      description: item.description,
-    })),
-    currency: resData.currency ? {
-      name: resData.currency.name,
-      symbol: resData.currency.symbol,
-      description: resData.currency.description,
-    } : undefined,
+    description: survData.description,
+    resources: Array.isArray(survData.resources) ? survData.resources.map(r => ({
+      id: r.id,
+      name: r.name,
+      symbol: r.symbol,
+      amount: r.amount ?? 0,
+      max: r.max,
+      scarce: r.scarce,
+      gatherRate: r.gatherRate,
+      usage: r.usage,
+      description: r.description,
+    })) : [],
+    rules: survData.rules || { cycleName: '一天', consumePerCycle: '', criticalThreshold: 2 },
+  };
+}
+
+/**
+ * 从经营资产原始数据中提取配置（占位）
+ */
+function extractBusinessConfig(bizData: BusinessModuleSchema): BusinessConfig {
+  return {
+    description: bizData.description,
   };
 }
 
@@ -328,14 +337,18 @@ function synthesizeResult(ctx: BuildContext): Record<string, unknown> {
     result.成长体系 = ctx.progressionData;
   }
 
-  // 资源管理：配置（初始状态可选）
-  if (ctx.resourceConfig) {
-    result.资源管理 = {
-      config: ctx.resourceConfig,
-    };
-  } else if (ctx.resourceData) {
-    // 兼容旧格式：直接使用原始数据
-    result.资源管理 = ctx.resourceData;
+  // 生存资源：配置（占位）
+  if (ctx.survivalConfig) {
+    result.生存资源 = { config: ctx.survivalConfig };
+  } else if (ctx.survivalData) {
+    result.生存资源 = ctx.survivalData;
+  }
+
+  // 经营资产：配置（占位）
+  if (ctx.businessConfig) {
+    result.经营资产 = { config: ctx.businessConfig };
+  } else if (ctx.businessData) {
+    result.经营资产 = ctx.businessData;
   }
 
   // 世界书条目
@@ -346,55 +359,6 @@ function synthesizeResult(ctx: BuildContext): Record<string, unknown> {
   return result;
 }
 
-/**
- * 从生成的数据中提取关键词
- * 用于绿灯触发，让 AI 知道什么时候应该注入模块规则
- */
-function extractKeywords(ctx: BuildContext): string[] {
-  const keywords: string[] = [];
-
-  // 从属性数据中提取关键词
-  if (ctx.statData) {
-    if (ctx.statData.attrA?.name) keywords.push(ctx.statData.attrA.name);
-    if (ctx.statData.attrB?.name) keywords.push(ctx.statData.attrB.name);
-    const dims = [ctx.statData.dim1, ctx.statData.dim2, ctx.statData.dim3, ctx.statData.dim4, ctx.statData.dim5, ctx.statData.dim6];
-    for (const d of dims) {
-      if (d?.name) keywords.push(d.name);
-    }
-    // 特色属性名
-    if (Array.isArray(ctx.statData.special)) {
-      for (const sp of ctx.statData.special) {
-        if (sp?.name) keywords.push(sp.name);
-      }
-    }
-  }
-
-  // 从成长体系中提取关键词
-  if (ctx.progressionData) {
-    if (ctx.progressionData.mode === 'level' && ctx.progressionData.levelData) {
-      keywords.push('等级', '升级', '经验');
-    } else if (ctx.progressionData.tiers) {
-      // 段位名称
-      for (const tier of ctx.progressionData.tiers) {
-        keywords.push(tier.name);
-      }
-      keywords.push('段位', '境界', '突破');
-    }
-  }
-
-  // 从资源管理中提取关键词
-  if (ctx.resourceData) {
-    if (ctx.resourceData.currency) {
-      keywords.push(ctx.resourceData.currency.name);
-    }
-    for (const item of ctx.resourceData.items) {
-      keywords.push(item.name);
-    }
-    keywords.push('资源', '物品');
-  }
-
-  return keywords.filter(k => k && k.length > 0);
-}
 
 /**
  * 生成世界书条目（蓝灯/绿灯）
@@ -404,34 +368,12 @@ function extractKeywords(ctx: BuildContext): string[] {
  */
 function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
   const entries: WorldBookEntryDef[] = [];
-  const keywords = extractKeywords(ctx);
 
-  // ─── 数值属性模块 ───
+  // ─── 数值属性模块（绿灯：关键词触发）───
   if (ctx.statData) {
     const statData = ctx.statData;
     const dims = [statData.dim1, statData.dim2, statData.dim3, statData.dim4, statData.dim5, statData.dim6];
-    const dimKeys = ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6'];
-    const dimDesc = dims.map((d, i) =>
-      d ? `- ${d.name}（${dimKeys[i]}）：当前 ${safeNum(d.value, 50)}，范围 ${d.range?.[0] ?? 0}-${d.range?.[1] ?? 100}` : null
-    ).filter(Boolean).join('\n');
-    const specialDesc = Array.isArray(statData.special) && statData.special.length > 0
-      ? '\n特色属性：\n' + statData.special.filter(s => s).map(s =>
-          `- ${s.name}（${s.id}）：当前 ${safeNum(s.value, 0)}，范围 ${s.range?.[0] ?? 0}-${s.range?.[1] ?? 100}，${s.description || ''}`
-        ).join('\n')
-      : '';
 
-    // 蓝灯：数值属性状态（常驻）
-    entries.push({
-      uid: -5001,
-      comment: '[模块] 数值属性 - 状态',
-      content: `【数值属性】\n底层属性：${statData.attrA?.name || '生命'} ${safeNum(statData.attrA?.current, 80)}/${safeNum(statData.attrA?.max, 100)}，${statData.attrB?.name || '能量'} ${safeNum(statData.attrB?.current, 60)}/${safeNum(statData.attrB?.max, 100)}\n六维属性：\n${dimDesc}${specialDesc}`,
-      constant: true,
-      key: [],
-      order: 50,
-      position: 'after_char',
-    });
-
-    // 绿灯：数值属性更新规则（关键词触发）
     const statKeywords = [
       statData.attrA?.name, statData.attrB?.name,
       ...dims.filter(Boolean).map(d => d!.name),
@@ -450,49 +392,20 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
     });
   }
 
-  // ─── 成长体系模块 ───
+  // ─── 成长体系模块（绿灯：关键词触发）───
   if (ctx.progressionData) {
     const progData = ctx.progressionData;
-    let statusContent = '';
     let progressionKeywords: string[] = [];
 
     if (progData.mode === 'level' && progData.levelData) {
-      // 等级制
-      const ld = progData.levelData;
-      const bs = ld.baseStats;
-      const gl = ld.growthPerLevel;
-      const ceilingInfo = bs && gl
-        ? `\n0级属性天花板：${bs.attrAMax}/${bs.attrBMax}，六维 ${bs.dim1Max}/${bs.dim2Max}/${bs.dim3Max}/${bs.dim4Max}/${bs.dim5Max}/${bs.dim6Max}\n每级增长：${gl.attrAMax}/${gl.attrBMax}，六维 ${gl.dim1Max}/${gl.dim2Max}/${gl.dim3Max}/${gl.dim4Max}/${gl.dim5Max}/${gl.dim6Max}\n满级属性天花板：${bs.attrAMax + ld.maxLevel * gl.attrAMax}/${bs.attrBMax + ld.maxLevel * gl.attrBMax}`
-        : '';
-      statusContent = `【成长体系】\n模式：等级制（0~${ld.maxLevel}级）\n当前：Lv.${progData.currentTierIndex}\n经验：${progData.currentXP}${ceilingInfo}`;
       progressionKeywords = ['等级', '升级', '经验', 'Lv', '等级制'];
     } else if (progData.tiers?.length) {
-      // 段位制
-      const currentTier = progData.tiers[progData.currentTierIndex];
-      const tierList = progData.tiers.map((t, i) =>
-        `  ${i + 1}. ${t.name}${i === progData.currentTierIndex ? '（当前）' : ''} — ${t.description}`
-      ).join('\n');
-      statusContent = `【成长体系】\n模式：段位制\n当前：${currentTier?.name || '未知'}（第${progData.currentTierIndex + 1}段）\n经验：${progData.currentXP}\n段位列表：\n${tierList}`;
       progressionKeywords = [
         ...progData.tiers.map(t => t.name),
         '段位', '境界', '突破', '升级', '进阶',
       ];
     }
 
-    // 蓝灯：成长体系状态（常驻）
-    if (statusContent) {
-      entries.push({
-        uid: -5003,
-        comment: '[模块] 成长体系 - 状态',
-        content: statusContent,
-        constant: true,
-        key: [],
-        order: 52,
-        position: 'after_char',
-      });
-    }
-
-    // 绿灯：成长体系更新规则（关键词触发）
     if (progressionKeywords.length > 0) {
       entries.push({
         uid: -5004,
@@ -506,46 +419,39 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
     }
   }
 
-  // ─── 资源管理模块 ───
-  if (ctx.resourceData) {
-    const resData = ctx.resourceData;
-    const currencyDesc = resData.currency
-      ? `货币：${resData.currency.name} ${resData.currency.amount}${resData.currency.symbol || ''}\n`
-      : '';
-    const itemsDesc = Array.isArray(resData.items) ? resData.items.filter(r => r).map(r =>
-      `- ${r.name || '未知'}（${r.id || '?'}）${r.symbol || ''}：${safeNum(r.amount, 0)}${r.max ? `/${r.max}` : ''}${r.scarce ? ' [稀缺]' : ''} — ${r.description || ''}`
-    ).join('\n') : '';
-
-    // 蓝灯：资源状态（常驻）
-    entries.push({
-      uid: -5005,
-      comment: '[模块] 资源管理 - 状态',
-      content: `【资源管理】\n${resData.description}\n${currencyDesc}资源列表：\n${itemsDesc}`,
-      constant: true,
-      key: [],
-      order: 54,
-      position: 'after_char',
-    });
-
-    // 绿灯：资源更新规则（关键词触发）
-    const resourceKeywords = [
-      resData.currency?.name,
-      ...(Array.isArray(resData.items) ? resData.items.filter(r => r?.name).map(r => r.name!) : []),
-      '资源', '物品', '货币',
-    ].filter((k): k is string => !!k && k.length > 0);
+  // ─── 生存资源模块（绿灯：关键词触发）───
+  if (ctx.survivalData) {
+    const survivalData = ctx.survivalData;
+    const survivalKeywords = [
+      ...(Array.isArray(survivalData.resources) ? survivalData.resources.map(r => r.name) : []),
+      '生存', '资源', '采集', '制作', '消耗', '食物', '水',
+    ].filter(k => k && k.length > 0);
 
     entries.push({
       uid: -5006,
-      comment: '[模块] 资源管理 - 规则',
-      content: RESOURCE_UPDATE_RULES,
+      comment: '[模块] 生存资源 - 规则',
+      content: SURVIVAL_UPDATE_RULES,
       constant: false,
-      key: resourceKeywords,
+      key: survivalKeywords,
       order: 55,
       position: 'after_char',
     });
   }
 
-  // ─── 骰子检定模块（绿灯） ───
+  // ─── 经营资产模块（占位）───
+  if (ctx.businessData) {
+    entries.push({
+      uid: -5009,
+      comment: '[模块] 经营资产 - 规则',
+      content: BUSINESS_UPDATE_RULES,
+      constant: false,
+      key: ['经营', '资产', '收入', '支出', '利润', '员工'],
+      order: 58,
+      position: 'after_char',
+    });
+  }
+
+  // ─── 骰子检定模块（绿灯：关键词触发）───
   if (ctx.selectedModules.includes('dice')) {
     entries.push({
       uid: -5007,
@@ -558,7 +464,7 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
     });
   }
 
-  // ─── 天赋体系模块（绿灯） ───
+  // ─── 天赋体系模块（绿灯：关键词触发）───
   if (ctx.selectedModules.includes('talent')) {
     entries.push({
       uid: -5008,

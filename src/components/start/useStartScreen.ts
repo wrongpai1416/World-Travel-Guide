@@ -11,7 +11,7 @@ import type { GameSave, PlayerProfile } from '../../storage/db';
 import type { ChatMessage } from '../../engine/types';
 import type { GameState } from '../../schema/variables';
 import { createDefaultGameState } from '../../schema/variables';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { v4 as uuid } from 'uuid';
 
 export function useStartScreen() {
@@ -21,6 +21,7 @@ export function useStartScreen() {
   const createNewGame = useSaveStore(s => s.createNewGame);
   const loadSaveFromStore = useSaveStore(s => s.loadSave);
   const deleteSaveFromStore = useSaveStore(s => s.deleteSave);
+  const forceDeleteSaveFromStore = useSaveStore(s => s.forceDeleteSave);
   const renameSaveFromStore = useSaveStore(s => s.renameSave);
   const importSaveToStore = useSaveStore(s => s.importSave);
   const exportSaveFromStore = useSaveStore(s => s.exportSave);
@@ -77,7 +78,7 @@ export function useStartScreen() {
         if (!mod.enabled) continue;
 
         const mapKey: Record<string, string> = {
-          stat: '数值属性', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+          stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
         };
         const key = mapKey[mod.moduleId];
         if (!key) continue;
@@ -131,7 +132,7 @@ export function useStartScreen() {
             gs.玩家.当前段位索引 = progData.currentTierIndex ?? 0;
             gs.玩家.当前经验值 = progData.currentXP ?? 0;
           }
-          if (['resource', 'dice', 'talent'].includes(mod.moduleId)) {
+          if (['survival', 'business', 'dice', 'talent'].includes(mod.moduleId)) {
             worldSystem[key] = mod.data;
           }
         }
@@ -139,7 +140,8 @@ export function useStartScreen() {
         // 默认值
         if (!mod.data && !mod.initialState) {
           const defaults: Record<string, () => unknown> = {
-            resource: createDefaultResourceModule,
+            survival: createDefaultSurvivalModule,
+            business: createDefaultBusinessModule,
             dice: createDefaultDiceModule,
             talent: createDefaultTalentModule,
           };
@@ -304,6 +306,16 @@ export function useStartScreen() {
     }
   };
 
+  const handleForceDeleteSave = async (id: string) => {
+    if (!await confirm('强制删除会直接清除存档数据（不读取内容），用于存档损坏无法正常删除的情况。确定继续？', { danger: true, confirmText: '强制删除' })) return;
+    const isCurrentSave = currentSaveId === id;
+    await forceDeleteSaveFromStore(id);
+    if (isCurrentSave) {
+      dispatch({ type: 'CLEAR_SAVE_DATA' });
+      engine.reset();
+    }
+  };
+
   const handleRenameSave = async (id: string, newName: string) => {
     await renameSaveFromStore(id, newName);
   };
@@ -364,7 +376,7 @@ export function useStartScreen() {
     handleRegenerateSegment: charHistory.handleRegenerateSegment,
     buildInitialState,
     // handlers
-    handleStartGame, handleLoadSave, handleDeleteSave,
+    handleStartGame, handleLoadSave, handleDeleteSave, handleForceDeleteSave,
     handleRenameSave, handleImportSave, handleExportSave,
     // saves
     allSaves: savesMeta, currentSaveId,

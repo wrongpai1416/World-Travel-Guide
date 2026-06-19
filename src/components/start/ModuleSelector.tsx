@@ -4,7 +4,7 @@
 // ============================================================
 
 import {
-  BarChart3, TrendingUp, Gem, Dice6, Star,
+  BarChart3, TrendingUp, Leaf, Briefcase, Dice6, Star,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,10 +37,16 @@ export const MODULE_OPTIONS: ModuleOption[] = [
     icon: TrendingUp,
   },
   {
-    id: 'resource',
-    name: '资源管理',
-    description: '可收集、消耗、交易的资源系统',
-    icon: Gem,
+    id: 'survival',
+    name: '生存资源',
+    description: '荒岛求生/末日生存类，资源采集、制作、消耗（与数值属性/成长/天赋互斥）',
+    icon: Leaf,
+  },
+  {
+    id: 'business',
+    name: '经营资产',
+    description: '网吧/房东/商店模拟器类，资产、收支、利润',
+    icon: Briefcase,
     disabled: true,
   },
   {
@@ -65,9 +71,11 @@ interface ModuleSelectorProps {
   onToggle: (moduleId: string) => void;
   /** 是否紧凑模式（用于嵌入在其他组件中） */
   compact?: boolean;
+  /** 因互斥而被禁用的模块ID集合 */
+  disabledByConflict?: Set<string>;
 }
 
-export default function ModuleSelector({ selected, onToggle, compact }: ModuleSelectorProps) {
+export default function ModuleSelector({ selected, onToggle, compact, disabledByConflict }: ModuleSelectorProps) {
   return (
     <div style={{ marginTop: compact ? 8 : 12 }}>
       {!compact && (
@@ -83,7 +91,7 @@ export default function ModuleSelector({ selected, onToggle, compact }: ModuleSe
         {MODULE_OPTIONS.map(mod => {
           const active = selected.has(mod.id);
           const Icon = mod.icon;
-          const disabled = mod.disabled;
+          const disabled = mod.disabled || (disabledByConflict?.has(mod.id) ?? false);
           return (
             <label
               key={mod.id}
@@ -117,9 +125,14 @@ export default function ModuleSelector({ selected, onToggle, compact }: ModuleSe
                   color: active ? 'var(--accent)' : disabled ? 'var(--text-muted)' : 'var(--text-primary)',
                 }}>
                   {mod.name}
-                  {disabled && (
+                  {mod.disabled && (
                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginLeft: 4 }}>
                       开发中
+                    </span>
+                  )}
+                  {!mod.disabled && disabledByConflict?.has(mod.id) && (
+                    <span style={{ fontSize: 'var(--font-size-xs)', color: '#f59e0b', marginLeft: 4 }}>
+                      互斥
                     </span>
                   )}
                 </div>

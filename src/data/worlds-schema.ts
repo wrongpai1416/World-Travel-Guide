@@ -43,7 +43,7 @@ export interface ResourceDef {
   scarce?: boolean;              // true = 稀缺资源，生存攸关
 }
 
-/** 资源管理系统 */
+/** 生存资源系统 / 经营资产系统 */
 export interface ResourceManagementDef {
   resources: ResourceDef[];
   description?: string;          // 资源系统的整体说明

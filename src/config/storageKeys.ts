@@ -16,6 +16,9 @@ export const STORAGE_KEYS = {
 
   // 存档系统
   ACTIVE_SAVE: 'world_travel_guide_active_save_id',
+
+  // 生图配置
+  IMAGE_CONFIG: 'world_travel_guide_image_config',
 } as const
 
 export type StorageKey = keyof typeof STORAGE_KEYS

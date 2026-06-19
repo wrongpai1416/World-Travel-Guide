@@ -14,7 +14,7 @@ import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
 import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
 import { extractWorldSystemData } from '../../modules/runtime';
-import type { DiceRoll } from '../../modules/schema';
+import type { DiceRoll, SurvivalRecipe } from '../../modules/schema';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
 import { findWorldDef } from '../../data/worldLoader';
@@ -193,6 +193,102 @@ export default function GameScreen() {
     setStateVersion(v => v + 1);
   }, [engine]);
 
+  const apiConfig = useConfigStore(s => s.apiConfig);
+
+  // ── 生存资源：制作逻辑 ──
+  const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
+
+  const handleSurvivalCraft = useCallback((recipe: SurvivalRecipe) => {
+    const state = engine.variableManager.getState();
+    const surv = (state.世界?.世界系统 as any)?.生存资源;
+    if (!surv?.resources) return;
+
+    // 检查资源是否足够
+    for (const [resId, need] of Object.entries(recipe.inputs)) {
+      const res = surv.resources.find((r: any) => r.id === resId);
+      if (!res || res.amount < need) return;
+    }
+
+    // 消耗材料
+    for (const [resId, need] of Object.entries(recipe.inputs)) {
+      const res = surv.resources.find((r: any) => r.id === resId);
+      if (res) res.amount -= need;
+    }
+
+    // 产出产品
+    const outputId = recipe.output.resourceId;
+    const outputAmount = recipe.output.amount;
+    const outputRes = surv.resources.find((r: any) => r.id === outputId);
+    if (outputRes) {
+      // 已有资源，增加数量
+      outputRes.amount = Math.min(outputRes.amount + outputAmount, outputRes.max);
+    } else {
+      // 新物品，添加到资源列表
+      surv.resources.push({
+        id: outputId,
+        name: recipe.name,
+        symbol: '📦',
+        amount: outputAmount,
+        max: 99,
+        scarce: false,
+        description: recipe.description || `通过${recipe.name}制作获得`,
+      });
+    }
+
+    engine.variableManager.setState(state);
+    setStateVersion(v => v + 1);
+  }, [engine]);
+
+  // ── 生存资源：配方生成 ──
+  const handleSurvivalGenerateRecipe = useCallback(async (request: string) => {
+    if (!apiConfig) return;
+    setIsGeneratingRecipe(true);
+    try {
+      const { buildRecipeGenPrompt } = await import('../../modules/prompts');
+      const state = engine.variableManager.getState();
+      const surv = (state.世界?.世界系统 as any)?.生存资源;
+      const currentResources = (surv?.resources || []).map((r: any) => ({
+        id: r.id, name: r.name, amount: r.amount, max: r.max,
+      }));
+      const worldTheme = state.世界?.社会环境?.社会氛围 || '生存世界';
+
+      const prompt = buildRecipeGenPrompt({ currentResources, playerRequest: request, worldTheme });
+      const { requestStreamWithRetry } = await import('../../api/client');
+      const result = await requestStreamWithRetry(apiConfig, [
+        { role: 'user', content: prompt },
+      ], { signal: new AbortController().signal, onDelta: () => {} });
+
+      const jsonMatch = result.text.match(/```(?:json)?\s*([\s\S]*?)```/) || result.text.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) {
+        const fixed = jsonMatch[1].trim().replace(/[""]/g, '"').replace(/['']/g, "'");
+        const recipe = JSON.parse(fixed);
+
+        // 添加到 GameState
+        if (!surv.recipes) surv.recipes = [];
+        // 确保 ID 唯一
+        if (!recipe.id) recipe.id = `recipe_${Date.now()}`;
+        surv.recipes.push(recipe);
+
+        engine.variableManager.setState(state);
+        setStateVersion(v => v + 1);
+      }
+    } catch (err) {
+      console.warn('[配方生成] 失败:', err);
+    } finally {
+      setIsGeneratingRecipe(false);
+    }
+  }, [engine, apiConfig]);
+
+  // ── 生存资源：删除配方 ──
+  const handleSurvivalDeleteRecipe = useCallback((recipeId: string) => {
+    const state = engine.variableManager.getState();
+    const surv = (state.世界?.世界系统 as any)?.生存资源;
+    if (!surv?.recipes) return;
+    surv.recipes = surv.recipes.filter((r: any) => r.id !== recipeId);
+    engine.variableManager.setState(state);
+    setStateVersion(v => v + 1);
+  }, [engine]);
+
   // 变量更新后刷新右侧面板
   useEffect(() => {
     const handler = () => setStateVersion(v => v + 1);
@@ -216,8 +312,6 @@ export default function GameScreen() {
     const btn = navButtons.find(b => b.id === overlay);
     return btn ? t(btn.labelKey) : '';
   };
-
-  const apiConfig = useConfigStore(s => s.apiConfig);
 
   const handleSummarizeChronicles = useCallback(async (npcId: string) => {
     if (!apiConfig) return false;
@@ -455,7 +549,14 @@ export default function GameScreen() {
             background: 'var(--bg-secondary)',
             transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
-            {!rightCollapsed && <RightPanel gameState={gameState} worldId={state.selectedWorld} />}
+            {!rightCollapsed && <RightPanel
+              gameState={gameState}
+              worldId={state.selectedWorld}
+              onSurvivalGenerateRecipe={handleSurvivalGenerateRecipe}
+              onSurvivalCraft={handleSurvivalCraft}
+              onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
+              isGeneratingRecipe={isGeneratingRecipe}
+            />}
           </div>
 
           {/* 右侧折叠按钮 */}
@@ -553,7 +654,14 @@ export default function GameScreen() {
           side="right"
           width={320}
         >
-          <RightPanel gameState={gameState} worldId={state.selectedWorld} />
+          <RightPanel
+            gameState={gameState}
+            worldId={state.selectedWorld}
+            onSurvivalGenerateRecipe={handleSurvivalGenerateRecipe}
+            onSurvivalCraft={handleSurvivalCraft}
+            onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
+            isGeneratingRecipe={isGeneratingRecipe}
+          />
         </MobileOverlay>
       )}
 

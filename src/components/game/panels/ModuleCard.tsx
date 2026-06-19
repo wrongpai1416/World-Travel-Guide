@@ -1,6 +1,6 @@
 // 模块卡片组件 — 旧格式存档兼容渲染器
 import {
-  BarChart3, TrendingUp, Swords, Gem, Calendar, Dice6, FileText,
+  BarChart3, TrendingUp, Swords, Leaf, Briefcase, Calendar, Dice6, FileText,
 } from 'lucide-react';
 import type { WorldModuleRuntime } from '../../../schema/variables';
 import type { ModuleRenderType } from '../../../data/modules';
@@ -16,7 +16,8 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   stat: <BarChart3 size={15} />,
   progression: <TrendingUp size={15} />,
   combat: <Swords size={15} />,
-  resource: <Gem size={15} />,
+  survival: <Leaf size={15} />,
+  business: <Briefcase size={15} />,
   event: <Calendar size={15} />,
   dice: <Dice6 size={15} />,
   custom_prompt: <FileText size={15} />,
