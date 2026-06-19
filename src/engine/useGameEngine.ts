@@ -11,17 +11,18 @@ import type { WorldBookManager } from '../worldbook/index';
 import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import { sanitizeForContext } from './contextManager';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
+import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
 import { WORLDS } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { extractWorldSystemData } from '../modules/runtime';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule } from '../modules/defaults';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
 import { getBuiltinPreset } from '../data/builtinPresets';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
-import { assembleSystemPrompt } from './promptAssembler';
+import { assembleSystemPrompt, injectAtDepthEntries } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
 import { useMemoryStore } from '../memory/memoryStore';
 import { formatSnapshotForMainAI } from '../utils/npcHelpers';
@@ -60,6 +61,15 @@ export function useGameEngine(
   const playerProfileRef = useRef(playerProfile ?? null);
   const characterHistoryRef = useRef(characterHistory ?? '');
   const onAutoSaveRef = useRef(onAutoSave);
+  // 存储最后一轮管线执行上下文（用于重试管线）
+  const lastPipelineCtxRef = useRef<{
+    round: number;
+    userText: string;
+    aiMsgId: string;
+    batchText: string;
+    recentContext: string;
+    playerName: string;
+  } | null>(null);
 
   useEffect(() => { playerProfileRef.current = playerProfile ?? null; }, [playerProfile]);
   useEffect(() => { characterHistoryRef.current = characterHistory ?? ''; }, [characterHistory]);
@@ -99,7 +109,13 @@ export function useGameEngine(
     const world = findWorldDef(worldId);
     if (world) {
       const systemData = extractWorldSystemData(worldSystem);
-      applyModules(wb, world, systemData);
+      // 获取玩家状态（动态数据）
+      const state = varMgrRef.current.getState();
+      const playerState = {
+        当前段位索引: state.玩家.当前段位索引,
+        当前经验值: state.玩家.当前经验值,
+      };
+      applyModules(wb, world, systemData, playerState);
     }
   }, [findWorldDef]);
 
@@ -291,7 +307,7 @@ export function useGameEngine(
       initialSnapshotRef.current = varMgrRef.current.createSnapshot();
     }
     roundRef.current = save.messages.length > 0
-      ? Math.max(...save.messages.map(m => m.round))
+      ? save.messages.reduce((max, m) => Math.max(max, m.round), 0)
       : 0;
     if (save.worldId && worldBookRef.current) {
       applyWorldAndModules(worldBookRef.current, save.worldId, save.gameState?.世界?.世界系统);
@@ -383,6 +399,9 @@ export function useGameEngine(
         vectorApiConfig: resolvePreset(memConfig.vectorExtractApiPresetId) ?? undefined,
       };
 
+      // 保存管线上下文（用于重试管线）
+      lastPipelineCtxRef.current = { round, userText, aiMsgId, batchText, recentContext, playerName };
+
       const pipelineResult = await executor.execute({
         config: pipelineConfig,
         signal: controller.signal,
@@ -442,12 +461,19 @@ export function useGameEngine(
           const state = varMgrRef.current.createSafeSnapshotForPrompt();
           const varSnapshot = formatSnapshotForMainAI(state);
 
-          // 世界书注入
+          // 世界书注入（v2 扫描引擎：支持正则关键词、选择逻辑、递归扫描、分组互斥）
           let wbInjection = '';
+          const atDepthEntries: Array<{ depth: number; content: string }> = [];
           if (worldBookRef.current) {
-            const { beforeChar, afterChar } = worldBookRef.current.buildInjection(userText);
-            if (beforeChar) wbInjection += beforeChar + '\n\n';
-            if (afterChar) wbInjection += afterChar + '\n\n';
+            // 构建聊天历史供扫描引擎使用
+            const scanHistory = messagesRef.current.map(m => ({
+              role: m.role,
+              content: m.content,
+            }));
+            const scanResult = worldBookRef.current.scanAndBuildInjection(scanHistory, userText);
+            if (scanResult.beforeChar) wbInjection += scanResult.beforeChar + '\n\n';
+            if (scanResult.afterChar) wbInjection += scanResult.afterChar + '\n\n';
+            atDepthEntries.push(...scanResult.atDepthEntries);
           }
 
           // 玩家角色设定注入
@@ -535,9 +561,11 @@ ${perspectiveInstruction}
           });
 
           const chatHistory = sanitizeForContext(messagesRef.current, round);
+          // 注入 atDepth 世界书条目到聊天历史
+          const chatHistoryWithDepth = injectAtDepthEntries(chatHistory, atDepthEntries);
           const apiMessages: Message[] = [
             { role: 'system', content: systemPrompt },
-            ...chatHistory,
+            ...chatHistoryWithDepth,
             { role: 'user', content: userText },
           ];
 
@@ -590,15 +618,23 @@ ${perspectiveInstruction}
       });
 
       // 管线完成 — 保存当前变量快照到 AI 消息（用于回滚）
-      const snapshot = varMgrRef.current.createSnapshot();
-      // 创建记忆系统检查点（用于回滚）
-      const memStoreForCheckpoint = useMemoryStore.getState();
-      const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
-      updateMessage(aiMsgId, {
-        snapshot,
-        snapshotTime: Date.now(),
-        memoryCheckpointId: memCheckpoint?.id,
-      });
+      try {
+        const snapshot = varMgrRef.current.createSnapshot();
+        // 创建记忆系统检查点（用于回滚）
+        const memStoreForCheckpoint = useMemoryStore.getState();
+        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
+        updateMessage(aiMsgId, {
+          snapshot,
+          snapshotTime: Date.now(),
+          memoryCheckpointId: memCheckpoint?.id,
+        });
+      } catch (snapErr: any) {
+        // 快照失败不覆盖正文，只打日志
+        console.warn('[快照] 创建失败（不影响正文）:', snapErr.message);
+      }
+
+      // 清理内存中的冗余快照，防止内存无限增长
+      setMessages(prev => optimizeSnapshots(prev));
 
       setPipelineStatus(pipelineResult.status);
 
@@ -606,7 +642,12 @@ ${perspectiveInstruction}
       if (err.name === 'AbortError') {
         updateMessage(aiMsgId, { content: '[已停止生成]', streaming: false });
       } else {
-        updateMessage(aiMsgId, { content: `[错误] ${err.message}`, streaming: false });
+        // 不覆盖已流式输出的正文，只在文末追加错误提示
+        const currentContent = messagesRef.current.find(m => m.id === aiMsgId)?.content || '';
+        const errorSuffix = currentContent.trim()
+          ? `\n\n⚠️ [管线错误] ${err.message}`
+          : `[错误] ${err.message}`;
+        updateMessage(aiMsgId, { content: errorSuffix, streaming: false });
       }
     } finally {
       setIsGenerating(false);
@@ -620,6 +661,116 @@ ${perspectiveInstruction}
   sendMessageRef.current = sendMessage;
 
   const cancel = useCallback(() => { cancelRef.current?.abort(); }, []);
+
+  // ─── 重试管线（跳过正文生成，只重跑失败的记忆/变量阶段） ───
+  const retryPipeline = useCallback(async () => {
+    const ctx = lastPipelineCtxRef.current;
+    if (!apiConfig || isGenerating || !ctx) return;
+
+    // 找到对应的 AI 消息，确认正文还在
+    const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
+    if (!aiMsg || !aiMsg.content || aiMsg.content.startsWith('[错误]')) return;
+
+    setIsGenerating(true);
+    const controller = new AbortController();
+    cancelRef.current = controller;
+
+    const pipelineConfig = loadPipelineConfig();
+    const memStoreForConfig = useMemoryStore.getState();
+    pipelineConfig.memoryEnabled = memStoreForConfig.config.enabled;
+
+    // 重试时跳过 main 阶段
+    pipelineConfig.executionOrder = pipelineConfig.executionOrder
+      .map(step => step.filter(t => t !== 'main'))
+      .filter(step => step.length > 0);
+
+    const executor = new PipelineExecutor(ctx.round, {
+      onUpdate: () => {
+        const status = executor.getStatus();
+        setPipelineStatus({ ...status, stages: { ...status.stages } });
+        eventBus.emit(EVENTS.PIPELINE_UPDATE, status);
+      },
+    });
+    setPipelineStatus(executor.getStatus());
+
+    try {
+      const memStore = useMemoryStore.getState();
+      const memConfig = memStore.config;
+      const presets = loadPresets();
+      const resolvePreset = (presetId: string | null | undefined) => {
+        if (!presetId) return null;
+        const preset = presets.find(p => p.id === presetId);
+        return preset ? { baseUrl: preset.config.baseUrl, apiKey: preset.config.apiKey, model: preset.config.model } : null;
+      };
+      const defaultMemApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
+      const memApiConfig = resolvePreset(memConfig.apiPresetId) ?? defaultMemApi;
+
+      const memCtx: MemoryPipelineContext = {
+        floor: ctx.round,
+        batchText: ctx.batchText,
+        inputText: ctx.userText,
+        recentContext: ctx.recentContext,
+        playerName: ctx.playerName,
+        apiConfig: memApiConfig,
+        writeApiConfig: resolvePreset(memConfig.writePipeline.apiPresetId) ?? undefined,
+        summaryApiConfig: resolvePreset(memConfig.writePipeline.summaryApiPresetId) ?? undefined,
+        conflictJudgeApiConfig: resolvePreset(memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
+        retrievalApiConfig: resolvePreset(memConfig.retrieval.plannerApiPresetId) ?? undefined,
+        vectorApiConfig: resolvePreset(memConfig.vectorExtractApiPresetId) ?? undefined,
+      };
+
+      const pipelineResult = await executor.execute({
+        config: pipelineConfig,
+        signal: controller.signal,
+        varMgr: varMgrRef.current,
+        worldBook: worldBookRef.current,
+        userText: ctx.userText,
+        auxiliaryConfig: auxiliaryConfig ?? null,
+        mainApiConfig: apiConfig,
+
+        memoryTasks: memConfig.enabled ? {
+          write: async () => { await executeMemoryWrite(memStore, memCtx); },
+          summary: async () => { await executeMemorySummary(memStore, memCtx); },
+          vector: memConfig.vectorEnabled ? async () => { await executeMemoryVector(memStore, memCtx); } : undefined,
+          queryRewrite: async () => { await executeMemoryQueryRewrite(memStore, memCtx); },
+          retrievePlan: async () => { await executeMemoryRetrievePlan(memStore, memCtx); },
+          multiRound: async () => { await executeMemoryMultiRound(memStore, memCtx); },
+          rerank: async () => { await executeMemoryRerank(memStore, memCtx); },
+          retrieveFinalize: async () => { await executeMemoryRetrieveFinalize(memStore, memCtx); },
+          compile: async () => { await executeMemoryCompile(memStore, memCtx); },
+          debugLogger: (kind: string, message: string) => {
+            memStore.appendWriteDebugLog({ kind: `error_${kind}`, message, timestamp: Date.now() });
+          },
+        } : undefined,
+
+        // mainTask 为空（跳过）
+        mainTask: async () => ({ text: aiMsg.content, parsed: { content: aiMsg.content } }),
+      });
+
+      // 重试成功后重新保存快照
+      try {
+        const snapshot = varMgrRef.current.createSnapshot();
+        const memStoreForCheckpoint = useMemoryStore.getState();
+        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
+        updateMessage(ctx.aiMsgId, {
+          snapshot,
+          snapshotTime: Date.now(),
+          memoryCheckpointId: memCheckpoint?.id,
+        });
+      } catch (snapErr: any) {
+        console.warn('[重试快照] 创建失败:', snapErr.message);
+      }
+
+      setMessages(prev => optimizeSnapshots(prev));
+      setPipelineStatus(pipelineResult.status);
+    } catch (err: any) {
+      console.error('[重试管线] 失败:', err.message);
+    } finally {
+      setIsGenerating(false);
+      cancelRef.current = null;
+      try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
+    }
+  }, [apiConfig, isGenerating, auxiliaryConfig]);
 
   const reset = useCallback((worldDef?: WorldDef) => {
     cancelRef.current?.abort();
@@ -635,21 +786,111 @@ ${perspectiveInstruction}
     memStore.setRuntimeFlow(null);
     memStore.setRetrievePlan(null);
     // 初始化世界系统模块数据
+    // 新格式：moduleConfig（配置，注入世界书）+ initialState（状态，初始化变量）
+    // 旧格式：data（配置+状态混在一起，向后兼容）
     if (worldDef?.modules?.length) {
       const state = varMgrRef.current.getState();
       const worldSystem: Record<string, unknown> = {};
+      const moduleNames: Record<string, string> = {};
+
       for (const mod of worldDef.modules) {
         if (!mod.enabled) continue;
-        switch (mod.moduleId) {
-          case 'stat': worldSystem.数值属性 = createDefaultStatModule(); break;
-          case 'progression': worldSystem.成长体系 = createDefaultProgressionModule(); break;
-          case 'resource': worldSystem.资源管理 = createDefaultResourceModule(); break;
-          case 'dice': worldSystem.骰子检定 = createDefaultDiceModule(); break;
+
+        // 模块ID到中文名的映射
+        const mapKey: Record<string, string> = {
+          stat: '数值属性', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+        };
+        const key = mapKey[mod.moduleId];
+        if (!key) continue;
+
+        // 记录模块名称
+        if (mod.name) moduleNames[key] = mod.name;
+
+        // 新格式：从 initialState 初始化变量
+        if (mod.initialState && Object.keys(mod.initialState).length > 0) {
+          // 数值属性：从 initialState 设置玩家属性
+          if (mod.moduleId === 'stat') {
+            const initState = mod.initialState as any;
+            if (initState.attrA != null) state.玩家.生存状态.血量 = initState.attrA;
+            if (initState.attrB != null) state.玩家.生存状态.体力值 = initState.attrB;
+            // 六维和特色属性存入玩家属性字段
+            if (!state.玩家.属性) (state.玩家 as any).属性 = {};
+            const attrs = (state.玩家 as any).属性;
+            if (initState.dim1 != null) attrs.dim1 = initState.dim1;
+            if (initState.dim2 != null) attrs.dim2 = initState.dim2;
+            if (initState.dim3 != null) attrs.dim3 = initState.dim3;
+            if (initState.dim4 != null) attrs.dim4 = initState.dim4;
+            if (initState.dim5 != null) attrs.dim5 = initState.dim5;
+            if (initState.dim6 != null) attrs.dim6 = initState.dim6;
+            if (initState.special) {
+              for (const [id, value] of Object.entries(initState.special)) {
+                attrs[id] = value;
+              }
+            }
+          }
+
+          // 成长体系：从 initialState 设置玩家状态
+          if (mod.moduleId === 'progression') {
+            const initState = mod.initialState as any;
+            state.玩家.当前段位索引 = initState.currentTierIndex ?? 0;
+            state.玩家.当前经验值 = initState.currentXP ?? 0;
+          }
+        }
+
+        // 旧格式兼容：从 data 初始化（配置+状态混在一起）
+        if (mod.data && Object.keys(mod.data).length > 0) {
+          // 对于数值属性，需要从 data 中提取状态，同时把 data 存入世界系统（用于 UI 展示）
+          if (mod.moduleId === 'stat') {
+            const statData = mod.data as any;
+            // 设置玩家生存状态
+            if (statData.attrA?.current != null) state.玩家.生存状态.血量 = statData.attrA.current;
+            if (statData.attrB?.current != null) state.玩家.生存状态.体力值 = statData.attrB.current;
+            // 数值属性的 data 也需要存入世界系统（用于 UI 展示）
+            worldSystem[key] = mod.data;
+          }
+
+          // 对于成长体系，从 data 中提取状态
+          if (mod.moduleId === 'progression') {
+            const progData = mod.data as any;
+            state.玩家.当前段位索引 = progData.currentTierIndex ?? 0;
+            state.玩家.当前经验值 = progData.currentXP ?? 0;
+          }
+
+          // 其他模块（资源、骰子、天赋）的 data 存入世界系统
+          if (['resource', 'dice', 'talent'].includes(mod.moduleId)) {
+            worldSystem[key] = mod.data;
+          }
+        }
+
+        // 如果没有 data 也没有 initialState，使用默认值
+        if (!mod.data && !mod.initialState) {
+          const defaults: Record<string, () => unknown> = {
+            resource: createDefaultResourceModule,
+            dice: createDefaultDiceModule,
+            talent: createDefaultTalentModule,
+          };
+          if (defaults[mod.moduleId]) {
+            worldSystem[key] = defaults[mod.moduleId]!();
+          }
         }
       }
+
+      // 存储模块自定义名称
+      if (Object.keys(moduleNames).length > 0) {
+        (worldSystem as any)._moduleNames = moduleNames;
+      }
+
+      // 存储世界系统数据（只包含资源、骰子、天赋等模块）
       if (Object.keys(worldSystem).length > 0) {
         state.世界.世界系统 = worldSystem;
-        varMgrRef.current.setState(state);
+      }
+
+      varMgrRef.current.setState(state);
+
+      // ★ 重新注入世界书条目（因为变量系统已更新）
+      // 使用 worldDef.id 而不是闭包中的 selectedWorld，避免时序问题
+      if (worldBookRef.current && worldDef?.id) {
+        applyWorldAndModules(worldBookRef.current, worldDef.id);
       }
     }
   }, [selectedWorld]);
@@ -682,6 +923,76 @@ ${perspectiveInstruction}
     }
     varMgrRef.current.setState(state);
     varMgrRef.current.initializeWorldAndNotebook();
+  }, [selectedWorld]);
+
+  // 应用 AI 生成的模块初始化数据（覆盖世界定义的默认值）
+  const applyModuleInitData = useCallback((moduleInitData: Record<string, unknown>) => {
+    if (!moduleInitData || Object.keys(moduleInitData).length === 0) return;
+
+    const state = varMgrRef.current.getState();
+    const worldSystem = (state.世界.世界系统 as Record<string, unknown>) || {};
+
+    // 处理数值属性模块
+    const statData = moduleInitData['数值属性'] as Record<string, unknown> | undefined;
+    if (statData) {
+      // 更新玩家生存状态
+      if (statData.attrA && typeof statData.attrA === 'object') {
+        const attrA = statData.attrA as { current?: number };
+        if (attrA.current != null) state.玩家.生存状态.血量 = attrA.current;
+      }
+      if (statData.attrB && typeof statData.attrB === 'object') {
+        const attrB = statData.attrB as { current?: number };
+        if (attrB.current != null) state.玩家.生存状态.体力值 = attrB.current;
+      }
+
+      // 更新世界系统中的数值属性数据
+      const existingStat = worldSystem['数值属性'] as Record<string, unknown> | undefined;
+      if (existingStat) {
+        // 更新 attrA 和 attrB 的 current 值
+        if (statData.attrA && typeof statData.attrA === 'object') {
+          const attrA = statData.attrA as { current?: number };
+          if (attrA.current != null && existingStat.attrA && typeof existingStat.attrA === 'object') {
+            (existingStat.attrA as Record<string, unknown>).current = attrA.current;
+          }
+        }
+        if (statData.attrB && typeof statData.attrB === 'object') {
+          const attrB = statData.attrB as { current?: number };
+          if (attrB.current != null && existingStat.attrB && typeof existingStat.attrB === 'object') {
+            (existingStat.attrB as Record<string, unknown>).current = attrB.current;
+          }
+        }
+
+        // 更新 dim1~dim6 的 value 值
+        for (let i = 1; i <= 6; i++) {
+          const dimKey = `dim${i}`;
+          if (statData[dimKey] && typeof statData[dimKey] === 'object') {
+            const dimData = statData[dimKey] as { value?: number };
+            if (dimData.value != null && existingStat[dimKey] && typeof existingStat[dimKey] === 'object') {
+              (existingStat[dimKey] as Record<string, unknown>).value = dimData.value;
+            }
+          }
+        }
+
+        // 更新 special 属性
+        if (statData.special && Array.isArray(statData.special)) {
+          const aiSpecial = statData.special as Array<{ id: string; value: number }>;
+          const existingSpecial = existingStat.special as Array<{ id: string; value: number }> | undefined;
+          if (existingSpecial && Array.isArray(existingSpecial)) {
+            for (const aiItem of aiSpecial) {
+              const existingItem = existingSpecial.find(s => s.id === aiItem.id);
+              if (existingItem) {
+                existingItem.value = aiItem.value;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 处理其他模块（如果需要）
+    // 可以在这里添加对其他模块的处理逻辑
+
+    varMgrRef.current.setState(state);
   }, [selectedWorld]);
 
   const setInitialNPCs = useCallback((npcs: CustomNpc[]) => {
@@ -739,7 +1050,8 @@ ${perspectiveInstruction}
     get worldBook() { return worldBookRef.current; },
     pipelineStatus,
     deleteSingleMessage, editMessage, resendFromMessage, resendFromAssistantMessage,
-    loadSave, reset, setPlayerProfile, setInitialNPCs, addMessage,
+    loadSave, reset, setPlayerProfile, applyModuleInitData, setInitialNPCs, addMessage,
+    retryPipeline,
   };
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain } from 'lucide-react';
+import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain, Maximize2, Minimize2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
@@ -13,8 +13,11 @@ import VariableSnapshotPanel from './panels/VariableSnapshotPanel';
 import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
 import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
+import { extractWorldSystemData } from '../../modules/runtime';
+import type { DiceRoll } from '../../modules/schema';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
+import { findWorldDef } from '../../data/worldLoader';
 type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'variables' | 'memory';
 
 interface NavButton {
@@ -110,19 +113,8 @@ function DrawerPanel({
           <h2 style={{ fontSize: '1rem', fontWeight: '600' }}>{title}</h2>
           <button
             onClick={onClose}
-            style={{
-              border: 'none',
-              background: 'var(--bg-tertiary)',
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              fontSize: 'var(--font-size-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            className="btn-ghost btn-icon-sm"
+            style={{ background: 'var(--bg-tertiary)' }}
           ><X size={14} /></button>
         </div>
         {/* 内容 */}
@@ -142,6 +134,7 @@ export default function GameScreen() {
   // 桌面端状态
   const [overlay, setOverlay] = useState<OverlayPanel>(null);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // 移动端状态
   const [showLeftOverlay, setShowLeftOverlay] = useState(false);
@@ -150,6 +143,28 @@ export default function GameScreen() {
 
   const [stateVersion, setStateVersion] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
+
+  // 全屏切换
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      // 忽略全屏切换错误
+    }
+  }, []);
+
+  // 监听全屏状态变化
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // 窄视口自动折叠右侧面板
   useEffect(() => {
@@ -163,6 +178,20 @@ export default function GameScreen() {
   }, []);
 
   const gameState = engine.variableManager.getState();
+
+  // 提取世界系统数据（用于内联骰子卡片）
+  const worldSystem = extractWorldSystemData(gameState.世界.世界系统);
+
+  // 骰子掷骰结果回调 — 更新世界系统中的骰子数据
+  const handleDiceRoll = useCallback((roll: DiceRoll) => {
+    const state = engine.variableManager.getState();
+    const ws = extractWorldSystemData(state.世界.世界系统);
+    if (!ws.骰子检定) return;
+    ws.骰子检定.lastRoll = roll;
+    ws.骰子检定.history = [...(ws.骰子检定.history || []), roll].slice(-10);
+    // 触发变量更新事件以刷新UI
+    setStateVersion(v => v + 1);
+  }, [engine]);
 
   // 变量更新后刷新右侧面板
   useEffect(() => {
@@ -288,16 +317,25 @@ export default function GameScreen() {
           </button>
 
           <div className="mobile-header-title">
-            {state.selectedWorld || '世界漫游指南'}
+            {state.selectedWorld ? (findWorldDef(state.selectedWorld)?.name || '世界漫游指南') : '世界漫游指南'}
           </div>
 
-          <button
-            className="mobile-header-btn"
-            onClick={() => setShowRightOverlay(true)}
-            aria-label="打开信息面板"
-          >
-            <PanelRightOpen size={22} />
-          </button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              className="mobile-header-btn"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? '退出全屏' : '全屏'}
+            >
+              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+            </button>
+            <button
+              className="mobile-header-btn"
+              onClick={() => setShowRightOverlay(true)}
+              aria-label="打开信息面板"
+            >
+              <PanelRightOpen size={22} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -352,21 +390,17 @@ export default function GameScreen() {
           <div style={{ flex: 1 }} />
 
           <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? '退出全屏' : '全屏'}
+            className="btn-ghost btn-icon"
+          >
+            {isFullscreen ? <Minimize2 size={18} strokeWidth={1.5} /> : <Maximize2 size={18} strokeWidth={1.5} />}
+          </button>
+
+          <button
             onClick={() => navigate('settings')}
             title={t('nav.settings')}
-            style={{
-              width: '38px',
-              height: '38px',
-              border: 'none',
-              borderRadius: '8px',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              fontSize: 'var(--font-size-xl)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            className="btn-ghost btn-icon"
           >
             <Settings size={18} strokeWidth={1.5} />
           </button>
@@ -392,6 +426,9 @@ export default function GameScreen() {
             onResend={engine.resendFromMessage}
             onResendFromHere={engine.resendFromAssistantMessage}
             pipelineStatus={engine.pipelineStatus}
+            worldSystem={worldSystem}
+            onDiceRoll={handleDiceRoll}
+            onRetryPipeline={engine.retryPipeline}
           />
         </div>
 
@@ -418,7 +455,7 @@ export default function GameScreen() {
             background: 'var(--bg-secondary)',
             transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
-            {!rightCollapsed && <RightPanel gameState={gameState} />}
+            {!rightCollapsed && <RightPanel gameState={gameState} worldId={state.selectedWorld} />}
           </div>
 
           {/* 右侧折叠按钮 */}
@@ -516,7 +553,7 @@ export default function GameScreen() {
           side="right"
           width={320}
         >
-          <RightPanel gameState={gameState} />
+          <RightPanel gameState={gameState} worldId={state.selectedWorld} />
         </MobileOverlay>
       )}
 

@@ -1,11 +1,12 @@
 /**
  * 人物模板存储层
- * - 主角预设 (PlayerPreset): localStorage key 'chuanyue_player_presets'
- * - NPC模板  (NpcTemplate): localStorage key 'chuanyue_npc_templates'
+ * - 主角预设 (PlayerPreset): localStorage key 'world_travel_guide_player_presets'
+ * - NPC模板  (NpcTemplate): localStorage key 'world_travel_guide_npc_templates'
  */
 import { v4 as uuid } from 'uuid';
 import type { PlayerProfile, CustomNpc } from './db';
 import type { SkillData, InventoryItem } from '../schema/variables';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -36,8 +37,8 @@ export interface NpcTemplate {
 
 // ─── localStorage keys ────────────────────────────────
 
-const PLAYER_KEY = 'chuanyue_player_presets';
-const NPC_KEY = 'chuanyue_npc_templates';
+const PLAYER_KEY = STORAGE_KEYS.PLAYER_PRESETS;
+const NPC_KEY = 'world_travel_guide_npc_templates';
 
 // ─── 内部工具 ─────────────────────────────────────────
 

@@ -1,4 +1,19 @@
-// 世界书管理器 - 从角色卡 JSON 加载和管理世界书条目
+// ═══════════════════════════════════════════════════════════════
+//  世界书管理器 v2 — 支持 SillyTavern 级别的扫描引擎
+// ═══════════════════════════════════════════════════════════════
+
+import {
+  scanWorldInfo,
+  compareWorldInfoEntriesBySendOrder,
+  world_info_position,
+  type WorldInfoEntry,
+  type WorldInfoScanOptions,
+} from './worldInfoEngine';
+import {
+  shouldSuppressCharacterWorldBookEntry,
+} from './npcWorldbook';
+
+// ─── 条目类型 ─────────────────────────
 
 export interface WorldBookEntry {
   id: number;
@@ -11,7 +26,54 @@ export interface WorldBookEntry {
   secondaryKeys: string[];
   position: 'before_char' | 'after_char';
   insertionOrder: number;
+
+  // ── v2 新增字段 ──
+  /** 唯一标识（回退到 id） */
+  uid?: string;
+  /** 排除关键词 */
+  excludeKeys?: string[];
+  /** 选择逻辑: 0=AND_ANY, 1=NOT_ALL, 2=NOT_ANY, 3=AND_ALL */
+  selectiveLogic?: number;
+  /** 扫描深度（只扫最近 N 条消息） */
+  scanDepth?: number;
+  /** 大小写敏感 */
+  caseSensitive?: boolean;
+  /** 全词匹配 */
+  matchWholeWords?: boolean;
+  /** 概率触发 0~100 */
+  probability?: number;
+  /** 是否启用概率 */
+  useProbability?: boolean;
+  /** 排除递归（不参与链式触发） */
+  excludeRecursion?: boolean;
+  /** 阻止递归（激活后终止下一轮扫描） */
+  preventRecursion?: boolean;
+  /** 分组名（同组互斥） */
+  group?: string;
+  /** 使用分组评分 */
+  useGroupScoring?: boolean;
+  /** 分组权重 */
+  groupWeight?: number;
+  /** 排序权重 */
+  order?: number;
+  /** atDepth 的深度值 */
+  depth?: number;
 }
+
+// ─── 扫描注入结果 ─────────────────────────────────────
+
+export interface ScanInjectionResult {
+  /** Before Char Def 区块 */
+  beforeChar: string;
+  /** After Char Def 区块 */
+  afterChar: string;
+  /** At Depth 条目列表（按 depth 排序） */
+  atDepthEntries: Array<{ depth: number; content: string }>;
+  /** 所有激活的条目（按发送顺序） */
+  activatedEntries: WorldBookEntry[];
+}
+
+// ─── WorldBookManager 接口 ─────────────────────────────
 
 export interface WorldBookManager {
   entries: WorldBookEntry[];
@@ -25,12 +87,21 @@ export interface WorldBookManager {
   disableEntriesByPrefix(prefix: string): void;
   enableOnlyEntry(prefix: string, targetId: number): void;
   getEntriesByPrefix(prefix: string): WorldBookEntry[];
-  /** 批量添加条目（用于加载世界专属世界书条目） */
   addEntries(newEntries: WorldBookEntry[]): void;
-  buildInjection(userInput: string): { beforeChar: string; afterChar: string };
+
+  /**
+   * v2 扫描注入（使用 SillyTavern 级别的扫描引擎）
+   * 支持：正则关键词、选择逻辑、排除关键词、递归扫描、分组互斥、概率触发
+   */
+  scanAndBuildInjection(
+    chatHistory: Array<{ role?: string; content?: string }>,
+    userText: string,
+    options?: WorldInfoScanOptions,
+  ): ScanInjectionResult;
 }
 
-// 从角色卡 JSON 解析世界书
+// ─── 解析 ─────────────────────────────────────────
+
 export function parseWorldBook(cardData: any): WorldBookEntry[] {
   const book = cardData?.data?.character_book;
   if (!book?.entries) return [];
@@ -46,8 +117,60 @@ export function parseWorldBook(cardData: any): WorldBookEntry[] {
     secondaryKeys: entry.secondary_keys || [],
     position: (entry.position || 'after_char') as 'before_char' | 'after_char',
     insertionOrder: entry.insertion_order ?? 0,
+    // v2 新增
+    uid: entry.uid,
+    excludeKeys: entry.exclude_key || entry.excludeKeys || [],
+    selectiveLogic: entry.selectiveLogic,
+    scanDepth: entry.scanDepth,
+    caseSensitive: entry.caseSensitive,
+    matchWholeWords: entry.matchWholeWords,
+    probability: entry.probability,
+    useProbability: entry.useProbability,
+    excludeRecursion: entry.excludeRecursion,
+    preventRecursion: entry.preventRecursion,
+    group: entry.group,
+    useGroupScoring: entry.useGroupScoring,
+    groupWeight: entry.groupWeight,
+    order: entry.order,
+    depth: entry.depth,
   }));
 }
+
+// ─── WorldBookEntry → WorldInfoEntry 转换 ─────────────────
+
+function toWorldInfoEntry(entry: WorldBookEntry): WorldInfoEntry {
+  return {
+    id: entry.id,
+    uid: entry.uid ?? String(entry.id),
+    comment: entry.comment,
+    content: entry.content,
+    constant: entry.constant,
+    enabled: entry.enabled,
+    selective: entry.selective,
+    keys: entry.keys,
+    key: entry.keys, // 别名
+    keysecondary: entry.secondaryKeys,
+    secondary_keys: entry.secondaryKeys,
+    exclude_key: entry.excludeKeys ?? [],
+    selectiveLogic: entry.selectiveLogic,
+    scanDepth: entry.scanDepth,
+    caseSensitive: entry.caseSensitive,
+    matchWholeWords: entry.matchWholeWords,
+    probability: entry.probability,
+    useProbability: entry.useProbability,
+    excludeRecursion: entry.excludeRecursion,
+    preventRecursion: entry.preventRecursion,
+    group: entry.group,
+    useGroupScoring: entry.useGroupScoring,
+    groupWeight: entry.groupWeight,
+    order: entry.order ?? entry.insertionOrder,
+    depth: entry.depth,
+    // position 映射: 'before_char' → 0, 'after_char' → 1
+    position: entry.position === 'before_char' ? 0 : 1,
+  };
+}
+
+// ─── 创建管理器 ─────────────────────────────────────────
 
 export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldBookManager {
   let entries = [...initialEntries];
@@ -95,21 +218,18 @@ export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldB
       entries = entries.map(e => e.id === id ? { ...e, enabled: false } : e);
     },
 
-    // 启用匹配前缀的所有条目（如 "[WB]" 或 "[mvu_plot]👧系统人格"）
     enableEntriesByPrefix(prefix: string) {
       entries = entries.map(e =>
         e.comment.includes(prefix) ? { ...e, enabled: true } : e
       );
     },
 
-    // 禁用匹配前缀的所有条目
     disableEntriesByPrefix(prefix: string) {
       entries = entries.map(e =>
         e.comment.includes(prefix) ? { ...e, enabled: false } : e
       );
     },
 
-    // 启用指定条目，同时禁用同前缀的其他条目（用于互斥选择）
     enableOnlyEntry(prefix: string, targetId: number) {
       entries = entries.map(e => {
         if (!e.comment.includes(prefix)) return e;
@@ -117,14 +237,11 @@ export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldB
       });
     },
 
-    // 按 comment 前缀获取条目
     getEntriesByPrefix(prefix: string) {
       return entries.filter(e => e.comment.includes(prefix));
     },
 
-    // 批量添加新条目（用于加载世界专属世界书条目）
     addEntries(newEntries: WorldBookEntry[]) {
-      // 用负数 ID 避免与已有条目冲突
       const minId = entries.length > 0 ? Math.min(...entries.map(e => e.id)) : 0;
       let nextId = Math.min(minId, 0) - 1;
       const toAdd = newEntries.map(e => ({
@@ -134,21 +251,60 @@ export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldB
       entries = [...entries, ...toAdd];
     },
 
-    buildInjection(userInput: string) {
-      const constant = this.getConstantEntries();
-      const active = this.getActiveEntries(userInput);
+    // ── v2 扫描注入 ──
+    scanAndBuildInjection(
+      chatHistory: Array<{ role?: string; content?: string }>,
+      userText: string,
+      options: WorldInfoScanOptions = {},
+    ): ScanInjectionResult {
+      // 将 WorldBookEntry 转换为 WorldInfoEntry
+      const infoEntries = entries
+        .filter(e => e.enabled)
+        .map(toWorldInfoEntry);
 
-      const beforeChar = [...constant, ...active]
-        .filter(e => e.position === 'before_char')
-        .map(e => e.content)
-        .join('\n\n');
+      // 注入 NPC 去重回调（如果用户没提供的话）
+      const mergedOptions: WorldInfoScanOptions = {
+        ...options,
+        suppressCharacterEntry: options.suppressCharacterEntry
+          ?? shouldSuppressCharacterWorldBookEntry,
+      };
 
-      const afterChar = [...constant, ...active]
-        .filter(e => e.position === 'after_char')
-        .map(e => e.content)
-        .join('\n\n');
+      // 执行扫描
+      const activated = scanWorldInfo(
+        chatHistory,
+        { entries: infoEntries },
+        userText,
+        mergedOptions,
+      );
 
-      return { beforeChar, afterChar };
+      // 按 position 分组
+      const beforeParts: string[] = [];
+      const afterParts: string[] = [];
+      const atDepthEntries: Array<{ depth: number; content: string }> = [];
+
+      for (const entry of activated) {
+        const pos = entry.position ?? 1;
+        if (pos === world_info_position.before) {
+          beforeParts.push(entry.content);
+        } else if (pos === world_info_position.atDepth) {
+          atDepthEntries.push({
+            depth: Number(entry.depth) || 4,
+            content: entry.content,
+          });
+        } else {
+          afterParts.push(entry.content);
+        }
+      }
+
+      // atDepth 按 depth 排序（浅的先插入）
+      atDepthEntries.sort((a, b) => a.depth - b.depth);
+
+      return {
+        beforeChar: beforeParts.join('\n\n'),
+        afterChar: afterParts.join('\n\n'),
+        atDepthEntries,
+        activatedEntries: activated as unknown as WorldBookEntry[],
+      };
     },
   };
 }

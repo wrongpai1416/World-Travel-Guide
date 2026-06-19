@@ -97,6 +97,7 @@ export interface WorldBookEntryDef {
   uid: number;
   key: string[];                 // 触发关键词（空数组 = 始终注入）
   keysecondary?: string[];
+  exclude_key?: string[];        // 排除关键词（命中即否决）
   comment: string;               // 条目标题
   content: string;               // 详细内容（注入到 prompt）
   constant: boolean;             // true = 始终注入，false = 关键词触发
@@ -106,6 +107,16 @@ export interface WorldBookEntryDef {
   depth?: number;                // 最大注入轮次
   probability?: number;          // 触发概率 (0-100)
   disable?: boolean;
+  // ── v2 新增 ──
+  scanDepth?: number;            // 扫描深度（只扫最近 N 条消息）
+  caseSensitive?: boolean;       // 大小写敏感
+  matchWholeWords?: boolean;     // 全词匹配
+  useProbability?: boolean;      // 是否启用概率
+  excludeRecursion?: boolean;    // 排除递归
+  preventRecursion?: boolean;    // 阻止递归
+  group?: string;                // 分组名（同组互斥）
+  useGroupScoring?: boolean;     // 使用分组评分
+  groupWeight?: number;          // 分组权重
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -125,6 +136,32 @@ export interface PresetNPCDef {
   role: string;                 // 角色定位：'邻居大婶'、'矿场工头'
   description: string;
   personality?: string;         // 性格标签：'热心肠、爱八卦'
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  世界模块 —— 模块化系统
+// ═══════════════════════════════════════════════════════════════
+
+/** 世界启用的模块实例 */
+export interface WorldModule {
+  /** 模块ID（对应 MODULE_OPTIONS.id） */
+  moduleId: string;
+  /** 模块在该世界中的中文名（AI生成，如"武学属性"、"资产总览"） */
+  name: string;
+  /** 模块描述 */
+  description?: string;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 模块特定配置（如自定义提示词内容等） */
+  config?: Record<string, unknown>;
+  /** 模块运行时初始数据（旧格式，兼容用） */
+  data?: Record<string, unknown>;
+
+  // ── 新格式：分离配置和状态 ──
+  /** 模块配置（静态，注入世界书给AI参考） */
+  moduleConfig?: Record<string, unknown>;
+  /** 模块初始状态（动态，初始化变量系统） */
+  initialState?: Record<string, unknown>;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -222,4 +259,7 @@ export interface WorldDef {
 
   /** 嵌入式世界书条目 —— 替代 entryId: null */
   worldBookEntries?: WorldBookEntryDef[];
+
+  /** 世界启用的模块列表 */
+  modules?: WorldModule[];
 }

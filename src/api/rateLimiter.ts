@@ -29,7 +29,11 @@ export async function waitForRateLimit(): Promise<void> {
   const timeSinceLastCall = now - lastCallTime;
   if (timeSinceLastCall < currentInterval) {
     const waitTime = currentInterval - timeSinceLastCall;
+    console.log(`⏳ [限流] 距上次调用 ${Math.round(timeSinceLastCall)}ms，需等待 ${Math.round(waitTime)}ms（间隔 ${currentInterval}ms）`);
     await new Promise(resolve => setTimeout(resolve, waitTime));
+    console.log(`✅ [限流] 等待结束，可以发起请求`);
+  } else {
+    console.log(`✅ [限流] 距上次调用 ${Math.round(timeSinceLastCall)}ms，无需等待`);
   }
   lastCallTime = Date.now();
 }

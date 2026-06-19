@@ -3,7 +3,7 @@
 //  管理 WorldSystemData 的读取和更新
 // ============================================================
 
-import type { WorldSystemData, StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, DiceModuleSchema } from './schema';
+import type { WorldSystemData, StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, DiceModuleSchema, TalentModuleSchema } from './schema';
 import { getXpForNextTier, getTierProgress } from './xpAlgorithm';
 
 /**
@@ -18,7 +18,30 @@ export function extractWorldSystemData(
   // 新格式：直接是 WorldSystemData
   if ('数值属性' in worldSystem || '成长体系' in worldSystem ||
       '资源管理' in worldSystem || '骰子检定' in worldSystem) {
-    return worldSystem as WorldSystemData;
+    const result = { ...worldSystem } as WorldSystemData;
+    // 兼容：数值属性可能是嵌套格式 { config, initialState }，需要展平为 StatModuleSchema
+    const statRaw = result.数值属性 as any;
+    if (statRaw && typeof statRaw === 'object' && 'config' in statRaw && 'initialState' in statRaw) {
+      const cfg = statRaw.config || {};
+      const state = statRaw.initialState || {};
+      const dim = (idx: number) => ({
+        name: cfg[`dim${idx}`]?.name || `属性${idx}`,
+        value: state[`dim${idx}Value`] ?? 50,
+        range: cfg[`dim${idx}`]?.range || [0, 100],
+      });
+      const specialArr = Array.isArray(cfg.special) ? cfg.special.map((sp: any) => ({
+        ...sp,
+        value: state.special?.[sp.id] ?? 0,
+      })) : [];
+      result.数值属性 = {
+        attrA: { name: cfg.attrA?.name || '生命', current: state.attrA ?? 80, max: cfg.attrA?.max ?? 100 },
+        attrB: { name: cfg.attrB?.name || '能量', current: state.attrB ?? 60, max: cfg.attrB?.max ?? 100 },
+        dim1: dim(1), dim2: dim(2), dim3: dim(3),
+        dim4: dim(4), dim5: dim(5), dim6: dim(6),
+        special: specialArr,
+      } as any;
+    }
+    return result;
   }
 
   // 旧格式兼容：从 WorldModuleRuntime 提取数据
@@ -40,6 +63,9 @@ export function extractWorldSystemData(
         case 'dice':
           result.骰子检定 = data as unknown as DiceModuleSchema;
           break;
+        case 'talent':
+          result.天赋体系 = data as unknown as TalentModuleSchema;
+          break;
       }
     }
   }
@@ -57,10 +83,30 @@ export function getProgressionDisplay(progression: ProgressionModuleSchema | und
   xpCurrent: number;
   xpNeeded: number;
 } | null {
-  if (!progression || !progression.tiers.length) return null;
+  if (!progression) return null;
 
-  const currentTier = progression.tiers[progression.currentTierIndex];
-  const nextTier = progression.tiers[progression.currentTierIndex + 1];
+  // 防御：确保 currentTierIndex 和 currentXP 有值
+  const currentTierIndex = progression.currentTierIndex ?? 0;
+  const currentXP = progression.currentXP ?? 0;
+
+  // 等级制
+  if (progression.mode === 'level' && progression.levelData) {
+    const xpNeeded = getXpForNextTier(progression);
+    const progress = getTierProgress(progression);
+    return {
+      currentName: `Lv.${currentTierIndex}`,
+      nextName: currentTierIndex + 1 >= progression.levelData.maxLevel ? '已满级' : `Lv.${currentTierIndex + 1}`,
+      progress,
+      xpCurrent: currentXP,
+      xpNeeded: xpNeeded === Infinity ? 0 : xpNeeded,
+    };
+  }
+
+  // 段位制
+  const tiers = progression.tiers;
+  if (!tiers?.length) return null;
+  const currentTier = tiers[currentTierIndex];
+  const nextTier = tiers[currentTierIndex + 1];
   const xpNeeded = getXpForNextTier(progression);
   const progress = getTierProgress(progression);
 
@@ -68,7 +114,7 @@ export function getProgressionDisplay(progression: ProgressionModuleSchema | und
     currentName: currentTier?.name || '未知',
     nextName: nextTier?.name || '已满级',
     progress,
-    xpCurrent: progression.currentXP,
+    xpCurrent: currentXP,
     xpNeeded: xpNeeded === Infinity ? 0 : xpNeeded,
   };
 }

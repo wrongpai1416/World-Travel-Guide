@@ -1,16 +1,48 @@
 import type { VariableManager } from './variableManager';
 import type { WorldBookManager } from '../worldbook/index';
 import type { GameState } from '../schema/variables';
+import type { WorldDef } from '../data/worlds-schema';
 import type { ParsedResponse } from './responseExtractor';
 import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import type { ApiConfig } from '../api/types';
 import { callAuxiliaryApi, extractVariableRules } from '../api/auxiliaryApi';
 import { eventBus, EVENTS } from './eventBus';
 import { buildVariableExtractionPrompt } from '../utils/prompts';
-
+import { findWorldDef } from '../data/worldLoader';
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 精简 GameState 用于变量提取 API 调用
+ * 移除非必要字段（memoryRuntime、portraitUrl 等），减少序列化体积
+ * 参考 yijiekkk 的 sanitizeVariableSnapshot 模式
+ */
+function sanitizeForExtraction(state: GameState): GameState {
+  const snapshot = { ...state };
+
+  // 移除记忆系统运行态和配置（体积大，变量提取不需要）
+  delete (snapshot as any).memoryRuntime;
+  delete (snapshot as any).memoryConfig;
+
+  // 精简 NPC 数据
+  if (snapshot.人物档案) {
+    const cleanedNpcs: Record<string, unknown> = {};
+    for (const [id, npc] of Object.entries(snapshot.人物档案)) {
+      const cleaned = { ...npc };
+      // 移除缓存字段
+      delete (cleaned as any).portraitUrl;
+      // 事迹只保留最近 10 条（完整事迹在主状态里，提取只需参考近期）
+      if (Array.isArray(cleaned.人物事迹) && cleaned.人物事迹.length > 10) {
+        cleaned.人物事迹 = cleaned.人物事迹.slice(-10);
+      }
+      cleanedNpcs[id] = cleaned;
+    }
+    snapshot.人物档案 = cleanedNpcs as any;
+  }
+
+  return snapshot;
 }
 
 async function callAuxiliaryApiForEngine(
@@ -21,7 +53,7 @@ async function callAuxiliaryApiForEngine(
   aiContentText: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  const variableSnapshot = JSON.stringify(gameState);
+  const variableSnapshot = JSON.stringify(sanitizeForExtraction(gameState));
 
   let worldBookRules = '';
   if (worldBook) {
@@ -39,7 +71,11 @@ async function callAuxiliaryApiForEngine(
   }
   messages.push({ role: 'assistant', content: aiContentText });
 
-  const variableUpdatePrompt = buildVariableExtractionPrompt();
+  // 获取成长体系配置（从世界定义读取，不存入 GameState）
+  const worldDef = findWorldDef((gameState as any).selectedWorld);
+  const progressionConfig = worldDef?.modules?.find(m => m.moduleId === 'progression' && m.enabled)?.data;
+
+  const variableUpdatePrompt = buildVariableExtractionPrompt(gameState.世界?.世界系统, progressionConfig as Record<string, unknown>);
 
   return callAuxiliaryApi(config, messages, variableUpdatePrompt, signal);
 }

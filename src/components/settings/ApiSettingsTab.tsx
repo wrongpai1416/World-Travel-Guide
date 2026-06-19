@@ -28,6 +28,7 @@ interface Props {
 const rowStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', padding: '10px 16px',
   borderBottom: '1px solid var(--border)', minHeight: '44px',
+  flexWrap: 'wrap', gap: '8px',
 };
 
 const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, onSave, onBack }, ref) => {
@@ -186,7 +187,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
               value={config.baseUrl}
               onChange={e => set('baseUrl', e.target.value)}
               placeholder={config.provider === 'google' ? 'https://generativelanguage.googleapis.com' : 'https://api.openai.com'}
-              style={{ width: '220px', fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
+              style={{ maxWidth: '220px', width: '100%', minWidth: 0, fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
             />
           </div>
 
@@ -201,7 +202,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
               value={config.apiKey}
               onChange={e => set('apiKey', e.target.value)}
               placeholder="sk-..."
-              style={{ width: '220px', fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
+              style={{ maxWidth: '220px', width: '100%', minWidth: 0, fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
             />
           </div>
 
@@ -220,7 +221,7 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
                 value={config.model}
                 onChange={e => set('model', e.target.value)}
                 placeholder="gpt-4o"
-                style={{ width: '150px', fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
+                style={{ maxWidth: '150px', width: '100%', minWidth: 0, fontSize: 'var(--font-size-base)', padding: '5px 10px' }}
               />
               <button
                 onClick={handleFetchModels}

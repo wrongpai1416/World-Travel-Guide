@@ -12,6 +12,7 @@ function withProfileDefaults(raw: Partial<PlayerProfile> | null | undefined): Pl
   if (!raw) return null;
   return {
     name: raw.name ?? '', gender: raw.gender ?? '', age: raw.age ?? '', background: raw.background ?? '',
+    personality: raw.personality ?? '', appearance: raw.appearance ?? '',
     career: raw.career ?? '', socialClass: raw.socialClass ?? '', organization: raw.organization ?? '',
     specialIdentity: raw.specialIdentity ?? '', perspective: raw.perspective ?? '第三人称',
     initialSkills: raw.initialSkills ?? {}, initialItems: raw.initialItems ?? {}, customNpcs: raw.customNpcs ?? [],
@@ -34,7 +35,8 @@ type Action =
   | { type: 'SET_WORLD'; worldId: string }
   | { type: 'SET_PERSONAL_INFO'; info: PlayerProfile | null }
   | { type: 'SET_CHARACTER_HISTORY'; history: string }
-  | { type: 'LOAD_SAVE'; save: GameSave };
+  | { type: 'LOAD_SAVE'; save: GameSave }
+  | { type: 'CLEAR_SAVE_DATA' };
 
 const initialState: AppState = {
   currentScreen: 'start',
@@ -64,6 +66,13 @@ function reducer(state: AppState, action: Action): AppState {
         selectedWorld: action.save.worldId || 'default',
         personalInfo: withProfileDefaults(action.save.personalInfo),
         characterHistory: action.save.characterHistory ?? '',
+      };
+    case 'CLEAR_SAVE_DATA':
+      return {
+        ...state,
+        personalInfo: null,
+        characterHistory: '',
+        selectedWorld: 'default',
       };
     default:
       return state;
@@ -110,7 +119,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const eng = engineRef.current;
       const s = stateRef.current;
       const saveId = useSaveStore.getState().currentSaveId;
-      if (!eng || eng.messages.length === 0 || !saveId) return null;
+      if (!eng || eng.messages.length === 0 || !saveId) {
+        console.log('[auto-save] builder 检查:', { hasEngine: !!eng, messageCount: eng?.messages.length, saveId });
+        return null;
+      }
 
       const optimized = optimizeSnapshots([...eng.messages]);
       const memStore = useMemoryStore.getState();
@@ -163,14 +175,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'LOAD_SAVE', save });
           engine.loadSave(save);
         } else if (!cancelled) {
+          // 存档不存在或已空，清理所有残留状态
           localStorage.removeItem(ACTIVE_SAVE_KEY);
-          useSaveStore.setState({ currentSaveId: undefined, currentSaveName: undefined });
+          useSaveStore.setState({ currentSaveId: null, currentSaveName: '' });
+          dispatch({ type: 'CLEAR_SAVE_DATA' });
+          engine.reset();
         }
       }).catch(err => {
         console.warn('[auto-restore] 加载存档失败:', err);
         if (!cancelled) {
           localStorage.removeItem(ACTIVE_SAVE_KEY);
-          useSaveStore.setState({ currentSaveId: undefined, currentSaveName: undefined });
+          useSaveStore.setState({ currentSaveId: null, currentSaveName: '' });
+          dispatch({ type: 'CLEAR_SAVE_DATA' });
+          engine.reset();
         }
       });
     }

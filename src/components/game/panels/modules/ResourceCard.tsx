@@ -5,22 +5,25 @@ import { Collapsible } from '../../../shared/Collapsible';
 
 interface ResourceCardProps {
   data: ResourceModuleSchema;
+  /** 自定义标题（世界创建时设置的模块名称） */
+  title?: string;
 }
 
-export default function ResourceCard({ data }: ResourceCardProps) {
+export default function ResourceCard({ data, title }: ResourceCardProps) {
+  const displayTitle = title || '资源管理';
   const hasCurrency = !!data.currency;
   const hasItems = data.items.length > 0;
 
   if (!hasCurrency && !hasItems) {
     return (
-      <Collapsible icon={<Gem size={15} />} title="资源管理" defaultOpen={true}>
+      <Collapsible icon={<Gem size={15} />} title={displayTitle} defaultOpen={true}>
         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', fontStyle: 'italic' }}>暂无数据</div>
       </Collapsible>
     );
   }
 
   return (
-    <Collapsible icon={<Gem size={15} />} title="资源管理" defaultOpen={true}>
+    <Collapsible icon={<Gem size={15} />} title={displayTitle} defaultOpen={true}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {/* 整体描述 */}
         {data.description && (

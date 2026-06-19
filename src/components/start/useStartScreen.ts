@@ -8,10 +8,10 @@ import { useWizard } from '../../hooks/useWizard';
 import { useAiFill } from '../../hooks/useAiFill';
 import { useCharacterHistory, clearSegmentsCache } from '../../hooks/useCharacterHistory';
 import type { GameSave, PlayerProfile } from '../../storage/db';
-import { saveGame as saveGameToDb } from '../../storage/db';
+import type { ChatMessage } from '../../engine/types';
 import type { GameState } from '../../schema/variables';
 import { createDefaultGameState } from '../../schema/variables';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule } from '../../modules/defaults';
+import { createDefaultStatModule, createDefaultProgressionModule, createDefaultResourceModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { v4 as uuid } from 'uuid';
 
 export function useStartScreen() {
@@ -65,27 +65,96 @@ export function useStartScreen() {
     const gs = createDefaultGameState();
     const pi = wizard.personalInfo;
 
-    // 初始化世界系统模块数据（根据所选世界的 modules 配置）
+    // 初始化世界系统模块数据
+    // 新格式：moduleConfig（配置，注入世界书）+ initialState（状态，初始化变量）
+    // 旧格式：data（配置+状态混在一起，向后兼容）
     const selectedWorldDef = wizard.allWorlds.find(w => w.id === wizard.selectedWorld);
     if (selectedWorldDef?.modules?.length) {
       const worldSystem: Record<string, unknown> = {};
+      const moduleNames: Record<string, string> = {};
+
       for (const mod of selectedWorldDef.modules) {
         if (!mod.enabled) continue;
-        switch (mod.moduleId) {
-          case 'stat':
-            worldSystem.数值属性 = createDefaultStatModule();
-            break;
-          case 'progression':
-            worldSystem.成长体系 = createDefaultProgressionModule();
-            break;
-          case 'resource':
-            worldSystem.资源管理 = createDefaultResourceModule();
-            break;
-          case 'dice':
-            worldSystem.骰子检定 = createDefaultDiceModule();
-            break;
+
+        const mapKey: Record<string, string> = {
+          stat: '数值属性', resource: '资源管理', dice: '骰子检定', talent: '天赋体系',
+        };
+        const key = mapKey[mod.moduleId];
+        if (!key) continue;
+
+        // 记录模块名称
+        if (mod.name) moduleNames[key] = mod.name;
+
+        // 新格式：从 initialState 初始化变量
+        if (mod.initialState && Object.keys(mod.initialState).length > 0) {
+          if (mod.moduleId === 'stat') {
+            const initState = mod.initialState as any;
+            if (initState.attrA != null) gs.玩家.生存状态.血量 = initState.attrA;
+            if (initState.attrB != null) gs.玩家.生存状态.体力值 = initState.attrB;
+            // 构建完整的数值属性模块数据写入世界系统
+            const cfg = (mod.moduleConfig || {}) as any;
+            const dim = (idx: number, defName: string) => ({
+              name: cfg[`dim${idx}`]?.name || defName,
+              value: initState[`dim${idx}Value`] ?? 50,
+              range: cfg[`dim${idx}`]?.range || [0, 100],
+            });
+            const specialArr = Array.isArray(cfg.special) ? cfg.special.map((sp: any) => ({
+              ...sp,
+              value: initState.special?.[sp.id] ?? 0,
+            })) : [];
+            worldSystem[key] = {
+              attrA: { name: cfg.attrA?.name || '生命', current: initState.attrA ?? 80, max: cfg.attrA?.max ?? 100 },
+              attrB: { name: cfg.attrB?.name || '能量', current: initState.attrB ?? 60, max: cfg.attrB?.max ?? 100 },
+              dim1: dim(1, '属性1'), dim2: dim(2, '属性2'), dim3: dim(3, '属性3'),
+              dim4: dim(4, '属性4'), dim5: dim(5, '属性5'), dim6: dim(6, '属性6'),
+              special: specialArr,
+            };
+          }
+          if (mod.moduleId === 'progression') {
+            const initState = mod.initialState as any;
+            gs.玩家.当前段位索引 = initState.currentTierIndex ?? 0;
+            gs.玩家.当前经验值 = initState.currentXP ?? 0;
+          }
+        }
+
+        // 旧格式兼容：从 data 初始化
+        if (mod.data && Object.keys(mod.data).length > 0) {
+          if (mod.moduleId === 'stat') {
+            const statData = mod.data as any;
+            if (statData.attrA?.current != null) gs.玩家.生存状态.血量 = statData.attrA.current;
+            if (statData.attrB?.current != null) gs.玩家.生存状态.体力值 = statData.attrB.current;
+            // 旧格式直接存入世界系统
+            worldSystem[key] = mod.data;
+          }
+          if (mod.moduleId === 'progression') {
+            const progData = mod.data as any;
+            gs.玩家.当前段位索引 = progData.currentTierIndex ?? 0;
+            gs.玩家.当前经验值 = progData.currentXP ?? 0;
+          }
+          if (['resource', 'dice', 'talent'].includes(mod.moduleId)) {
+            worldSystem[key] = mod.data;
+          }
+        }
+
+        // 默认值
+        if (!mod.data && !mod.initialState) {
+          const defaults: Record<string, () => unknown> = {
+            resource: createDefaultResourceModule,
+            dice: createDefaultDiceModule,
+            talent: createDefaultTalentModule,
+          };
+          if (defaults[mod.moduleId]) {
+            worldSystem[key] = defaults[mod.moduleId]!();
+          }
         }
       }
+
+      // 存储模块自定义名称
+      if (Object.keys(moduleNames).length > 0) {
+        (worldSystem as any)._moduleNames = moduleNames;
+      }
+
+      // 存储世界系统数据
       if (Object.keys(worldSystem).length > 0) {
         gs.世界.世界系统 = worldSystem;
       }
@@ -179,27 +248,38 @@ export function useStartScreen() {
     engine.reset(currentWorldDef);
     engine.setPlayerProfile(wizard.personalInfo);
 
+    // 应用 AI 生成的模块初始化数据（覆盖世界定义的默认值）
+    if (wizard.personalInfo.moduleInitData && Object.keys(wizard.personalInfo.moduleInitData).length > 0) {
+      engine.applyModuleInitData(wizard.personalInfo.moduleInitData);
+    }
+
     if (wizard.personalInfo.customNpcs.length > 0) {
       engine.setInitialNPCs(wizard.personalInfo.customNpcs);
     }
 
+    // 构建初始消息列表（直接构造，不依赖 React 批量更新）
+    const initialMessages: ChatMessage[] = [];
     if (characterHistory.trim()) {
       // 附加快照到初始消息，确保第一轮重新发送时能回滚到初始状态
       const initialSnapshot = engine.variableManager.createSnapshot();
-      engine.addMessage({
+      const historyMsg: ChatMessage = {
         id: uuid(), role: 'assistant', content: characterHistory, round: 0, timestamp: Date.now(),
         snapshot: initialSnapshot, snapshotTime: Date.now(),
-      });
+      };
+      initialMessages.push(historyMsg);
+      engine.addMessage(historyMsg);
     }
 
     const saveId = await createNewGame(saveName);
 
     const save: GameSave = {
       id: saveId, name: saveName, timestamp: Date.now(),
-      messages: engine.messages, gameState: engine.variableManager.getState(),
+      messages: initialMessages, gameState: engine.variableManager.getState(),
       worldId: wizard.selectedWorld, personalInfo: wizard.personalInfo, characterHistory,
     };
-    await saveGameToDb(save);
+    // 使用 performSave 保存存档（会同时更新 savesMeta 列表）
+    const performSave = useSaveStore.getState().performSave;
+    await performSave(save);
     navigate(apiConfig ? 'game' : 'settings');
   };
 
@@ -215,7 +295,13 @@ export function useStartScreen() {
 
   const handleDeleteSave = async (id: string) => {
     if (!await confirm('确定要删除这个存档吗？此操作不可撤销。', { danger: true, confirmText: '删除' })) return;
+    const isCurrentSave = currentSaveId === id;
     await deleteSaveFromStore(id);
+    // 如果删除的是当前存档，清理引擎和游戏状态
+    if (isCurrentSave) {
+      dispatch({ type: 'CLEAR_SAVE_DATA' });
+      engine.reset();
+    }
   };
 
   const handleRenameSave = async (id: string, newName: string) => {
@@ -239,7 +325,7 @@ export function useStartScreen() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `chuanyue-save-${Date.now()}.json`;
+      a.download = `world-wanderer-save-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
@@ -273,6 +359,7 @@ export function useStartScreen() {
     // character history
     segments: charHistory.segments, setSegments: charHistory.setSegments,
     isGenerating: charHistory.isGenerating, regeneratingId: charHistory.regeneratingId,
+    includeAgeStages: charHistory.includeAgeStages, setIncludeAgeStages: charHistory.setIncludeAgeStages,
     handleGenerateAll: charHistory.handleGenerateAll,
     handleRegenerateSegment: charHistory.handleRegenerateSegment,
     buildInitialState,

@@ -103,6 +103,7 @@ export default function SettingsScreen() {
         color: 'var(--text-primary)',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       {/* 头部 */}
@@ -116,20 +117,11 @@ export default function SettingsScreen() {
         flexShrink: 0,
       }}>
         <button
-          className="btn-ghost"
+          className="btn-ghost btn-sm"
           onClick={goBack}
           style={{
-            padding: '4px 8px',
-            border: 'none',
             background: 'var(--bg-tertiary)',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            color: 'var(--text-muted)',
-            fontSize: 'var(--font-size-md)',
             minHeight: 'var(--touch-min)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
           }}
         >
           <ArrowLeft size={16} />
@@ -140,39 +132,14 @@ export default function SettingsScreen() {
 
       {/* 移动端：顶部标签页 */}
       {isMobile && (
-        <div style={{
-          display: 'flex',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none',
-          gap: '4px',
-          padding: '8px 12px',
-          background: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border)',
-          flexShrink: 0,
-        }}>
+        <div className="settings-mobile-tabs">
           {(isInGame ? GAME_TABS : HOME_TABS).map(t => {
             const TabIcon = t.icon;
             return (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 16px',
-                  whiteSpace: 'nowrap',
-                  minHeight: 'var(--touch-min)',
-                  borderRadius: 'var(--radius-md)',
-                  border: 'none',
-                  background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
-                  color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: tab === t.id ? '600' : '400',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
+                className={`settings-mobile-tab${tab === t.id ? ' active' : ''}`}
               >
                 <TabIcon size={15} strokeWidth={1.5} />
                 <span>{t.label}</span>
@@ -206,25 +173,7 @@ export default function SettingsScreen() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 10px',
-                    border: 'none',
-                    borderRadius: 'var(--radius-md)',
-                    background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
-                    color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)',
-                    fontSize: 'var(--font-size-base)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    fontWeight: tab === t.id ? '600' : '400',
-                    textAlign: 'left',
-                    width: '100%',
-                    minHeight: 'var(--touch-min)',
-                  }}
-                  onMouseEnter={e => { if (tab !== t.id) e.currentTarget.style.background = 'var(--accent-dim)'; }}
-                  onMouseLeave={e => { if (tab !== t.id) e.currentTarget.style.background = 'transparent'; }}
+                  className={`settings-tab-btn${tab === t.id ? ' active' : ''}`}
                 >
                   <TabIcon size={15} strokeWidth={1.5} />
                   <span>{t.label}</span>
@@ -271,22 +220,14 @@ export default function SettingsScreen() {
           <button
             className="btn-secondary"
             onClick={goBack}
-            style={{
-              padding: '8px 20px',
-              fontSize: 'var(--font-size-md)',
-              minHeight: 'var(--touch-min)',
-            }}
+            style={{ minHeight: 'var(--touch-min)' }}
           >
             取消
           </button>
           <button
             className="btn-primary"
             onClick={handleSave}
-            style={{
-              padding: '8px 28px',
-              fontSize: 'var(--font-size-md)',
-              minHeight: 'var(--touch-min)',
-            }}
+            style={{ minHeight: 'var(--touch-min)', padding: '8px 28px' }}
           >
             {t('settings.save')}
           </button>

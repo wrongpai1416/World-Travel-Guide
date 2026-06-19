@@ -154,7 +154,7 @@ export default function MainMenuView({
         transition: 'opacity 1s ease 1.2s',
         letterSpacing: '0.05em',
       }}>
-        v1.5.2
+        v1.6.0
       </div>
     </div>
   );
@@ -169,68 +169,23 @@ function MenuItemButton({
   index: number;
   ready: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
   const Icon = item.icon;
-
   const delay = 0.6 + index * 0.1;
-
-  // 统一的下嵌效果 + hover 浮起
-  const baseStyle: React.CSSProperties = {
-    border: `1px solid ${hovered ? 'var(--accent)' : 'var(--border)'}`,
-    background: hovered ? 'var(--accent-dim)' : 'var(--bg-secondary)',
-    color: hovered ? 'var(--accent)' : 'var(--text-primary)',
-    boxShadow: hovered
-      ? '0 2px 8px rgba(0,0,0,0.15)'
-      : 'inset 0 2px 4px rgba(0,0,0,0.12), inset 0 1px 2px rgba(0,0,0,0.08)',
-  };
 
   return (
     <button
       onClick={item.onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="menu-item-btn"
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '14px',
-        width: '100%',
-        padding: '16px 22px',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-        fontSize: '1.05rem',
-        fontWeight: 400,
-        fontFamily: 'var(--font-body, sans-serif)',
-        letterSpacing: '0.08em',
-        textAlign: 'left',
-        position: 'relative',
-        overflow: 'hidden',
         opacity: ready ? 1 : 0,
-        transform: ready
-          ? (hovered ? 'translateY(-1px)' : 'translateY(0)')
-          : 'translateY(-12px)',
-        transitionProperty: 'opacity, transform, background, color, border-color, box-shadow',
-        transitionDuration: '0.4s, 0.4s, 0.15s, 0.15s, 0.15s, 0.2s',
-        transitionTimingFunction: 'ease, ease, ease, ease, ease, ease',
+        transform: ready ? 'translateY(0)' : 'translateY(-12px)',
         transitionDelay: `${delay}s, ${delay}s, 0s, 0s, 0s, 0s`,
-        ...baseStyle,
       }}
     >
-      <Icon
-        size={18}
-        strokeWidth={1.5}
-        style={{ flexShrink: 0 }}
-      />
-      <span style={{ flex: 1 }}>{item.label}</span>
+      <Icon size={18} strokeWidth={1.5} className="menu-item-icon" />
+      <span className="menu-item-label">{item.label}</span>
       {item.badge && (
-        <span style={{
-          fontSize: 'var(--font-size-sm)',
-          color: 'var(--text-muted)',
-          background: 'var(--bg-tertiary)',
-          padding: '2px 10px',
-          borderRadius: '10px',
-        }}>
-          {item.badge}
-        </span>
+        <span className="menu-item-badge">{item.badge}</span>
       )}
     </button>
   );

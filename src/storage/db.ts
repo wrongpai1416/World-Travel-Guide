@@ -2,6 +2,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import type { ChatMessage } from '../engine/types';
 import type { GameState } from '../schema/variables';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -36,6 +37,10 @@ interface CustomNpc {
   chronicles: string[];
   skillsList: Record<string, { 描述: string; 类型: string; 品质: string }>;
   itemsList: Record<string, { 数量: number; 类型: string; 品质: string; 备注: string }>;
+  // 属性（当世界启用数值属性模块时填充）
+  attrs?: Record<string, number>;
+  // 段位索引（当世界启用成长体系模块时填充）
+  tierIndex?: number;
 }
 
 interface PlayerProfile {
@@ -73,6 +78,9 @@ interface PlayerProfile {
 
   // 自建NPC → GameState.人物档案
   customNpcs: CustomNpc[];
+
+  // 模块初始数据（角色创建时玩家设定的初始属性值）
+  moduleInitData?: Record<string, unknown>;
 }
 
 /** 完整存档记录（写入 IndexedDB saves store） */
@@ -109,7 +117,7 @@ const SAVES_STORE = 'saves';
 const GLOBAL_STORE = 'global';
 
 /** localStorage key：当前活跃存档 ID（F5 恢复用） */
-export const ACTIVE_SAVE_KEY = 'chuanyue_active_save_id';
+export const ACTIVE_SAVE_KEY = STORAGE_KEYS.ACTIVE_SAVE;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -224,23 +232,25 @@ export async function loadGame(id: string): Promise<GameSave | undefined> {
   }
 }
 
-/** 列出所有存档（完整数据，仅用于兼容旧代码，新代码应使用 getAllSaveMeta） */
-export async function listSaves(): Promise<GameSave[]> {
-  try {
-    const db = await getDB();
-    const all = await db.getAll(SAVES_STORE);
-    return all.sort((a, b) => b.timestamp - a.timestamp);
-  } catch (err) {
-    console.error('[DB] 列表读取失败:', err);
-    return [];
-  }
-}
-
 /** 删除存档 */
 export async function deleteSave(id: string): Promise<void> {
   try {
     const db = await getDB();
+    // 先确认存档确实存在
+    const existing = await db.get(SAVES_STORE, id);
+    if (!existing) {
+      console.warn(`[DB] 删除存档 ${id} 时发现已不存在`);
+    }
     await db.delete(SAVES_STORE, id);
+    // 验证删除是否生效
+    const verify = await db.get(SAVES_STORE, id);
+    if (verify) {
+      console.error(`[DB] 删除存档 ${id} 后仍能读到！`);
+    } else {
+      console.log(`[DB] 存档 ${id} 已从 IndexedDB 删除`);
+    }
+    // 同时失效元数据缓存
+    cachedSaveMeta = null;
   } catch (err) {
     console.error('[DB] 删除失败:', err);
     throw new Error('存档删除失败');
@@ -329,42 +339,40 @@ export async function importSaveFromFile(file: File): Promise<SaveMeta> {
 
 /** 从原始数据导入存档（normalize + 新 ID + 唯一名称） */
 export async function importSaveFromData(rawData: any): Promise<SaveMeta> {
-  if (!rawData || typeof rawData !== 'object') {
+  if (!rawData || typeof rawData !== 'object' || !rawData.save) {
     throw new Error('存档数据格式无效');
   }
 
-  // 兼容包裹格式 { save: {...} } 或直接 {...}
-  const payload = rawData.save && typeof rawData.save === 'object' ? rawData.save : rawData;
-
-  if (!payload.messages && !payload.gameState) {
+  const save = rawData.save;
+  if (!save.messages && !save.gameState) {
     throw new Error('文件中未找到有效存档数据');
   }
 
   // 生成新 ID 避免冲突
   const metas = await getAllSaveMeta();
-  let finalId = String(payload.id || '').trim() || generateSaveId();
+  let finalId = String(save.id || '').trim() || generateSaveId();
   while (metas.some(s => s.id === finalId)) {
     finalId = generateSaveId();
   }
 
   // 确保名称唯一
-  const baseName = String(payload.name || '').trim() || '导入存档';
+  const baseName = String(save.name || '').trim() || '导入存档';
   const finalName = getUniqueImportName(baseName, metas);
 
-  const finalTimestamp = Number(payload.timestamp) || Date.now();
+  const finalTimestamp = Number(save.timestamp) || Date.now();
 
   const saveData: GameSave = {
     id: finalId,
     name: finalName,
     timestamp: finalTimestamp,
-    messages: Array.isArray(payload.messages) ? payload.messages : [],
-    gameState: payload.gameState || {},
-    worldId: payload.worldId || 'default',
-    personalInfo: payload.personalInfo || undefined,
-    characterHistory: payload.characterHistory || undefined,
-    memoryRuntime: payload.memoryRuntime || undefined,
-    memoryConfig: payload.memoryConfig || undefined,
-    vectorMemory: Array.isArray(payload.vectorMemory) ? payload.vectorMemory : undefined,
+    messages: Array.isArray(save.messages) ? save.messages : [],
+    gameState: save.gameState || {},
+    worldId: save.worldId || 'default',
+    personalInfo: save.personalInfo || undefined,
+    characterHistory: save.characterHistory || undefined,
+    memoryRuntime: save.memoryRuntime || undefined,
+    memoryConfig: save.memoryConfig || undefined,
+    vectorMemory: Array.isArray(save.vectorMemory) ? save.vectorMemory : undefined,
   };
 
   await saveGame(saveData);
@@ -427,7 +435,7 @@ function getWorldNameById(worldId: string): string {
 
   // 再检查自建世界
   try {
-    const createdWorlds = JSON.parse(localStorage.getItem('chuanye_custom_worlds') || '[]');
+    const createdWorlds = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
     const world = createdWorlds.find((w: any) => w.id === worldId);
     if (world?.name) {
       return world.name;
@@ -445,12 +453,19 @@ function getWorldNameById(worldId: string): string {
 /** 检测并迁移旧的 auto_save 存档到新的元数据系统 */
 export async function migrateOldAutoSave(): Promise<void> {
   const metas = await getAllSaveMeta();
-  if (metas.length > 0) return; // 已有元数据，无需迁移
 
-  // 检查是否有旧的 auto_save
+  // 检查是否有旧的 auto_save（无论元数据是否为空都要检查）
   const oldSave = await loadGame('auto_save');
   if (!oldSave) return;
 
+  if (metas.length > 0) {
+    // 已有新存档，直接删除旧 auto_save（防止删除所有存档后它又冒出来）
+    console.log('[DB] 已有新存档，清理旧 auto_save');
+    await deleteSave('auto_save');
+    return;
+  }
+
+  // 元数据为空 + 有旧 auto_save → 迁移
   console.log('[DB] 迁移旧 auto_save 到新的多槽位存档系统');
 
   // 将 auto_save 重新分配一个正式 ID

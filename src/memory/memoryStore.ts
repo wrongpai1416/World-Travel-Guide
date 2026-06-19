@@ -33,6 +33,32 @@ import {
   createDefaultMemorySystemConfig,
   normalizeMemorySystemConfig,
 } from './memoryConfig';
+import { STORAGE_KEYS } from '@/config/storageKeys';
+
+// ─── localStorage 持久化 ───
+
+const MEMORY_CONFIG_STORAGE_KEY = STORAGE_KEYS.MEMORY_CONFIG;
+
+function loadMemoryConfigFromStorage(): MemorySystemConfig {
+  try {
+    const saved = localStorage.getItem(MEMORY_CONFIG_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return normalizeMemorySystemConfig(parsed);
+    }
+  } catch {
+    // 忽略解析错误
+  }
+  return createDefaultMemorySystemConfig();
+}
+
+function saveMemoryConfigToStorage(config: MemorySystemConfig): void {
+  try {
+    localStorage.setItem(MEMORY_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // 忽略存储错误
+  }
+}
 
 // ─── Store 接口 ───
 
@@ -198,7 +224,9 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
     stateSlots: normalizeArray(safe.stateSlots).slice(-30) as NarrativeStateSlot[],
     relationEdges: normalizeArray(safe.relationEdges).slice(-50) as NarrativeRelationEdge[],
     relationNetwork: normalizeArray(safe.relationNetwork).slice(-50) as NarrativeRelationNetworkItem[],
-    eventCards: normalizeArray(safe.eventCards).slice(-50) as NarrativeEventCard[],
+    eventCards: (normalizeArray(safe.eventCards) as NarrativeEventCard[])
+      .sort((a, b) => (Number(b.importance || 0) - Number(a.importance || 0)) || (Number(b.updatedAt || 0) - Number(a.updatedAt || 0)))
+      .slice(0, 50),
     entityCards: normalizeArray(safe.entityCards).slice(-30) as NarrativeEntityCard[],
     archiveCards: normalizeArray(safe.archiveCards).slice(-30) as NarrativeArchiveCard[],
     mutationLog: normalizeArray(safe.mutationLog).slice(-50) as NarrativeMutation[],
@@ -226,8 +254,8 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
 // ─── Zustand Store ───
 
 export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((set, get) => ({
-  // 初始状态
-  config: createDefaultMemorySystemConfig(),
+  // 初始状态 - 从 localStorage 加载配置，避免刷新后丢失用户设置
+  config: loadMemoryConfigFromStorage(),
   memoryRuntime: null,
   vectorMemory: [],
   writeDebugLogs: [],
@@ -244,13 +272,18 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   // ─── 配置 ───
 
   setConfig: (patch) => {
-    set((state) => ({
-      config: normalizeMemorySystemConfig({ ...state.config, ...patch }),
-    }));
+    set((state) => {
+      const newConfig = normalizeMemorySystemConfig({ ...state.config, ...patch });
+      // 同时保存到 localStorage，避免刷新后丢失
+      saveMemoryConfigToStorage(newConfig);
+      return { config: newConfig };
+    });
   },
 
   resetConfig: () => {
-    set({ config: createDefaultMemorySystemConfig() });
+    const defaultConfig = createDefaultMemorySystemConfig();
+    saveMemoryConfigToStorage(defaultConfig);
+    set({ config: defaultConfig });
   },
 
   // ─── 运行态管理 ───
@@ -281,6 +314,8 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   },
 
   resetMemoryRuntime: () => {
+    // 注意：只重置运行态数据，保留用户的配置设置
+    // 配置应该通过 setConfig 或 fromJSON 单独管理
     set({
       memoryRuntime: null,
       vectorMemory: [],
@@ -294,7 +329,6 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       loadingStage: '',
       error: null,
       runtimeVersion: 0,
-      config: createDefaultMemorySystemConfig(),
     });
   },
 
@@ -345,7 +379,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         threads.push({ ...thread, createdAt: thread.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, activeThreads: threads } };
+      return { memoryRuntime: { ...state.memoryRuntime, activeThreads: threads.slice(-30) } };
     });
   },
 
@@ -373,7 +407,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         slots.push({ ...slot, createdAt: slot.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, stateSlots: slots } };
+      return { memoryRuntime: { ...state.memoryRuntime, stateSlots: slots.slice(-30) } };
     });
   },
 
@@ -401,7 +435,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         edges.push({ ...edge, createdAt: edge.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, relationEdges: edges } };
+      return { memoryRuntime: { ...state.memoryRuntime, relationEdges: edges.slice(-50) } };
     });
   },
 
@@ -417,7 +451,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         network.push({ ...item, createdAt: item.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, relationNetwork: network } };
+      return { memoryRuntime: { ...state.memoryRuntime, relationNetwork: network.slice(-50) } };
     });
   },
 
@@ -433,7 +467,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         cards.push({ ...card, createdAt: card.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, eventCards: cards } };
+      return { memoryRuntime: { ...state.memoryRuntime, eventCards: cards.slice(-50) } };
     });
   },
 
@@ -449,7 +483,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         cards.push({ ...card, createdAt: card.createdAt || Date.now(), updatedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, entityCards: cards } };
+      return { memoryRuntime: { ...state.memoryRuntime, entityCards: cards.slice(-30) } };
     });
   },
 
@@ -465,7 +499,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       } else {
         cards.push({ ...card, createdAt: card.createdAt || Date.now(), archivedAt: Date.now() });
       }
-      return { memoryRuntime: { ...state.memoryRuntime, archiveCards: cards } };
+      return { memoryRuntime: { ...state.memoryRuntime, archiveCards: cards.slice(-30) } };
     });
   },
 
@@ -690,9 +724,11 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   },
 
   fromJSON: (data) => {
+    // 如果存档中有配置则使用存档的配置，否则保留当前配置（避免丢失用户设置）
+    const currentConfig = get().config;
     const config = data.config
       ? normalizeMemorySystemConfig(data.config)
-      : createDefaultMemorySystemConfig();
+      : currentConfig;
 
     const memoryRuntime = data.memoryRuntime
       ? normalizeMemoryRuntime(data.memoryRuntime)
@@ -702,6 +738,8 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       ? data.vectorMemory as VectorMemoryItem[]
       : [];
 
+    // 同时保存到 localStorage，避免刷新后丢失
+    saveMemoryConfigToStorage(config);
     set({ config, memoryRuntime, vectorMemory });
   },
 }));

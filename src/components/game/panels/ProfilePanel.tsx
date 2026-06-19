@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  User, Heart, Zap, DollarSign, Swords, Backpack, Globe, Target, Newspaper,
+  User, DollarSign, Swords, Backpack, Globe, Target, Newspaper,
   Shield, Wrench, Beaker, Wheat, Gem, BookOpen, Package, ScrollText,
   Crosshair, Crown, Shirt, CircleDot, FlaskConical, Fish, Compass, Key,
   type LucideIcon,
@@ -51,23 +51,6 @@ function getItemIcon(item: InventoryItem): LucideIcon {
     }
   }
   return CircleDot;
-}
-
-// ─── 进度条 ───
-function GaugeBar({ label, value, max = 100, color, icon }: {
-  label: string; value: number; max?: number; color: string; icon: React.ReactNode;
-}) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>{icon}</span>
-      <span style={{ width: '48px', fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>{label}</span>
-      <div style={{ flex: 1, height: '10px', background: 'var(--bg-tertiary)', borderRadius: '5px', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '4px', transition: 'width 0.3s' }} />
-      </div>
-      <span style={{ width: '52px', fontSize: 'var(--font-size-sm)', textAlign: 'right', color: 'var(--text-secondary)' }}>{value}/{max}</span>
-    </div>
-  );
 }
 
 // ─── 详情弹窗 ───
@@ -173,12 +156,6 @@ export default function ProfilePanel({ gameState }: Props) {
           <ExcelRow label="所属组织" value={p.身份信息.所属组织} />
           {p.身份信息.特殊身份 && <ExcelRow label="特殊身份" value={p.身份信息.特殊身份} />}
         </div>
-      </Collapsible>
-
-      {/* 生存状态 */}
-      <Collapsible icon={<Heart size={15} />} title="生存状态">
-        <GaugeBar icon={<Heart size={12} color="#ef4444" />} label="血量" value={s.血量} color="#ef4444" />
-        <GaugeBar icon={<Zap size={12} color="#f59e0b" />} label="体力" value={s.体力值} color="#f59e0b" />
       </Collapsible>
 
       {/* 货币资源 */}

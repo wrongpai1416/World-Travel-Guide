@@ -17,6 +17,26 @@ const NPC_CREATION_HINT_KEYS = new Set([
   '特殊能力', 'specialAbility', '背景', 'background',
 ]);
 
+// ─── NPC 死亡检测 ─────────────────────────────────────
+
+const NPC_DEATH_KEYWORDS = ['死亡', '已死', 'dead', '尸体', '已阵亡', '已故', '遇害', '被杀', '身亡', '阵亡', '去世', '牺牲'];
+
+/**
+ * 判断 NPC 是否已死亡
+ * 检查血量 <= 0 或当前状态包含死亡关键词
+ */
+export function isNpcDead(npc: Record<string, unknown> | NPCData | undefined | null): boolean {
+  if (!npc || typeof npc !== 'object') return false;
+  const n = npc as any;
+  // 血量检查
+  const hp = n.生存状态?.血量;
+  if (typeof hp === 'number' && hp <= 0) return true;
+  // 当前状态文本检查
+  const status = String(n.个人信息?.当前状态 ?? '').trim();
+  if (status && NPC_DEATH_KEYWORDS.some(kw => status.includes(kw))) return true;
+  return false;
+}
+
 // ─── NPC 分类管理 ─────────────────────────────────────
 
 export function normalizeNpcCategoryValue(value: unknown): '在场' | '离场' | '重点' {
@@ -366,7 +386,7 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   }
 
   // 事迹（最近5条）
-  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds);
+  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds ?? n.经历列表);
   if (chronicles.length > 0) {
     const recent = chronicles.slice(-5);
     const chronicleText = recent.map((c, i) => `${i + 1}.${truncate(c, 36)}`).join(' | ');
@@ -433,7 +453,7 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
 function formatDepartedNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   const n = npc as any;
   const name = String(n.姓名 ?? npcId).trim() || npcId;
-  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds);
+  const chronicles = normalizeNpcChronicles(n.人物事迹 ?? n.characterDeeds ?? n.deeds ?? n.经历列表);
   const recent = chronicles.slice(-3);
 
   let line = `> ${name}`;
@@ -502,19 +522,39 @@ export function formatSnapshotForMainAI(state: GameState): string {
     if (playerGoal) lines.push(`> 目标: ${playerGoal}`);
   }
 
-  // 玩家生存状态
-  const survival = player.生存状态;
-  if (survival && typeof survival === 'object') {
-    const hp = (survival as any).生命值 ?? (survival as any).生命;
-    const stamina = (survival as any).体力值 ?? (survival as any).体力;
-    const hunger = (survival as any).饥饿值 ?? (survival as any).饥饿;
-    if (hp != null || stamina != null || hunger != null) {
-      lines.push(`### 【生存状态】`);
+  // 数值属性模块 or 生存状态（二选一，模块优先）
+  const worldSystem = world.世界系统;
+  const hasStatModule = !!worldSystem && typeof worldSystem === 'object' && '数值属性' in worldSystem;
+  if (hasStatModule) {
+    const stat = (worldSystem as any)['数值属性'];
+    if (stat && typeof stat === 'object') {
       const parts = [];
-      if (hp != null) parts.push(`生命:${hp}`);
-      if (stamina != null) parts.push(`体力:${stamina}`);
-      if (hunger != null) parts.push(`饥饿:${hunger}`);
-      lines.push(`> ${parts.join(' | ')}`);
+      if (stat.attrA) parts.push(`${stat.attrA.name}:${stat.attrA.current}/${stat.attrA.max}`);
+      if (stat.attrB) parts.push(`${stat.attrB.name}:${stat.attrB.current}/${stat.attrB.max}`);
+      // 六维
+      const dims = [stat.dim1, stat.dim2, stat.dim3, stat.dim4, stat.dim5, stat.dim6].filter(Boolean);
+      if (dims.length > 0) {
+        parts.push(dims.map((d: any) => `${d.name}:${d.value}`).join(' '));
+      }
+      if (parts.length > 0) {
+        lines.push(`### 【数值属性】`);
+        lines.push(`> ${parts.join(' | ')}`);
+      }
+    }
+  } else {
+    const survival = player.生存状态;
+    if (survival && typeof survival === 'object') {
+      const hp = (survival as any).生命值 ?? (survival as any).生命;
+      const stamina = (survival as any).体力值 ?? (survival as any).体力;
+      const hunger = (survival as any).饥饿值 ?? (survival as any).饥饿;
+      if (hp != null || stamina != null || hunger != null) {
+        lines.push(`### 【生存状态】`);
+        const parts = [];
+        if (hp != null) parts.push(`生命:${hp}`);
+        if (stamina != null) parts.push(`体力:${stamina}`);
+        if (hunger != null) parts.push(`饥饿:${hunger}`);
+        lines.push(`> ${parts.join(' | ')}`);
+      }
     }
   }
 

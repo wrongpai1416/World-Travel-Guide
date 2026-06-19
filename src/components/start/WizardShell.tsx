@@ -3,7 +3,7 @@ import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
 import type { PlayerProfile } from '../../storage/db';
 import type { GameState } from '../../schema/variables';
-import { Check } from 'lucide-react';
+import { Check, Sunrise } from 'lucide-react';
 import { getAgeStages } from '../../utils/ageStages';
 import WorldEditorForm from './WorldEditorForm';
 import StepWorldBrowser from './StepWorldBrowser';
@@ -35,10 +35,12 @@ interface WizardShellProps {
   setSegments: (s: Record<string, string>) => void;
   isGenerating: boolean;
   regeneratingId: string | null;
+  includeAgeStages: boolean;
+  setIncludeAgeStages: (v: boolean) => void;
   hasApiConfig: boolean;
   // handlers
-  onGenerateAll: () => void;
-  onRegenerateSegment: (id: string) => void;
+  onGenerateAll: (drafts?: Record<string, string>) => void;
+  onRegenerateSegment: (id: string, draft?: string) => void;
   buildInitialState: () => GameState;
   onStartGame: () => void;
   // world editor
@@ -58,16 +60,20 @@ export default function WizardShell({
   selectedWorld, setSelectedWorld,
   allWorlds, createdWorlds, worldEntry,
   personalInfo, setPersonalInfo, isFilling, onAiFill,
-  segments, setSegments, isGenerating, regeneratingId, hasApiConfig,
+  segments, setSegments, isGenerating, regeneratingId,
+  includeAgeStages, setIncludeAgeStages,
+  hasApiConfig,
   onGenerateAll, onRegenerateSegment, buildInitialState, onStartGame,
   worldEditorOpen, editingWorld, onSaveWorld, onDeleteWorld, onCancelWorldEditor, onOpenEditor,
   onImportWorld,
   apiConfig, settings,
 }: WizardShellProps) {
-  // 动态计算年龄阶段
+  // 动态计算年龄阶段（根据开关决定是否包含）
   const segmentDefs = useMemo(
-    () => buildSegmentDefs(getAgeStages(personalInfo.age)),
-    [personalInfo.age],
+    () => includeAgeStages
+      ? buildSegmentDefs(getAgeStages(personalInfo.age))
+      : [{ id: 'prologue', title: '序章', icon: <Sunrise size={15} /> }],
+    [personalInfo.age, includeAgeStages],
   );
 
   return (
@@ -135,6 +141,7 @@ export default function WizardShell({
                 personalInfo={personalInfo} setPersonalInfo={setPersonalInfo}
                 isFilling={isFilling} onAiFill={onAiFill}
                 hasApiConfig={hasApiConfig}
+                worldModules={allWorlds.find(w => w.id === selectedWorld)?.modules}
                 onNext={() => setStep(3)} onPrev={() => setStep(1)}
               />
             )}
@@ -142,11 +149,11 @@ export default function WizardShell({
               <StepCharacterHistory
                 segmentDefs={segmentDefs} segments={segments} setSegments={setSegments}
                 isGenerating={isGenerating} regeneratingId={regeneratingId}
+                includeAgeStages={includeAgeStages} setIncludeAgeStages={setIncludeAgeStages}
                 hasApiConfig={hasApiConfig}
                 onGenerateAll={onGenerateAll} onRegenerateSegment={onRegenerateSegment}
                 onStartGame={() => setStep(4)}
                 onPrev={() => setStep(2)}
-                onSettings={() => {}}
               />
             )}
             {step === 4 && (

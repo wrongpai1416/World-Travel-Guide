@@ -15,7 +15,7 @@ interface WorldCardProps {
   isCustom?: boolean;
 }
 
-/** 世界卡片 — 紧凑横排：色条头部(icon+名称) + 描述 + 标签 */
+/** 世界卡片 — 紧凑色条：icon + 名称，无描述 */
 export default function WorldCard({ world, selected, onSelect, onEdit, onDelete, isCustom }: WorldCardProps) {
   const Icon = getWorldIcon(world);
   return (
@@ -42,16 +42,6 @@ export default function WorldCard({ world, selected, onSelect, onEdit, onDelete,
           </div>
         )}
       </div>
-      <div className="world-card-body">
-        <div className="world-card-desc">{world.description}</div>
-        {world.tags && world.tags.length > 0 && (
-          <div className="world-card-footer">
-            {world.tags.slice(0, 3).map(tag => (
-              <span key={tag} className="world-card-tag">{tag}</span>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -60,8 +50,8 @@ export default function WorldCard({ world, selected, onSelect, onEdit, onDelete,
 export function CreateWorldCard({ onClick }: { onClick: () => void }) {
   return (
     <div className="world-card create" onClick={onClick}>
-      <Plus size={20} strokeWidth={1.5} />
-      <span style={{ fontSize: 'var(--font-size-sm)' }}>新建世界</span>
+      <Plus size={16} strokeWidth={1.5} />
+      <span>新建世界</span>
     </div>
   );
 }

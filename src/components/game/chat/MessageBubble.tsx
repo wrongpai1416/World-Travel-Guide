@@ -1,10 +1,13 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { Pencil, Copy, RefreshCw, ArrowLeftToLine, Trash2 } from 'lucide-react';
 import { useUISettings } from '../../../context/UISettingsContext';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import type { ChatMessage } from '../../../engine/types';
+import type { WorldSystemData, DiceRoll } from '../../../modules/schema';
 import ReasoningBlock from './ReasoningBlock';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import InlineDiceCard from './InlineDiceCard';
 import { parseContent, createIframeSrcDoc } from '../../../utils/markdown';
 import { getEnabledTextColorizationRules } from '../../../utils/text-colorization';
 import { processRegexScripts } from '../../../utils/regexScripts';
@@ -18,9 +21,13 @@ interface Props {
   onResendFromHere: (id: string) => void;
   onCopy: (text: string) => void;
   onOptionClick?: (optionText: string) => void;
+  /** 世界系统数据（用于内联骰子卡片） */
+  worldSystem?: WorldSystemData | null;
+  /** 骰子掷骰结果回调 */
+  onDiceRoll?: (roll: DiceRoll) => void;
 }
 
-export default function MessageBubble({ message, onDelete, onEdit, onResend, onResendFromHere, onCopy, onOptionClick }: Props) {
+export default function MessageBubble({ message, onDelete, onEdit, onResend, onResendFromHere, onCopy, onOptionClick, worldSystem, onDiceRoll }: Props) {
   const [showThinking, setShowThinking] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -59,6 +66,54 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [renderedContent?.type]);
+
+  // ─── 内联骰子卡片 Portal 挂载 ────────────────────────
+  const messageHtmlRef = useRef<HTMLDivElement>(null);
+  const diceRootsRef = useRef<Root[]>([]);
+
+  useEffect(() => {
+    // 清理旧的 React roots
+    diceRootsRef.current.forEach(root => {
+      try { root.unmount(); } catch { /* ignore */ }
+    });
+    diceRootsRef.current = [];
+
+    if (!messageHtmlRef.current || isUser || !worldSystem?.骰子检定 || message.streaming) return;
+
+    const placeholders = messageHtmlRef.current.querySelectorAll('.dice-roll-placeholder');
+    if (placeholders.length === 0) return;
+
+    // 动态导入 React 组件（避免循环依赖）
+    const mountDiceCards = async () => {
+      const { default: InlineDiceCardComponent } = await import('./InlineDiceCard');
+
+      placeholders.forEach(el => {
+        const attr = el.getAttribute('data-attr') || '';
+        const dc = Number(el.getAttribute('data-dc')) || 10;
+        const container = document.createElement('div');
+        el.replaceWith(container);
+        const root = createRoot(container);
+        root.render(
+          <InlineDiceCardComponent
+            attr={attr}
+            dc={dc}
+            statData={worldSystem.数值属性}
+            onRoll={onDiceRoll}
+          />
+        );
+        diceRootsRef.current.push(root);
+      });
+    };
+
+    mountDiceCards();
+
+    return () => {
+      diceRootsRef.current.forEach(root => {
+        try { root.unmount(); } catch { /* ignore */ }
+      });
+      diceRootsRef.current = [];
+    };
+  }, [renderedContent, worldSystem, onDiceRoll, isUser, message.streaming]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -236,6 +291,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
               <>
                 {renderedContent?.content ? (
                   <div
+                    ref={messageHtmlRef}
                     className="message-html-content"
                     dangerouslySetInnerHTML={{ __html: renderedContent.content }}
                     style={{
@@ -243,8 +299,28 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                       overflowWrap: 'break-word',
                     }}
                     onClick={(e) => {
-                      // 处理行动选项点击
                       const target = e.target as HTMLElement
+
+                      // 代码块复制按钮（事件委托，替代 inline onclick 防止 XSS）
+                      const copyBtn = target.closest('[data-action="copy-code"]') as HTMLButtonElement | null
+                      if (copyBtn) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const wrapper = copyBtn.closest('.code-block-wrapper')
+                        const code = wrapper?.querySelector('code')
+                        if (code) {
+                          navigator.clipboard.writeText(code.textContent || '').then(() => {
+                            copyBtn.textContent = '已复制!'
+                            setTimeout(() => { copyBtn.textContent = '复制' }, 2000)
+                          }).catch(() => {
+                            copyBtn.textContent = '失败'
+                            setTimeout(() => { copyBtn.textContent = '复制' }, 2000)
+                          })
+                        }
+                        return
+                      }
+
+                      // 行动选项点击
                       const optionEl = target.closest('.action-option-card') as HTMLElement
                       if (optionEl && onOptionClick) {
                         const optionText = optionEl.getAttribute('data-option-text')

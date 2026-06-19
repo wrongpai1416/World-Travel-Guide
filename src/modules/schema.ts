@@ -27,34 +27,44 @@ export interface StatModuleSchema {
   attrA: { name: string; current: number; max: number };
   /** 底层必选 - 能量类属性 */
   attrB: { name: string; current: number; max: number };
-  /** 六维属性 - dim1~dim6 */
-  dim1: SixDimStat;  // 造成伤害的能力
-  dim2: SixDimStat;  // 承受伤害的能力
-  dim3: SixDimStat;  // 行动速度/先手
-  dim4: SixDimStat;  // 学习/策略/施法能力
-  dim5: SixDimStat;  // 社交/说服/影响能力
-  dim6: SixDimStat;  // 随机运气/暴击/掉落
-  /** 特色属性（1-2个） */
+  /** 六维属性（可选，经营/日常等世界可以不要） */
+  dim1?: SixDimStat;
+  dim2?: SixDimStat;
+  dim3?: SixDimStat;
+  dim4?: SixDimStat;
+  dim5?: SixDimStat;
+  dim6?: SixDimStat;
+  /** 特色属性（0~4个） */
   special: SpecialStat[];
 }
 
 // ─── 成长体系模块 ───
 
-/** 单个段位/等级定义 */
+/** 属性上限（段位制和等级制共用） */
+export interface StatBonuses {
+  attrAMax: number;
+  attrBMax: number;
+  dim1Max: number;
+  dim2Max: number;
+  dim3Max: number;
+  dim4Max: number;
+  dim5Max: number;
+  dim6Max: number;
+}
+
+/** 单个段位定义（段位制专用） */
 export interface TierDef {
-  name: string;           // AI生成的段位/等级名
+  name: string;           // AI生成的段位名
   description: string;    // AI生成的描述
-  xpRequired: number;     // 升到此级累计需要的XP（由算法计算）
-  statBonuses: {          // 该级别的属性上限提升（累计值）
-    attrAMax: number;
-    attrBMax: number;
-    dim1Max: number;
-    dim2Max: number;
-    dim3Max: number;
-    dim4Max: number;
-    dim5Max: number;
-    dim6Max: number;
-  };
+  xpRequired: number;     // 升到此段累计需要的XP（由算法计算）
+  statBonuses: StatBonuses; // 该段位的属性上限
+}
+
+/** 等级制专用数据 */
+export interface LevelData {
+  maxLevel: number;           // 等级上限（如100）
+  baseStats: StatBonuses;     // 0级属性天花板
+  growthPerLevel: StatBonuses; // 每级属性增长量
 }
 
 /** XP计算公式参数 */
@@ -64,15 +74,34 @@ export interface XpFormula {
   scaleFactor: number;    // 缩放系数（默认1.0）
 }
 
-/** 完整的成长体系模块 */
-export interface ProgressionModuleSchema {
-  mode: 'tiered' | 'level';  // 段位制 或 等级制
-  tiers: TierDef[];           // AI生成的段位/等级列表
-  xpFormula: XpFormula;       // XP计算参数
-  /** 运行时数据 */
-  currentTierIndex: number;   // 当前段位/等级索引
-  currentXP: number;          // 当前级别内的XP
+/**
+ * 成长体系配置（静态，存放在世界系统中）
+ * 创建世界时设定，不频繁变化
+ */
+export interface ProgressionConfig {
+  mode: 'tiered' | 'level';
+  xpFormula: XpFormula;
+  // ── 二选一（OR 关系，由 mode 决定读哪个） ──
+  /** 段位制：命名段位列表 */
+  tiers?: TierDef[];
+  /** 等级制：公式化等级数据 */
+  levelData?: LevelData;
 }
+
+/**
+ * 成长体系状态（动态，存放在变量系统中）
+ * AI 每次回复可能更新
+ */
+export interface ProgressionState {
+  currentTierIndex: number;   // 当前段位/等级索引
+  currentXP: number;          // 当前经验值
+}
+
+/**
+ * 完整的成长体系模块（兼容旧格式）
+ * @deprecated 新代码请使用 ProgressionConfig + ProgressionState 分离读取
+ */
+export interface ProgressionModuleSchema extends ProgressionConfig, ProgressionState {}
 
 // ─── 资源管理模块 ───
 
@@ -126,6 +155,30 @@ export interface DiceModuleSchema {
   history?: DiceRoll[];   // 掷骰历史（最多保留10次）
 }
 
+// ─── 天赋体系模块 ───
+
+/** 天赋条目 */
+export interface TalentDef {
+  id: string;              // 英文标识
+  name: string;            // 天赋名
+  description: string;     // 描述
+  rarity: '普通' | '精良' | '稀有' | '史诗' | '传说';  // 品质
+  effects?: string[];      // 效果描述（纯文本，供AI参考）
+}
+
+/** 天赋大类 */
+export interface TalentCategoryDef {
+  id: string;              // 英文标识
+  name: string;            // AI生成的大类名（如"灵根"、"体质"、"血脉"）
+  description: string;     // 大类描述
+  talents: TalentDef[];    // 该大类下的天赋列表
+}
+
+/** 完整的天赋体系模块 */
+export interface TalentModuleSchema {
+  categories: TalentCategoryDef[];  // AI生成的天赋大类列表
+}
+
 // ─── 世界系统聚合类型 ───
 
 /** 世界系统运行时数据（存放在 GameState.世界.世界系统） */
@@ -134,6 +187,7 @@ export interface WorldSystemData {
   成长体系?: ProgressionModuleSchema;
   资源管理?: ResourceModuleSchema;
   骰子检定?: DiceModuleSchema;
+  天赋体系?: TalentModuleSchema;
   /** 保留扩展性：自定义模块数据 */
   [key: string]: unknown;
 }

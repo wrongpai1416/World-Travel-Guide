@@ -44,6 +44,21 @@ export function applyWorld(wb: WorldBookManager, worldId: string) {
         secondaryKeys: e.keysecondary ?? [],
         position: e.position ?? 'after_char',
         insertionOrder: e.order ?? 0,
+        // v2 新增字段
+        excludeKeys: e.exclude_key ?? [],
+        selectiveLogic: e.selectiveLogic,
+        scanDepth: e.scanDepth,
+        caseSensitive: e.caseSensitive,
+        matchWholeWords: e.matchWholeWords,
+        probability: e.probability,
+        useProbability: e.useProbability,
+        excludeRecursion: e.excludeRecursion,
+        preventRecursion: e.preventRecursion,
+        group: e.group,
+        useGroupScoring: e.useGroupScoring,
+        groupWeight: e.groupWeight,
+        order: e.order,
+        depth: e.depth,
       }));
       wb.addEntries(converted);
     }
@@ -54,11 +69,17 @@ export function applyWorld(wb: WorldBookManager, worldId: string) {
  * 将世界启用的模块注入为世界书条目
  * - 使用新的 applyModulesV2 注入器
  * - 支持运行时 WorldSystemData 数据
+ * @param playerState 玩家状态（动态数据，如当前段位索引、当前经验值）
  */
-export function applyModules(wb: WorldBookManager, world: WorldDef, worldSystem?: WorldSystemData) {
+export function applyModules(
+  wb: WorldBookManager,
+  world: WorldDef,
+  worldSystem?: WorldSystemData,
+  playerState?: { 当前段位索引?: number; 当前经验值?: number }
+) {
   if (!world.modules || world.modules.length === 0) return;
 
   // 使用新的v2注入器
-  applyModulesV2(wb, world, worldSystem);
+  applyModulesV2(wb, world, worldSystem, playerState);
 }
 

@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { PlayerProfile, CustomNpc } from '../../storage/db';
 import type { SkillData, InventoryItem } from '../../schema/variables';
+import type { WorldModule } from '../../data/worlds-schema';
 import NpcEditorModal from './NpcEditorModal';
 import TemplatePickerDialog from '../shared/TemplatePickerDialog';
 import { useDialog } from '../shared/Dialog';
 import {
-  User, Briefcase, Sparkles, Package, Users,
+  User, Briefcase, Sparkles, Package, Users, BarChart3,
   Plus, Trash2, Pencil, Wand2, Loader, Save, Download, Upload, ChevronDown, BookMarked,
 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
@@ -17,6 +18,7 @@ interface StepPersonalInfoProps {
   isFilling: boolean;
   onAiFill: () => void;
   hasApiConfig: boolean;
+  worldModules?: WorldModule[];
   onNext: () => void;
   onPrev: () => void;
 }
@@ -28,17 +30,18 @@ const PERSPECTIVE_OPTIONS: Array<{ value: PlayerProfile['perspective']; label: s
   { value: '第三人称', label: '第三人称', desc: '「他/她」的视角' },
 ];
 
-type RightTab = 'identity' | 'skills' | 'items' | 'npcs';
+type RightTab = 'identity' | 'stats' | 'skills' | 'items' | 'npcs';
 
 const RIGHT_TABS: Array<{ key: RightTab; label: string; icon: React.ReactNode }> = [
   { key: 'identity', label: '身份', icon: <Briefcase size={14} /> },
+  { key: 'stats', label: '属性', icon: <BarChart3 size={14} /> },
   { key: 'skills', label: '技能', icon: <Sparkles size={14} /> },
   { key: 'items', label: '物品', icon: <Package size={14} /> },
   { key: 'npcs', label: 'NPC', icon: <Users size={14} /> },
 ];
 
 export default function StepPersonalInfo({
-  personalInfo, setPersonalInfo, isFilling, onAiFill, hasApiConfig, onNext, onPrev,
+  personalInfo, setPersonalInfo, isFilling, onAiFill, hasApiConfig, worldModules, onNext, onPrev,
 }: StepPersonalInfoProps) {
   const [rightTab, setRightTab] = useState<RightTab>('identity');
   const [npcEditorOpen, setNpcEditorOpen] = useState(false);
@@ -268,6 +271,15 @@ export default function StepPersonalInfo({
             </div>
           )}
 
+          {/* Tab: 初始属性 */}
+          {rightTab === 'stats' && (
+            <ModuleInitEditor
+              worldModules={worldModules}
+              initData={personalInfo.moduleInitData || {}}
+              onChange={(data) => setPersonalInfo({ ...personalInfo, moduleInitData: data })}
+            />
+          )}
+
           {/* Tab: 初始技能 */}
           {rightTab === 'skills' && (
             <div className="world-dynamic-list">
@@ -392,5 +404,159 @@ function DropdownItem({ icon, label, disabled, onClick }: {
     >
       {icon} {label}
     </button>
+  );
+}
+
+// ═══════════════════════════════════════
+//  模块初始属性编辑器
+// ═══════════════════════════════════════
+
+const _inputStyle: React.CSSProperties = {
+  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+  borderRadius: 4, padding: '5px 8px', color: 'var(--text-primary)',
+  fontSize: 'var(--font-size-xs)', width: '100%', boxSizing: 'border-box',
+};
+const _labelStyle: React.CSSProperties = {
+  fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: 2, display: 'block',
+};
+
+function ModuleInitEditor({ worldModules, initData, onChange }: {
+  worldModules?: WorldModule[];
+  initData: Record<string, unknown>;
+  onChange: (data: Record<string, unknown>) => void;
+}) {
+  if (!worldModules || worldModules.length === 0) {
+    return <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', fontStyle: 'italic' }}>此世界未启用任何模块</div>;
+  }
+
+  const statMod = worldModules.find(m => m.moduleId === 'stat' && m.enabled);
+  const progMod = worldModules.find(m => m.moduleId === 'progression' && m.enabled);
+  // 兼容新格式（moduleConfig）和旧格式（data）
+  const statData = (statMod?.moduleConfig || statMod?.data) as any;
+  const progData = (progMod?.moduleConfig || progMod?.data) as any;
+
+  const set = (path: string, value: unknown) => {
+    const next = { ...initData };
+    const parts = path.split('.');
+    let obj: any = next;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!obj[parts[i]]) obj[parts[i]] = {};
+      obj = obj[parts[i]];
+    }
+    obj[parts[parts.length - 1]] = value;
+    onChange(next);
+  };
+
+  const get = (path: string, fallback: unknown = undefined): unknown => {
+    const parts = path.split('.');
+    let obj: any = initData;
+    for (const p of parts) {
+      if (!obj) return fallback;
+      obj = obj[p];
+    }
+    // 防御 NaN 和 undefined/null
+    if (obj == null || (typeof obj === 'number' && isNaN(obj))) return fallback;
+    return obj;
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* 数值属性 */}
+      {statData && (
+        <div>
+          <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 8, color: 'var(--accent)', letterSpacing: '0.03em' }}>
+            {statMod!.name}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* 主属性（生命 / 能量）— 统一两列网格 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[{ key: 'attrA', fallback: 80, tag: '生命' }, { key: 'attrB', fallback: 60, tag: '能量' }].map(({ key, fallback, tag }) => {
+                const attr = statData[key];
+                if (!attr) return null;
+                return (
+                  <div key={key}>
+                    <span style={_labelStyle}>{attr.name}<span style={{ opacity: 0.5, marginLeft: 3 }}>{tag}</span></span>
+                    <input style={{ ..._inputStyle, width: 56, textAlign: 'center' }} type="number"
+                      value={get(`数值属性.${key}.current`, attr.current ?? fallback) as number}
+                      onChange={e => set(`数值属性.${key}.current`, Number(e.target.value) || 0)} />
+                  </div>
+                );
+              })}
+            </div>
+            {/* 六维 — 统一三列网格 */}
+            {['dim1','dim2','dim3','dim4','dim5','dim6'].filter(k => statData[k]).length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {(['dim1','dim2','dim3','dim4','dim5','dim6'] as const).map(key => {
+                  const dim = statData[key];
+                  if (!dim) return null;
+                  return (
+                    <div key={key}>
+                      <span style={_labelStyle}>{dim.name}</span>
+                      <input style={{ ..._inputStyle, textAlign: 'center' }} type="number"
+                        value={get(`数值属性.${key}.value`, dim.value ?? 0) as number}
+                        onChange={e => set(`数值属性.${key}.value`, Number(e.target.value) || 0)} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* 属性 — 统一两列网格 */}
+            {statData.special?.length > 0 && (
+              <div>
+                <span style={{ ..._labelStyle, marginBottom: 4, display: 'block' }}>属性</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {statData.special.map((sp: any) => (
+                    <div key={sp.id}>
+                      <span style={_labelStyle}>{sp.name}</span>
+                      <input style={{ ..._inputStyle, textAlign: 'center' }} type="number"
+                        value={get(`数值属性.special.${sp.id}.value`, sp.value ?? 0) as number}
+                        onChange={e => set(`数值属性.special.${sp.id}.value`, Number(e.target.value) || 0)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 成长体系 */}
+      {progData?.tiers?.length > 0 && (
+        <div>
+          <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 8, color: 'var(--accent)', letterSpacing: '0.03em' }}>
+            {progMod!.name}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {progData.tiers.map((tier: any, i: number) => (
+              <label key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
+                borderRadius: 6, cursor: 'pointer', fontSize: 'var(--font-size-sm)',
+                background: (get('成长体系.currentTierIndex', 0) === i) ? 'var(--accent-dim)' : 'transparent',
+                border: `1px solid ${(get('成长体系.currentTierIndex', 0) === i) ? 'var(--accent)' : 'var(--border)'}`,
+                transition: 'all 0.12s',
+              }}>
+                <input type="radio" name="initTier"
+                  checked={(get('成长体系.currentTierIndex', 0) === i)}
+                  onChange={() => set('成长体系.currentTierIndex', i)}
+                  style={{ display: 'none' }} />
+                <span style={{ fontWeight: 600, color: (get('成长体系.currentTierIndex', 0) === i) ? 'var(--accent)' : 'var(--text-primary)', minWidth: '1.5em' }}>
+                  {i + 1}.
+                </span>
+                <span style={{ fontWeight: 600, color: (get('成长体系.currentTierIndex', 0) === i) ? 'var(--accent)' : 'var(--text-primary)' }}>
+                  {tier.name}
+                </span>
+                {tier.description && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tier.description}</span>}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!statData && !progData && (
+        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          此世界的模块没有可配置的初始数据
+        </div>
+      )}
+    </div>
   );
 }

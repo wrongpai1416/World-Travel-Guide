@@ -8,6 +8,7 @@ import type {
   ProgressionModuleSchema,
   ResourceModuleSchema,
   DiceModuleSchema,
+  TalentModuleSchema,
   WorldSystemData,
 } from './schema';
 
@@ -59,7 +60,7 @@ export function createDefaultStatModule(): StatModuleSchema {
   };
 }
 
-/** 创建默认的成长体系模块数据 */
+/** 创建默认的成长体系模块数据（段位制） */
 export function createDefaultProgressionModule(): ProgressionModuleSchema {
   return {
     mode: PROGRESSION_DEFAULTS.mode,
@@ -86,6 +87,13 @@ export function createDefaultResourceModule(): ResourceModuleSchema {
 export function createDefaultDiceModule(): DiceModuleSchema {
   return {
     history: [],
+  };
+}
+
+/** 创建默认的天赋体系模块数据 */
+export function createDefaultTalentModule(): TalentModuleSchema {
+  return {
+    categories: [],
   };
 }
 

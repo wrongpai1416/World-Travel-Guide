@@ -9,7 +9,7 @@ export function Section({ icon, title, children }: { icon: React.ReactNode; titl
       </div>
       <div style={{
         background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-        borderRadius: '8px', overflow: 'hidden',
+        borderRadius: 'var(--radius-md)', overflow: 'hidden',
       }}>
         {children}
       </div>
@@ -40,19 +40,12 @@ export function SegmentedControl({ options, value, onChange }: {
   onChange: (v: string) => void;
 }) {
   return (
-    <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', padding: '2px' }}>
+    <div className="segmented-control">
       {options.map(opt => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          style={{
-            padding: '4px 12px', border: 'none', borderRadius: '4px',
-            fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.15s',
-            background: value === opt.value ? 'var(--bg-secondary)' : 'transparent',
-            color: value === opt.value ? 'var(--accent)' : 'var(--text-muted)',
-            fontWeight: value === opt.value ? '600' : '400',
-            boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-          }}
+          className={`segmented-control-btn${value === opt.value ? ' active' : ''}`}
         >
           {opt.label}
         </button>
@@ -71,11 +64,11 @@ export function Select({ options, value, onChange, width }: {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
+      className="input-field"
       style={{
-        padding: '5px 10px', border: '1px solid var(--border)', borderRadius: '6px',
-        background: 'var(--bg-secondary)', color: 'var(--text-primary)',
-        fontSize: 'var(--font-size-base)', cursor: 'pointer', outline: 'none',
+        padding: '5px 10px',
         width: width || 'auto',
+        cursor: 'pointer',
       }}
     >
       {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -85,20 +78,15 @@ export function Select({ options, value, onChange, width }: {
 
 export function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onChange(!value)}
-      style={{
-        width: '40px', height: '22px', borderRadius: '11px', cursor: 'pointer',
-        background: value ? 'var(--accent)' : 'var(--text-muted)',
-        position: 'relative', transition: 'background 0.2s',
-      }}
+      className={`toggle-switch${value ? ' on' : ''}`}
+      role="switch"
+      aria-checked={value}
     >
-      <div style={{
-        width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-        position: 'absolute', top: '2px', left: value ? '20px' : '2px',
-        transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-      }} />
-    </div>
+      <div className="toggle-switch-knob" />
+    </button>
   );
 }
 
@@ -170,25 +158,7 @@ export function TextArea({ value, onChange, placeholder, rows = 6, mono = false 
       placeholder={placeholder}
       rows={rows}
       spellCheck={false}
-      style={{
-        width: '100%', padding: '10px 12px',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        background: 'var(--bg-primary)',
-        color: 'var(--text-primary)',
-        fontSize: 'var(--font-size-md)',
-        fontFamily: mono ? "var(--font-mono, 'Consolas', monospace)" : 'inherit',
-        lineHeight: '1.6', resize: 'vertical', outline: 'none',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-      }}
-      onFocus={e => {
-        e.target.style.borderColor = 'var(--accent)';
-        e.target.style.boxShadow = '0 0 0 3px var(--accent-dim)';
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = 'var(--border)';
-        e.target.style.boxShadow = 'none';
-      }}
+      className={`settings-textarea${mono ? ' mono' : ''}`}
     />
   );
 }
@@ -202,29 +172,10 @@ export function Button({ children, onClick, primary = false, disabled = false, i
     <button
       onClick={onClick}
       disabled={disabled}
+      className={primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        padding: primary ? '7px 16px' : '4px 12px',
-        border: `1px solid ${primary ? 'var(--accent)' : 'var(--border)'}`,
-        borderRadius: 'var(--radius-md)',
-        background: primary ? 'var(--accent)' : 'var(--bg-secondary)',
-        color: primary ? '#fff' : 'var(--text-secondary)',
-        fontSize: primary ? 'var(--font-size-md)' : 'var(--font-size-base)',
-        fontWeight: primary ? '500' : '400',
-        cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         whiteSpace: 'nowrap',
-        transition: 'all 0.15s',
-      }}
-      onMouseEnter={e => {
-        if (!disabled) {
-          e.currentTarget.style.borderColor = 'var(--accent)';
-          if (!primary) e.currentTarget.style.color = 'var(--accent)';
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = primary ? 'var(--accent)' : 'var(--border)';
-        if (!primary) e.currentTarget.style.color = 'var(--text-secondary)';
       }}
     >
       {icon}{children}

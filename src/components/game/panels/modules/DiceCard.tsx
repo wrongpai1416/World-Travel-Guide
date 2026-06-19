@@ -12,9 +12,11 @@ interface DiceCardProps {
   statData?: StatModuleSchema;
   /** 更新骰子数据的回调 */
   onUpdate?: (roll: DiceRoll) => void;
+  /** 自定义标题（世界创建时设置的模块名称） */
+  title?: string;
 }
 
-export default function DiceCard({ data, statData, onUpdate }: DiceCardProps) {
+export default function DiceCard({ data, statData, onUpdate, title }: DiceCardProps) {
   const [selectedAttr, setSelectedAttr] = useState<string>('');
   const [dc, setDc] = useState(DICE_DEFAULTS.defaultDC);
   const [animating, setAnimating] = useState(false);
@@ -51,7 +53,7 @@ export default function DiceCard({ data, statData, onUpdate }: DiceCardProps) {
   }, [selectedAttr, dc, statData, checkableAttrs, onUpdate]);
 
   return (
-    <Collapsible icon={<Dice6 size={15} />} title="骰子检定" defaultOpen={true}>
+    <Collapsible icon={<Dice6 size={15} />} title={title || '骰子检定'} defaultOpen={true}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {/* 操作区 */}
         {checkableAttrs.length > 0 && (
@@ -88,10 +90,10 @@ export default function DiceCard({ data, statData, onUpdate }: DiceCardProps) {
             <button
               onClick={handleRoll}
               disabled={!selectedAttr || animating}
+              className="btn-primary btn-xs"
               style={{
-                padding: '4px 12px', borderRadius: '6px',
-                border: '1px solid var(--accent)', background: animating ? 'var(--accent-dim)' : 'var(--accent)',
-                color: '#fff', fontSize: 'var(--font-size-xs)', cursor: animating ? 'wait' : 'pointer',
+                background: animating ? 'var(--accent-dim)' : undefined,
+                cursor: animating ? 'wait' : undefined,
                 opacity: !selectedAttr ? 0.5 : 1,
               }}
             >

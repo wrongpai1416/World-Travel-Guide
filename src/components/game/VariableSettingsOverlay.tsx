@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useState, useMemo, useCallback, useRef } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import {
   X, Layers, List, Download, Upload, RefreshCw,
   ChevronDown, ChevronRight, RotateCcw, Save,
@@ -270,6 +271,8 @@ export function VariableSettingsOverlay({
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   };
+
+  useBodyScrollLock(true);
 
   return (
     <div style={{

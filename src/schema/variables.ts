@@ -76,6 +76,13 @@ export interface PlayerState {
   };
   物品栏: Record<string, InventoryItem>;
   记事本: Notebook;
+  // ── 成长体系状态（动态，AI可更新） ──
+  /** 当前段位/等级索引 */
+  当前段位索引?: number;
+  /** 当前经验值 */
+  当前经验值?: number;
+  /** 可用属性点 */
+  可用属性点?: number;
 }
 
 export interface CoreAnchor {
@@ -123,6 +130,12 @@ export interface NPCData {
   长期目标?: string;
   内心想法?: string;
   属性?: Record<string, number | string>;
+  // 成长体系（当世界启用成长体系模块时填充）
+  成长状态?: {
+    当前段位索引?: number;
+    当前经验值?: number;
+    可用属性点?: number;
+  };
   天赋?: string[];
   技能列表?: string[] | Record<string, unknown>;
   物品列表?: string[] | Record<string, unknown>;

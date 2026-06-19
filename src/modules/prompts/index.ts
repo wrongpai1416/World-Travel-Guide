@@ -3,3 +3,4 @@ export { buildStatThemePrompt, buildStatGenPrompt, STAT_UPDATE_RULES } from './s
 export { buildProgressionGenPrompt, PROGRESSION_UPDATE_RULES } from './progression';
 export { buildResourceGenPrompt, RESOURCE_UPDATE_RULES } from './resource';
 export { DICE_RULES_PROMPT, DICE_UPDATE_RULES } from './dice';
+export { buildTalentGenPrompt, TALENT_UPDATE_RULES } from './talent';

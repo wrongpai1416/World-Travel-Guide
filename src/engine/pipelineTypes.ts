@@ -1,5 +1,6 @@
 // 管线类型定义
 // 执行顺序：正文 → 记忆写入 → 摘要保存 → 检索规划 → 上下文编译 → 变量提取
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 /** 管线任务 ID */
 export type PipelineTaskId =
@@ -126,13 +127,13 @@ export function loadPipelineConfig(): PipelineConfig {
   let variableMaxRetries = 3;
   let memoryEnabled = true;
 
-  try { variableEnabled = localStorage.getItem('world_travel_guide_variable_enabled') !== 'false'; } catch {}
+  try { variableEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_enabled`) !== 'false'; } catch {}
   try {
-    const sec = Math.max(0, Math.min(10, parseFloat(localStorage.getItem('world_travel_guide_variable_delay') || '1') || 1));
+    const sec = Math.max(0, Math.min(10, parseFloat(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_delay`) || '1') || 1));
     variableDelayMs = sec * 1000;
   } catch {}
-  try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem('world_travel_guide_variable_retries') || '3') || 3)); } catch {}
-  try { memoryEnabled = localStorage.getItem('world_travel_guide_memory_enabled') !== 'false'; } catch {}
+  try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch {}
+  try { memoryEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_memory_enabled`) !== 'false'; } catch {}
 
   return {
     executionOrder: DEFAULT_EXECUTION_ORDER,

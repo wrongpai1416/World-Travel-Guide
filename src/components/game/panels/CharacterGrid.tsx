@@ -564,7 +564,7 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
                   color: summarizing ? 'var(--text-muted)' : 'var(--accent)', cursor: summarizing ? 'wait' : 'pointer', fontWeight: '500',
                 }}>{summarizing ? '总结中...' : '总结事迹'}</button>
             )}
-            <button onClick={onClose} style={{ border: 'none', background: 'var(--bg-tertiary)', width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+            <button onClick={onClose} className="btn-ghost btn-icon-sm" style={{ background: 'var(--bg-tertiary)' }}><X size={14} /></button>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import {
   deleteSave as deleteSaveFromDb,
   getAllSaveMeta,
   saveAllSaveMeta,
+  invalidateSaveMetaCache,
   generateSaveId,
   buildPreview,
   exportSave as exportSaveFromDb,
@@ -92,19 +93,24 @@ export const useSaveStore = create<SaveState>((set, get) => ({
   },
 
   deleteSave: async (saveId) => {
+    console.log(`[存档] 开始删除: ${saveId}`);
     await deleteSaveFromDb(saveId);
     const { savesMeta, currentSaveId } = get();
     const updated = savesMeta.filter(s => s.id !== saveId);
+    console.log(`[存档] 删除前 ${savesMeta.length} 条，删除后 ${updated.length} 条`);
 
     const changes: Partial<SaveState> = { savesMeta: updated };
     if (currentSaveId === saveId) {
       localStorage.removeItem(ACTIVE_SAVE_KEY);
       changes.currentSaveId = null;
       changes.currentSaveName = '';
+      console.log(`[存档] 清除 ACTIVE_SAVE_KEY（删除的是当前存档）`);
     }
 
     set(changes);
+    invalidateSaveMetaCache();
     await saveAllSaveMeta(updated);
+    console.log(`[存档] 删除完成，已持久化 ${updated.length} 条元数据`);
   },
 
   renameSave: async (saveId, newName) => {
@@ -200,7 +206,10 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     _saveTimer = setTimeout(() => {
       _saveTimer = null;
       if (_autoSaveBuilder) {
+        console.log('[auto-save] 触发自动存档...');
         get().saveGame(_autoSaveBuilder).catch(err => console.warn('[auto-save] 保存失败:', err));
+      } else {
+        console.warn('[auto-save] _autoSaveBuilder 未注入，跳过存档');
       }
     }, 500);
   },
@@ -220,6 +229,7 @@ let _autoSaveBuilder: (() => GameSave | null) | null = null;
 
 /** 注入自动存档的 buildSaveData 函数（由 GameContext 调用） */
 export function setAutoSaveBuilder(builder: () => GameSave | null) {
+  console.log('[auto-save] 注入 _autoSaveBuilder');
   _autoSaveBuilder = builder;
 }
 
@@ -231,5 +241,6 @@ export function resetForNewGame() {
   }
   _saveQueued = false;
   _savePromise = null;
-  _autoSaveBuilder = null;
+  // 注意：不要清空 _autoSaveBuilder，否则自动存档会失效
+  // _autoSaveBuilder 由 GameContext 的 useEffect 注入，生命周期与组件一致
 }

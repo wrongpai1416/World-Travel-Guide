@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import {
   Search, Globe, ScrollText, MapPin, Clock, Cloud,
   Swords, AlertTriangle, DollarSign, Flag, User,
@@ -56,6 +57,7 @@ export default function StepWorldBrowser({
   const isMobile = useIsMobile(768);
 
   const selected = allWorlds.find(w => w.id === selectedWorld);
+  useBodyScrollLock(isMobile && showMobileDetail && !!selected);
 
   // 移动端：选择世界后自动显示详情
   useEffect(() => {
@@ -387,35 +389,76 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
   );
 }
 
-/** 系统 Tab — 动态渲染通用框架 */
+/** 系统 Tab — 从 modules[].moduleConfig 读取 */
 function SystemsTab({ world }: { world: WorldDef }) {
+  const statMod = world.modules?.find(m => m.moduleId === 'stat' && m.enabled);
+  const progMod = world.modules?.find(m => m.moduleId === 'progression' && m.enabled);
+  const resMod = world.modules?.find(m => m.moduleId === 'resource' && m.enabled);
+
+  const statData = statMod?.moduleConfig as any;
+  const hasNewStat = !!statData?.attrA;
+  const dims = hasNewStat
+    ? ['dim1','dim2','dim3','dim4','dim5','dim6'].filter(k => statData[k]).map(k => ({ key: k, name: statData[k].name, range: statData[k].range }))
+    : [];
+  const specials: Array<{ id: string; name: string; value: number; range: [number,number]; description: string }> = statData?.special || [];
+
+  const progData = progMod?.moduleConfig as any;
+  const tiers: Array<{ name: string; description?: string }> = progData?.tiers || [];
+  const progDesc = progData ? (progData.mode === 'tiered' ? '段位制' : '等级制') : '';
+
+  const resData = resMod?.moduleConfig as any;
+  const resources = resData?.items || [];
+  const resDesc = resData?.description;
+
   return (
     <div className="tab-section">
-      {/* 核心属性 */}
-      {world.coreStats && world.coreStats.length > 0 && (
+      {/* 数值属性（只显示六维+特殊，不露attrA/attrB） */}
+      {(dims.length > 0 || specials.length > 0 || oldImportant.length > 0 || oldNormal.length > 0) && (
         <div className="detail-block">
-          <div className="detail-block-title"><BarChart3 size={15} />核心属性</div>
-          <div className="stats-grid">
-            {world.coreStats.map(stat => (
-              <div key={stat.id} className={`stat-card${stat.important ? ' important' : ''}`}>
-                <div className="stat-name">{stat.name}</div>
-                <div className="stat-desc">{stat.description}</div>
-                {stat.range && <div className="stat-range">{stat.range[0]}~{stat.range[1]}</div>}
+          <div className="detail-block-title"><BarChart3 size={15} />数值属性</div>
+          <div className="detail-block-body">
+            {/* 新格式六维 */}
+            {dims.length > 0 && (
+              <div className="stats-grid">
+                {dims.map(d => (
+                  <div key={d.key} className="stat-card">
+                    <div className="stat-name">{d.name}</div>
+                    <div className="stat-range">{d.range ? `${d.range[0]}~${d.range[1]}` : ''}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {/* 特色属性 */}
+            {specials.length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {specials.map(sp => (
+                  <span key={sp.id} className="detail-pill" title={sp.description}>{sp.name} {sp.value}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* 进阶体系 */}
-      {world.progression && (
+      {/* 成长体系 */}
+      {(tiers.length > 0 || (progData?.mode === 'level' && progData?.levelData)) && (
         <div className="detail-block">
-          <div className="detail-block-title"><Target size={15} />进阶体系</div>
+          <div className="detail-block-title"><Target size={15} />成长体系</div>
           <div className="detail-block-body">
-            {world.progression.description && <p>{world.progression.description}</p>}
-            {world.progression.tiers && world.progression.tiers.length > 0 && (
+            {progDesc && <p>{progDesc}</p>}
+            {/* 等级制 */}
+            {progData?.mode === 'level' && progData?.levelData && (
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                等级范围：0 ~ {progData.levelData.maxLevel} 级
+                <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                  （每级生命+{progData.levelData.growthPerLevel?.attrAMax || 0}，六维+{progData.levelData.growthPerLevel?.dim1Max || 0}）
+                </span>
+              </div>
+            )}
+            {/* 段位制 */}
+            {tiers.length > 0 && (
               <div className="progression-ladder">
-                {world.progression.tiers.map((tier, i) => (
+                {tiers.map((tier, i) => (
                   <div key={i} className="progression-tier">
                     <span className="tier-number">{i + 1}</span>
                     <div>
@@ -430,22 +473,27 @@ function SystemsTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 冲突方式 */}
-      {world.conflict && (
+      {/* 资源管理 */}
+      {resources.length > 0 && (
         <div className="detail-block">
-          <div className="detail-block-title"><Swords size={15} />冲突方式</div>
+          <div className="detail-block-title"><Flag size={15} />资源管理</div>
           <div className="detail-block-body">
-            <p>{world.conflict.description}</p>
-            <div className="detail-pills">
-              {world.conflict.types.map((t, i) => <span key={i} className="detail-pill">{t}</span>)}
-            </div>
-            <div className="detail-flags">
-              {world.conflict.lethal && <span className="detail-flag danger"><AlertTriangle size={11} />角色可能死亡</span>}
-              {world.conflict.nonViolent && <span className="detail-flag safe"><Shield size={11} />无物理暴力</span>}
+            {resDesc && <p>{resDesc}</p>}
+            <div className="resources-list">
+              {resources.map((res: any) => (
+                <div key={res.id} className={`resource-item${res.scarce ? ' scarce' : ''}`}>
+                  <div className="resource-header">
+                    <span className="resource-name">{res.symbol ? `${res.symbol} ` : ''}{res.name}</span>
+                    {res.scarce && <span className="resource-scarce">稀缺</span>}
+                  </div>
+                  <div className="resource-desc">{res.description}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
+
 
       {/* 关系系统 */}
       {world.relationships && (
@@ -486,22 +534,29 @@ function SystemsTab({ world }: { world: WorldDef }) {
   );
 }
 
-/** 经济 Tab */
+/** 经济 Tab — 优先从 modules[].moduleConfig 读取资源，fallback 到 modules[].data */
 function EconomyTab({ world }: { world: WorldDef }) {
+  const resMod = world.modules?.find(m => m.moduleId === 'resource' && m.enabled);
+  // 兼容新格式（moduleConfig）和旧格式（data）
+  const resData = (resMod?.moduleConfig || resMod?.data) as any;
+  const resources = resData?.items || world.resources?.resources || [];
+  const currency = resData?.currency || world.economy?.currency;
+  const resDesc = resData?.description || world.resources?.description;
+
   return (
     <div className="tab-section">
-      {/* 货币 */}
-      {world.economy && (
+      {/* 货币 & 经济 */}
+      {(world.economy || currency) && (
         <div className="detail-block">
           <div className="detail-block-title"><DollarSign size={15} />经济系统</div>
           <div className="detail-block-body">
-            {world.economy.currency && (
+            {currency && (
               <div className="detail-row">
-                <strong>{world.economy.currency.symbol ?? ''} {world.economy.currency.name}</strong>
-                {world.economy.currency.description && <span> — {world.economy.currency.description}</span>}
+                <strong>{currency.symbol ?? ''} {currency.name}</strong>
+                {currency.description && <span> — {currency.description}</span>}
               </div>
             )}
-            {world.economy.priceLevel && (
+            {world.economy?.priceLevel && (
               <div className="detail-row"><BarChart3 size={13} /><strong>物价水平：</strong>{world.economy.priceLevel}</div>
             )}
           </div>
@@ -509,13 +564,13 @@ function EconomyTab({ world }: { world: WorldDef }) {
       )}
 
       {/* 资源系统 */}
-      {world.resources && (
+      {resources.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Flag size={15} />资源管理</div>
           <div className="detail-block-body">
-            {world.resources.description && <p>{world.resources.description}</p>}
+            {resDesc && <p>{resDesc}</p>}
             <div className="resources-list">
-              {world.resources.resources.map(res => (
+              {resources.map((res: any) => (
                 <div key={res.id} className={`resource-item${res.scarce ? ' scarce' : ''}`}>
                   <div className="resource-header">
                     <span className="resource-name">{res.symbol ? `${res.symbol} ` : ''}{res.name}</span>

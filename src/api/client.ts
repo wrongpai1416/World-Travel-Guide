@@ -177,6 +177,7 @@ export async function requestCompletion(
   const endpoint = buildEndpoint(config);
   const normalized = normalizeMessages(config.provider, messages);
   const body = buildRequestBody(config, normalized, { ...options, stream: false });
+  console.log(`🚀 [API] 发起请求 → ${endpoint} (${messages.length} 条消息)`);
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -202,7 +203,9 @@ export async function requestCompletion(
     totalTokens: json.usage.total_tokens || 0,
   } : undefined;
 
-  return { text, reasoning: reasoning || undefined, usage, elapsed: Date.now() - start };
+  const elapsed = Date.now() - start;
+  console.log(`✅ [API] 请求完成，耗时 ${elapsed}ms，${text.length} 字`);
+  return { text, reasoning: reasoning || undefined, usage, elapsed };
 }
 
 // 流式请求

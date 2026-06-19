@@ -8,6 +8,7 @@ import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import type { ApiConfig } from '../api/types';
 import { runVariableExtraction } from './variableExtraction';
 import { eventBus, EVENTS } from './eventBus';
+import { waitForRateLimit } from '../api/rateLimiter';
 
 /** 管线执行回调 */
 export interface PipelineCallbacks {
@@ -93,9 +94,15 @@ export class PipelineExecutor {
       const hasMain = step.includes('main');
       const otherTasks = step.filter(t => t !== 'main');
 
+      // 正文生成不限流（第一次调用），后续阶段等待限流
+      if (!hasMain) {
+        await waitForRateLimit();
+      }
+
       if (hasMain) {
         mainResult = await this.executeMain(mainTask);
         if (otherTasks.length > 0 && !signal.aborted) {
+          await waitForRateLimit();
           await Promise.all(otherTasks.map(taskId =>
             this.executeTask(taskId, config, mainResult!, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks)
           ));

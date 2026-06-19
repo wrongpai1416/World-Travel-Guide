@@ -3,12 +3,9 @@
  * 管理角色补全、变量提取等编辑器功能的 prompt
  */
 
-import {
-  STAT_UPDATE_RULES,
-  PROGRESSION_UPDATE_RULES,
-  RESOURCE_UPDATE_RULES,
-  DICE_UPDATE_RULES,
-} from '../../modules/prompts';
+import type { StatModuleSchema, ProgressionModuleSchema, ResourceModuleSchema, DiceModuleSchema, TalentModuleSchema } from '../../modules/schema';
+import { extractWorldSystemData } from '../../modules/runtime';
+import { getXpForNextTier } from '../../modules/xpAlgorithm';
 
 // 角色补全选项
 export interface CharacterFillOptions {
@@ -17,13 +14,25 @@ export interface CharacterFillOptions {
   playerGender: string;
   playerAge: string;
   playerBackground: string;
+  /** 世界的数值属性模块配置（用于生成角色初始属性） */
+  statModule?: {
+    attrA: { name: string; max: number };
+    attrB: { name: string; max: number };
+    dim1: { name: string; range: [number, number] };
+    dim2: { name: string; range: [number, number] };
+    dim3: { name: string; range: [number, number] };
+    dim4: { name: string; range: [number, number] };
+    dim5: { name: string; range: [number, number] };
+    dim6: { name: string; range: [number, number] };
+    special?: Array<{ id: string; name: string; range: [number, number]; description: string }>;
+  };
 }
 
 /**
  * 构建角色 AI 补全的 System Prompt
  */
 export function buildCharacterFillPrompt(options: CharacterFillOptions): string {
-  const { worldSetting, playerName, playerGender, playerAge, playerBackground } = options;
+  const { worldSetting, playerName, playerGender, playerAge, playerBackground, statModule } = options;
 
   return `你是一个专业的角色设定生成器，擅长根据基础信息创建完整的角色设定。
 你的任务是分析玩家提供的基础信息，结合世界设定，生成丰富的角色设定。
@@ -96,7 +105,25 @@ ${worldSetting}
    - 性格要有层次：personality（外在表现）和 hiddenPersonality（内心深处）可以不同
    - 外貌描写要具体：包含发型、体型、标志性特征等
    - 技能列表生成 1~3 个技能，物品列表生成 1~2 个物品
+${statModule ? `
+12. 初始属性（initialStats）
+   - 根据角色的职业、背景、年龄，为每个属性分配合理的初始值
+   - 初始值应在属性范围内，体现角色的特点
+   - 例如：战士力量高但魔力低，法师魔力高但体质低
+   - 生命/能量初始值取上限的 60%~90%（根据角色体质调整）
+   - 特色属性如有，也需要设定初始值
 
+   【当前世界的属性系统】
+   - ${statModule.attrA.name}（生命类）：上限 ${statModule.attrA.max}
+   - ${statModule.attrB.name}（能量类）：上限 ${statModule.attrB.max}
+   - ${statModule.dim1.name}：范围 [${statModule.dim1.range[0]}, ${statModule.dim1.range[1]}]
+   - ${statModule.dim2.name}：范围 [${statModule.dim2.range[0]}, ${statModule.dim2.range[1]}]
+   - ${statModule.dim3.name}：范围 [${statModule.dim3.range[0]}, ${statModule.dim3.range[1]}]
+   - ${statModule.dim4.name}：范围 [${statModule.dim4.range[0]}, ${statModule.dim4.range[1]}]
+   - ${statModule.dim5.name}：范围 [${statModule.dim5.range[0]}, ${statModule.dim5.range[1]}]
+   - ${statModule.dim6.name}：范围 [${statModule.dim6.range[0]}, ${statModule.dim6.range[1]}]
+${statModule.special?.map(s => `   - ${s.name}（${s.description}）：范围 [${s.range[0]}, ${s.range[1]}]`).join('\n') || ''}
+` : ''}
 ═══════════════════════════════════════
 【输出要求】
 只输出一个合法JSON对象，不要markdown，不要代码块，不要额外解释。
@@ -150,15 +177,131 @@ JSON字段必须完全如下：
       "background": "NPC背景故事（2-3句话）",
       "skillsList": {"技能名": {"描述": "技能描述", "类型": "战斗/生活/社交/特殊", "品质": "普通/精良/稀有/史诗/传说"}},
       "itemsList": {"物品名": {"数量": 1, "类型": "物品类型", "品质": "普通/精良/稀有/史诗/传说", "备注": "备注"}}
+      ${statModule ? `,
+      "attrs": {
+        "attrA": <生命类初始值，取上限的60%~90%>,
+        "attrB": <能量类初始值，取上限的50%~80%>,
+        "dim1": <${statModule.dim1.name}初始值，在范围内根据角色特点设定>,
+        "dim2": <${statModule.dim2.name}初始值>,
+        "dim3": <${statModule.dim3.name}初始值>,
+        "dim4": <${statModule.dim4.name}初始值>,
+        "dim5": <${statModule.dim5.name}初始值>,
+        "dim6": <${statModule.dim6.name}初始值>
+      }` : ''}
+      ${hasProgression ? `,
+      "tierIndex": <NPC的段位索引，根据实力设定，0=最低段位>` : ''}
     }
-  ]
+  ]${statModule ? `,
+  "initialStats": {
+    "attrA": <生命类初始值，取上限的60%~90%>,
+    "attrB": <能量类初始值，取上限的50%~80%>,
+    "dim1": <${statModule.dim1.name}初始值，在范围内根据角色特点设定>,
+    "dim2": <${statModule.dim2.name}初始值>,
+    "dim3": <${statModule.dim3.name}初始值>,
+    "dim4": <${statModule.dim4.name}初始值>,
+    "dim5": <${statModule.dim5.name}初始值>,
+    "dim6": <${statModule.dim6.name}初始值>${statModule.special?.length ? `,
+    "special": [
+      { "id": "${statModule.special[0]?.id}", "value": <初始值> }
+    ]` : ''}
+  }` : ''}
 }`;
+}
+
+/** 根据当前世界系统数据，生成具体的模块更新规则 */
+function generateModuleUpdateRules(worldSystem?: Record<string, unknown>, progressionConfig?: Record<string, unknown>): string {
+  if (!worldSystem && !progressionConfig) return '';
+
+  const data = worldSystem ? extractWorldSystemData(worldSystem) : {};
+  const rules: string[] = [];
+
+  // ── 数值属性 ──
+  if (data.数值属性) {
+    const s = data.数值属性 as StatModuleSchema;
+    const dims = [s.dim1, s.dim2, s.dim3, s.dim4, s.dim5, s.dim6];
+    const dimKeys = ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6'];
+    rules.push(`   【数值属性更新规则】
+   - 生命类（${s.attrA.name}）：{"世界系统":{"数值属性":{"attrA":{"current":新值}}}}
+   - 能量类（${s.attrB.name}）：{"世界系统":{"数值属性":{"attrB":{"current":新值}}}}
+   - 六维属性：${dims.map((d, i) => `${d.name}(${dimKeys[i]})`).join('、')}
+     示例：{"世界系统":{"数值属性":{"dim1":{"value":新值}}}}
+   - 属性值不能超过range[1]，不能低于range[0]
+   ${s.special.length > 0 ? `  - 特色属性：${s.special.map(sp => `${sp.name}(${sp.id})`).join('、')}
+     示例：{"世界系统":{"数值属性":{"special":[{"id":"${s.special[0]?.id}","value":新值}]}}}` : ''}`);
+  }
+
+  // ── 成长体系（配置从世界定义读取，状态存放在玩家） ──
+  if (progressionConfig) {
+    const p = progressionConfig as any;
+    const mode = p.mode;
+    const currentTierIndex = 0; // 这里只是示例，实际值从玩家状态读取
+    const currentXP = 0;
+
+    if (mode === 'level' && p.levelData) {
+      const maxLevel = p.levelData.maxLevel;
+      rules.push(`   【成长体系更新规则】
+   - 模式：等级制（0~${maxLevel}级）
+   - 获得经验时：{"玩家":{"当前经验值":新值}}
+   - 升级时：{"玩家":{"当前段位索引":新等级,"当前经验值":0}}
+   - 当前经验值不能为负，当前段位索引不能超过${maxLevel}`);
+    } else if (p.tiers?.length) {
+      const tierList = p.tiers.map((t: any, i: number) => `${i + 1}.${t.name}`).join('、');
+      rules.push(`   【成长体系更新规则】
+   - 模式：段位制
+   - 阶段列表：${tierList}
+   - 获得经验时：{"玩家":{"当前经验值":新值}}
+   - 升段时：{"玩家":{"当前段位索引":新索引,"当前经验值":0}}
+   - 当前经验值不能为负，当前段位索引不能超过${p.tiers.length - 1}`);
+    }
+  }
+
+  // ── 资源管理 ──
+  if (data.资源管理) {
+    const r = data.资源管理 as ResourceModuleSchema;
+    if (r.items.length > 0) {
+      const itemList = r.items.map(item => `${item.name}(${item.id})${item.scarce ? '[稀缺]' : ''}`).join('、');
+      rules.push(`   【资源管理更新规则】
+   - 资源列表：${itemList}
+   - 数量变化：{"世界系统":{"资源管理":{"items":[{"id":"${r.items[0]?.id}","amount":新数量}]}}}
+   ${r.currency ? `  - 货币（${r.currency.name}）：{"世界系统":{"资源管理":{"currency":{"amount":新数量}}}}` : ''}
+   - amount不能为负数${r.items.some(i => i.max != null) ? '，有max的不能超过max' : ''}`);
+    }
+  }
+
+  // ── 骰子检定 ──
+  if (data.骰子检定) {
+    rules.push(`   【骰子检定更新规则】
+   - 掷骰后：{"世界系统":{"骰子检定":{"lastRoll":{"attributeUsed":"dim1","d20":15,"modifier":2,"total":17,"dc":15,"success":true}}}}
+   - AI在叙事中触发骰子检定，结果由框架计算`);
+  }
+
+  // ── 天赋体系 ──
+  if (data.天赋体系) {
+    const t = data.天赋体系;
+    const catList = t.categories.map(c =>
+      `${c.name}(${c.id}): ${c.talents.map(tal => `${tal.name}[${tal.rarity}]`).join('、')}`
+    ).join('；');
+    rules.push(`   【天赋体系更新规则】
+   - 天赋大类：${catList}
+   - 天赋是角色固有特质，一般不需运行时操作
+   - 剧情触发觉醒新天赋（罕见）：{"世界系统":{"天赋体系":{"categories":[{"id":"大类id","talents":[{"id":"新id","name":"名","description":"描述","rarity":"稀有","effects":["效果"]}]}}}}`);
+  }
+
+  return rules.join('\n\n');
 }
 
 /**
  * 构建变量提取的 System Prompt
+ * @param worldSystem 当前世界系统运行时数据（用于生成具体的模块更新规则）
+ * @param progressionConfig 成长体系配置（从世界定义读取，不存入 GameState）
  */
-export function buildVariableExtractionPrompt(): string {
+export function buildVariableExtractionPrompt(worldSystem?: Record<string, unknown>, progressionConfig?: Record<string, unknown>): string {
+  // 提取模块数据，判断是否有数值属性模块
+  const moduleData = worldSystem ? extractWorldSystemData(worldSystem) : {};
+  const hasStatModule = !!moduleData.数值属性;
+  const statModule = hasStatModule ? moduleData.数值属性 as any : undefined;
+  const hasProgression = !!(progressionConfig && Array.isArray(progressionConfig.tiers) && progressionConfig.tiers.length > 0);
+
   return `你是一个后台变量裁定系统，负责分析玩家消息和AI回复，提取需要更新的变量。
 你的任务是识别剧情中的关键变化，更新游戏状态，但不续写剧情。
 
@@ -220,6 +363,10 @@ export function buildVariableExtractionPrompt(): string {
   "内心想法":"角色更深层的内心独白（可选，与个人信息.当前想法互补）",
   "技能列表":{"技能名":{"描述":"技能描述","类型":"战斗/生活/社交/特殊","品质":"普通/精良/稀有/史诗/传说"}},
   "物品列表":{"物品名":{"数量":1,"类型":"物品类型","品质":"普通/精良/稀有/史诗/传说","备注":"备注"}}
+  ${statModule ? `,
+  "属性":{"attrA":<生命值>,"attrB":<能量>,"dim1":<${statModule.dim1.name}>,"dim2":<${statModule.dim2.name}>,"dim3":<${statModule.dim3.name}>,"dim4":<${statModule.dim4.name}>,"dim5":<${statModule.dim5.name}>,"dim6":<${statModule.dim6.name}>}` : ''}
+  ${hasProgression ? `,
+  "成长状态":{"当前段位索引":<段位索引,根据实力设定>}` : ''}
 }}}
 
 【更新已有NPC - ★ 每轮必须输出，不可省略 ★】
@@ -236,16 +383,41 @@ export function buildVariableExtractionPrompt(): string {
   "当前行动":"当前正在做的事",
   "短期目标":"如有变化则更新",
   "长期目标":"如有变化则更新"
+  ${statModule ? `,
+  "属性":{"attrA":<新值,受伤/恢复时更新>,"attrB":<新值>,"dim1":<新值>,"dim2":<新值>,"dim3":<新值>,"dim4":<新值>,"dim5":<新值>,"dim6":<新值>}` : ''}
+  ${hasProgression ? `,
+  "成长状态":{"当前段位索引":<新值,升级/突破时更新>}` : ''}
 }}}
 
 【离场规则】
 1. NPC未在当前场景出现 → 人物分类设为"离场"，仅更新此字段
 2. NPC重新出现 → 人物分类设回"在场"，并更新上述全部字段
 
-【人物事迹规则】（★ 每轮必须追加1条，不可跳过 ★）
-每轮必须为场景中的每个在场NPC追加1条人物事迹，记录本轮发生的关键事件摘要。格式：
-{"人物档案":{"角色名":{"人物事迹":["与勇者在酒馆对饮，聊到了北方的战事"]}}}
-注意：是追加到数组末尾，不是覆盖。每轮每个NPC只写1条，不要多写也不要不写。
+【人物事迹规则】
+人物事迹是NPC的关键事件记录。系统会在快照中展示每个NPC的当前事迹列表（带编号 [0][1][2]...）。
+你有两种更新方式：
+
+方式1 - 追加（简单场景，NPC有新事件发生）：
+{"人物档案":{"角色名":{"人物事迹":["新事件摘要"]}}}
+只写新条目即可，系统会自动去重追加到末尾。
+
+方式2 - 精细操作（需要合并/替换/删除旧条目时）：
+{"人物档案":{"角色名":{"chronicleOperations":[
+  {"type":"add","value":"新事件"},
+  {"type":"replace","index":2,"value":"替换后的内容"},
+  {"type":"merge","indexes":[0,1],"value":"合并后的内容"},
+  {"type":"remove","index":3}
+]}}}
+操作说明：
+- add: 追加新条目（自动去重）
+- replace: 替换指定编号的条目
+- merge: 将多条合并为一条（自动删除被合并的旧条目）
+- remove: 删除指定编号的条目
+
+★ 指导原则：
+- 一般情况下每轮为在场NPC记录1条新事迹即可
+- 当事迹积累较多时（>8条），优先用merge整合琐碎条目，用replace更新过时信息
+- 保持事迹列表精炼有意义，不要超过15条
 
 【缺失字段补全】
 更新在场NPC时，若以下字段为空或"未知"，必须根据上下文推断补全：
@@ -258,10 +430,18 @@ export function buildVariableExtractionPrompt(): string {
 1. 玩家变量
    {"玩家":{"当前目标":"...","物品栏":{"物品名":{"数量":1}},"当前位置":"..."}}
 
-2. 世界变量
-   {"世界":{"时间系统":{"当前时间":"傍晚"}}}
+2. 玩家生存状态
+${hasStatModule ? `   ★ 数值属性模块已启用，生存状态（血量/体力值）已废弃，不要输出 玩家.生存状态。
+   所有生命/能量变化通过 世界系统.数值属性.attrA/attrB 更新（见下方模块规则）。` : `   无数值属性模块时，更新生存状态：
+   {"玩家":{"生存状态":{"血量":新值,"体力值":新值}}}
+   血量范围0~100，体力值范围0~100`}
 
-3. 笔记本（变量发生变动时更新）
+3. 世界变量（★ 首轮必须设置，后续有变化时更新 ★）
+   - 首轮必须输出 时间系统.当前时间 和 空间定位.当前位置，否则界面无法显示世界状态
+   - 后续轮次：时间流逝、地点变化、天气变化时更新
+   {"世界":{"时间系统":{"当前时间":"傍晚","当前天气":"晴朗"},"空间定位":{"当前位置":"城门","区域特征":"人来人往"}}}
+
+4. 笔记本（变量发生变动时更新）
    - 游戏开始时笔记本为空，由 AI 根据世界设定动态创建
    - 仅在剧情中出现新的危机、机遇、待办事项，或已有条目状态发生变化时才更新
    - 如果本轮没有新的变量变动，不要更新笔记本
@@ -279,20 +459,14 @@ export function buildVariableExtractionPrompt(): string {
    - 不要过度记录，只保留有意义的关键信息
    - 优先更新已有的待办事项状态，而不是创建新条目
 
-4. 世界系统（如果世界启用了模块）
+5. 世界系统（如果世界启用了模块）
    - 当世界启用了模块系统时，需要在 UpdateVariable 中更新模块数据
-   - 模块数据路径：世界系统.数值属性 / 世界系统.成长体系 / 世界系统.资源管理 / 世界系统.骰子检定
-
-${STAT_UPDATE_RULES}
-
-${PROGRESSION_UPDATE_RULES}
-
-${RESOURCE_UPDATE_RULES}
-
-${DICE_UPDATE_RULES}
-
    - 只更新发生变化的字段，未变化的不要输出
    - 如果本轮没有任何世界系统变动，不要输出世界系统字段
+6. 成长体系（如果世界启用了成长体系）
+   - 成长体系的配置（段位列表等）存放在世界定义中，不存入变量系统
+   - 只更新状态字段：玩家.当前段位索引 和 玩家.当前经验值
+${generateModuleUpdateRules(worldSystem, progressionConfig)}
 
 ═══════════════════════════════════════
 【禁止事项】

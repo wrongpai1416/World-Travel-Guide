@@ -31,9 +31,19 @@ export const WORLDS: WorldDef[] = [
   ...(palaceIntrigue as unknown as WorldDef[]),
 ];
 
-/** 按 id 查找世界 */
+/** 按 id 查找世界（仅内置） */
 export function getWorldById(id: string): WorldDef | undefined {
   return WORLDS.find(w => w.id === id);
+}
+
+/** 按 id 查找世界（内置 + 自建） */
+export function findWorldDef(worldId: string): WorldDef | undefined {
+  const builtIn = WORLDS.find(w => w.id === worldId);
+  if (builtIn) return builtIn;
+  try {
+    const custom: WorldDef[] = JSON.parse(localStorage.getItem('world_travel_guide_custom_worlds') || '[]');
+    return custom.find((w: WorldDef) => w.id === worldId);
+  } catch { return undefined; }
 }
 
 /** 获取指定世界的嵌入式世界书条目（修复 entryId: null 问题） */

@@ -1,122 +1,137 @@
-<div align="center">
+# <img src="https://unpkg.com/lucide-static@latest/icons/globe-2.svg" width="32" height="32" /> 世界漫游指南 (World Travel Guide)
 
-# <img src="https://unpkg.com/lucide-static@latest/icons/globe-2.svg" width="36" height="36" /> 世界漫游指南
+**AI 驱动的互动小说引擎** — 在自定义世界观中创建角色、展开冒险，与 AI 共同书写属于你的故事。
 
-**AI-Powered Interactive Fiction Engine**
-
-<img src="https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black" /> <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" /> <img src="https://img.shields.io/badge/Bun-FBF0CF?style=for-the-badge&logo=bun&logoColor=black" /> <img src="https://img.shields.io/badge/Zustand-594B3E?style=for-the-badge" /> <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
-
-基于 React 19 + TypeScript 的 AI 互动叙事引擎，支持多世界观、多阶段管线执行、编译式记忆系统与实时变量管理。
-
-**[在线体验](https://world-travel-guide.pages.dev)** · [问题反馈](https://github.com/wrongpai1416/World-Travel-Guide/issues)
-
-</div>
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite)](https://vitejs.dev/)
+[![Zustand](https://img.shields.io/badge/Zustand-5-3B3B3B)](https://zustand-demo.pmnd.rs/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/sparkles.svg" width="20" height="20" /> 核心特性
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="18" height="18" /> 游戏向导
+### <img src="https://unpkg.com/lucide-static@latest/icons/theater.svg" width="16" height="16" /> 多世界观支持
 
-5 步式角色创建流程：世界选择 → 世界浏览 → 世界详情 → 角色创建 → 人物经历（分段式 AI 生成，支持单段重新生成）
+内置 7 个精心设计的世界观，覆盖科幻、末日、武侠、校园、宫廷、幻想、都市题材。支持用户自建世界和 JSON 导入。
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/message-circle.svg" width="18" height="18" /> 对话引擎
+| 世界 | 题材 | 难度 | 简介 |
+|------|------|:----:|------|
+| <img src="https://unpkg.com/lucide-static@latest/icons/circuit-board.svg" width="14" height="14" /> 赛博朋克 | 科幻 | 中等 | 霓虹掩映下的罪恶、资本与极致享乐之城 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/flame.svg" width="14" height="14" /> 末日废土 | 末日 | 困难 | 核战后的荒芜世界，异能与辐射怪物共存 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/swords.svg" width="14" height="14" /> 武侠世界 | 武侠 | 困难 | 剑气纵横的架空武林，恩怨情仇交织的江湖 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/graduation-cap.svg" width="14" height="14" /> 日式校园 | 校园 | 简单 | 充满青春、社团与青涩恋爱的日式高中生活 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/crown.svg" width="14" height="14" /> 云汉皇朝·深宫 | 宫廷 | 中等 | 红墙黄瓦下，权谋与爱恨交织的华丽囚笼 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/gem.svg" width="14" height="14" /> 绯晶之乡 | JRPG | 中等 | 少年与少女们拯救世界的幻想史诗 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/building-2.svg" width="14" height="14" /> 欲望魔都 | 都市 | 中等 | 欲望交织的繁华不夜城 |
 
-- AI 流式对话（支持 OpenAI / DeepSeek / Google AI / 自定义端点）
-- 思维链展示 + 行动选项 + 结构化摘要
-- 消息编辑 / 删除 / 重新发送 / 回滚
+每个世界定义包含：世界观设定、规则体系、经济系统、时间系统、阵营势力、预设 NPC、结构化属性模块、世界书条目。详见 [WorldDef Schema](src/data/worlds-schema.ts) 和 [worlds/](src/data/worlds/) 目录。
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/workflow.svg" width="18" height="18" /> 多阶段管线系统
+### <img src="https://unpkg.com/lucide-static@latest/icons/cpu.svg" width="16" height="16" /> 11 阶段 AI 管线
+
+每次对话经过完整的 11 阶段处理管线，自动维护叙事连贯性、记忆一致性和变量准确性。
+
+<img src="docs/diagrams/pipeline.svg" alt="11 阶段 AI 管线" width="100%" />
+
+管线支持同层并行、层间串行，执行顺序可通过配置自定义。
+
+### <img src="https://unpkg.com/lucide-static@latest/icons/brain.svg" width="16" height="16" /> 叙事记忆系统
+
+维护一个结构化的叙事运行时，让 AI 在长对话中保持记忆连贯。
+
+| 记忆类型 | 字段 | 说明 |
+|----------|------|------|
+| <img src="https://unpkg.com/lucide-static@latest/icons/map-pin.svg" width="12" height="12" /> 场景锚点 | `sceneAnchor` | 当前时间/地点/实体/目标/风险 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/waypoints.svg" width="12" height="12" /> 叙事线索 | `activeThreads[]` | 开放/阻塞/已解决的故事线，带优先级和关联实体 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/locate.svg" width="12" height="12" /> 状态槽 | `stateSlots[]` | 作用域状态值（玩家/NPC/地点/世界） |
+| <img src="https://unpkg.com/lucide-static@latest/icons/git-branch.svg" width="12" height="12" /> 关系图谱 | `relationEdges[]` | 实体间的关系网络 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/zap.svg" width="12" height="12" /> 事件卡片 | `eventCards[]` | 重要事件，按重要性评分，热/温/冷状态自动转换 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/user-circle.svg" width="12" height="12" /> 实体档案 | `entityCards[]` | 角色/地点/阵营/物品/能力的详细档案 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/archive.svg" width="12" height="12" /> 归档 | `archiveCards[]` | 已解决/过期的故事弧归档 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/database.svg" width="12" height="12" /> 向量记忆 | `vectorMemory[]` | 长期事实，支持嵌入向量检索 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/save.svg" width="12" height="12" /> 检查点 | `checkpoints[]` | 运行时快照，支持一键回滚（最多 5 个） |
+
+记忆数据随存档一起持久化到 IndexedDB，F5 刷新不丢失。
+
+### <img src="https://unpkg.com/lucide-static@latest/icons/bar-chart-3.svg" width="16" height="16" /> 结构化游戏变量
+
+游戏状态完全结构化，AI 每轮自动通过 `<UpdateVariable>` 更新变量，支持三种更新格式：
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| RFC 6902 Patch | `[{"op":"replace", "path":"玩家.生存状态.血量", "value":80}]` | 精确的 JSON 补丁操作 |
+| 深度合并 | `{"玩家":{"生存状态":{"血量":80}}}` | 对象递归合并 |
+| 文本赋值 | `玩家.生存状态.血量=80` | 简单的 key=value 文本 |
+
+**状态结构概览：**
 
 ```
-正文生成 → 记忆写入 → 摘要保存 → 向量提取 → 检索规划 → 上下文编译 → 变量提取
+GameState
+├── 世界 (WorldState)
+│   ├── 时间系统 / 空间定位 / 社会环境
+│   ├── 信息层级 [全局/区域/本地/流言/传闻]
+│   └── 世界系统 [数值属性/成长体系/资源管理/骰子/天赋]
+├── 玩家 (PlayerState)
+│   ├── 生存状态 [血量/体力]
+│   ├── 身份信息 [背景/职业/阶层/组织/特殊身份]
+│   ├── 技能系统 / 货币 / 物品栏
+│   ├── 笔记本 [危机/机遇/待办]
+│   └── 成长状态 [层级/经验值/属性点]
+└── 人物档案 (Record<string, NPCData>)
+    └── [NPC_ID] — 姓名/种族/关系/外貌/性格/大事记/属性/技能/物品...
 ```
 
-- 正文生成与变量提取完全分离，变量提取不阻塞正文显示
-- 支持重试机制、延迟配置、独立 API 预设
-- 管线状态实时监控
+每次 AI 回复后自动创建快照附加到消息上，支持随时回溯到任意历史节点。
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/brain.svg" width="18" height="18" /> 编译式记忆引擎
+### <img src="https://unpkg.com/lucide-static@latest/icons/book-open.svg" width="16" height="16" /> SillyTavern 兼容世界书
 
-- **记忆写入**：从 AI 回复中提取场景锚点、叙事线程、状态槽、关系边、事件卡、实体档案
-- **摘要保存**：定期压缩为 3 类摘要（玩家 / 角色 / 物品）
-- **检索规划**：AI 规划注入哪些记忆，支持查询改写、多轮补充、精排
-- **向量提取**：提取长期事实作为向量记忆
-- **冲突裁决**：新事件卡与旧卡冲突检测
+完整的 Lorebook 扫描引擎，与 SillyTavern 世界书格式兼容。
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/network.svg" width="18" height="18" /> 图谱可视化
+<img src="docs/diagrams/worldbook.svg" alt="世界书扫描流程" width="100%" />
 
-- 13 种 Mermaid 图谱视图（场景、线程、状态、关系、事件、实体等）
-- 支持平移、缩放、节点交互、节点详情弹窗
+**扫描能力：** 正则关键词 (`/pattern/flags`) / 大小写敏感 / 全词匹配 / 选择逻辑 (AND_ANY/AND_ALL/NOT_ALL/NOT_ANY) / 排除关键词 / 分组互斥（权重随机或优先级胜出）/ 概率触发 / 递归扫描 / NPC 世界书自动去重
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/database.svg" width="18" height="18" /> 变量系统
+### <img src="https://unpkg.com/lucide-static@latest/icons/puzzle.svg" width="16" height="16" /> 模块化游戏系统
 
-- 快照层：每轮对话保存变量快照，支持查看、编辑、回滚
-- NPC 感知合并 + RFC 6902 Patch
-- 独立辅助 API 配置
+可插拔的游戏机制模块，每个世界可自由组合配置：
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/hard-drive.svg" width="18" height="18" /> 存档系统
+| 模块 | ID | 说明 |
+|------|----|------|
+| <img src="https://unpkg.com/lucide-static@latest/icons/swords.svg" width="12" height="12" /> 数值属性 | `stat` | 力量/敏捷/体质/智力/感知/魅力 + 自定义属性，带范围钳位 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/trending-up.svg" width="12" height="12" /> 成长体系 | `progression` | 层级制/技能点/声望/军衔，可配置层级名称和 XP 曲线 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/coins.svg" width="12" height="12" /> 资源管理 | `resource` | 自定义货币和资源物品，带稀缺性标记 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/dices.svg" width="12" height="12" /> 骰子检定 | `dice` | d20/d6 等骰子系统，支持属性加值和难度等级 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/star.svg" width="12" height="12" /> 天赋体系 | `talent` | 分类天赋树，支持解锁条件和效果描述 |
 
-| 特性 | 说明 |
+模块在世界定义中声明，创建角色时初始化数值，游戏中 AI 自动更新。
+
+### <img src="https://unpkg.com/lucide-static@latest/icons/hard-drive.svg" width="16" height="16" /> 完整存档管理
+
+| 能力 | 说明 |
 |------|------|
-| **多存档支持** | 每次新游戏生成独立存档 ID，不限数量 |
-| **自动存档** | 500ms debounce + coalescing 防并发写入 |
-| **手动存档** | 游戏内侧边栏即时保存 |
-| **快照优化** | 保存前自动瘦身（首条 + 最后 10 条 + 每 10 条关键帧） |
-| **导入/导出** | JSON 文件（去除 API key）/ 导入自动分配新 ID |
-| **F5 恢复** | 刷新后自动恢复上次活跃存档 |
+| 多存档 | 创建/删除/重命名，每个存档独立的世界+角色+对话+记忆 |
+| 自动存档 | 每次对话结束 500ms 防抖自动保存，Promise 锁防止并发写入 |
+| 导入/导出 | JSON 格式导出，跨设备迁移 |
+| F5 恢复 | 刷新页面自动恢复上次存档（通过 `active_save_id`） |
+| 快照回滚 | 每条 AI 消息附带变量快照，可回溯到任意历史节点 |
+| 快照优化 | 保留首条 + 最近 10 条 + 每 10 条关键帧，防止存储膨胀 |
+| 记忆恢复 | 回滚时同步恢复记忆系统检查点 |
 
-### <img src="https://unpkg.com/lucide-static@latest/icons/settings-2.svg" width="18" height="18" /> 预设系统
+### <img src="https://unpkg.com/lucide-static@latest/icons/smartphone.svg" width="16" height="16" /> 响应式设计
 
-- 结构化提示词管理（15 个独立模块）
-- 支持宏替换与条件触发
-- 正则脚本系统（显示 / API 双通道独立清理）
-
-### <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" width="18" height="18" /> 状态面板
-
-- 人物档案（概览 / 背景 / 能力 / 事迹，30+ 扩展字段）
-- 人物关系网格（NPC 概览 + 事迹摘要）
-- 笔记本（危机 / 机遇 / 待办）
-- 右侧实时状态栏（时间 / 地点 / 天气 / 权力结构 / 社会氛围）
-
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/palette.svg" width="20" height="20" /> UI 设计
-
-日系文字游戏风格的暗雅设计语言。
-
-### 主题配色
-
-| 主题 | 色调 | 强调色 |
-|:----:|:----:|:------:|
-| 拂晓 | 浅蓝白 | `#3b82f6` |
-| 玄夜 | 暗底金色 | `#c8a26c` |
-| 银灰 | 浅灰白 | `#6b7a94` |
-| 翠林 | 浅绿白 | `#4a8c6a` |
-
-### 设计系统
-
-| 要素 | 规范 |
-|------|------|
-| 字体 | 标题 `Noto Serif SC`（衬线），正文跟随用户设置 |
-| 图标 | Lucide React，16-20px，`strokeWidth: 1.5` |
-| 头像 | 字首圆形头像，名字哈希生成渐变背景色 |
-| 间距 | 8px 基准网格（4/8/12/16/20/24/32/40px） |
-| 圆角 | 4/8/12/16px + 50% |
-| 弹窗 | 自定义 Dialog 组件（`useDialog` hook），匹配主题风格 |
-| 动效 | 主菜单入场动画、抽屉侧滑、弹窗缩放淡入 |
+同一套面板组件（ProfilePanel / CharacterGrid / VariableSnapshotPanel 等）在桌面端渲染为 Drawer 抽屉，在移动端渲染为 MobileOverlay 滑入面板，无代码重复。
 
 ---
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/rocket.svg" width="20" height="20" /> 快速开始
 
-### 方式一：在线体验
+### 环境要求
 
-直接访问 **https://world-travel-guide.pages.dev**
+- [Bun](https://bun.sh/) (推荐) 或 Node.js 18+
+- 一个 OpenAI 兼容的 AI API（OpenAI / DeepSeek / Google / 自定义）
 
-配置 API Key 后即可开始游戏（支持 OpenAI / DeepSeek / Google AI）
-
-### 方式二：本地运行
+### 安装与运行
 
 ```bash
 # 克隆项目
@@ -126,106 +141,42 @@ cd World-Travel-Guide
 # 安装依赖
 bun install
 
-# 启动开发服务器（默认 http://localhost:3456）
+# 启动开发服务器
 bun run dev
 
 # 构建生产版本
 bun run build
 ```
 
----
+### 配置 API
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/gamepad-2.svg" width="20" height="20" /> 怎么玩？
-
-### 基本流程
-
-1. 点击「新游戏」→ 选择世界 → 填写角色信息 → 开始冒险
-2. 输入你的行动或对话，AI 会继续故事
-3. 也可以点击「行动选项」快速选择
-
-### 操作说明
-
-| 操作 | 说明 |
-|------|------|
-| 消息右上角「...」 | 回滚 / 编辑 / 删除 / 重新发送 |
-| 右侧栏 | 实时世界状态（时间、地点、天气、权力结构） |
-| 导航栏图标 | 人物档案、人物关系、笔记本、变量系统、记忆系统 |
-| 设置 | API 配置、记忆系统、UI 主题 |
-| 思维链 | 查看 AI 推理过程（可关闭） |
+1. 启动后进入 **设置** 页面
+2. 在 **API 设置** Tab 中填写：
+   - API 端点（如 `https://api.openai.com/v1`）
+   - API Key
+   - 模型名称（如 `gpt-4o`）
+3. 点击 **测试连接** 验证配置
 
 ---
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/brain.svg" width="20" height="20" /> 记忆系统
+## <img src="https://unpkg.com/lucide-static@latest/icons/gamepad-2.svg" width="20" height="20" /> 使用流程
 
-让 AI 记住你的故事：
+### 1. 创建角色
 
-### 记忆类型
+<img src="docs/diagrams/character-creation.svg" alt="角色创建流程" width="100%" />
 
-| 类型 | 说明 |
-|------|------|
-| **场景锚点** | 记住你去过哪里 |
-| **叙事线程** | 追踪剧情发展 |
-| **状态槽** | 记录角色状态变化 |
-| **关系边** | 记录 NPC 关系变化 |
-| **事件卡** | 记录重要事件 |
-| **实体档案** | 记住遇到的人和物 |
-| **向量记忆** | 长期事实记忆 |
+### 2. 游戏交互
 
-### 图谱可视化
+- 在输入框输入行动，或点击 AI 推荐的 `[OPTION]` 选项
+- AI 实时流式回复，支持中途停止
+- 右侧面板查看世界状态、角色属性、待办事项
+- 左侧面板管理角色档案、NPC、笔记本、变量快照
 
-右侧边栏「图谱」可查看 13 种可视化图谱，支持：
-- 平移、缩放
-- 节点交互
-- 节点详情弹窗
+### 3. 存档管理
 
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/database.svg" width="20" height="20" /> 变量系统
-
-追踪生命值、体力、金币等量化数据：
-
-- **快照回滚**：每轮对话保存变量快照，支持查看、编辑、回滚
-- **NPC 感知合并**：NPC 会根据感知到的信息调整行为
-- **RFC 6902 Patch**：精确的变量差异更新
-- **独立 API 配置**：可为变量提取配置独立的 API
-
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/hard-drive.svg" width="20" height="20" /> 存档系统
-
-### 自动保存
-
-- 每次对话后自动存档
-- 500ms debounce + coalescing 防并发写入
-- F5 刷新自动恢复上次进度
-
-### 多槽位管理
-
-- 支持多个存档槽位
-- 每次新游戏生成独立存档 ID
-- 不限存档数量
-
-### 导入导出
-
-- 导出为 JSON 文件（自动去除 API key）
-- 导入自动分配新存档 ID
-- 方便备份和分享
-
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="20" height="20" /> 技术栈
-
-| 技术 | 用途 |
-|------|------|
-| **React 19 + TypeScript** | UI 框架 + 类型安全 |
-| **Zustand** | 轻量状态管理 |
-| **Bun** | 开发服务器 + 构建打包 |
-| **Lucide React** | SVG 图标系统 |
-| **IndexedDB (idb)** | 存档持久化 |
-| **Lodash ES** | 深度克隆 / 合并 / 补丁 |
-| **Mermaid** | 图谱可视化 |
-| **marked + DOMPurify + highlight.js** | Markdown 渲染 |
-| **Zod** | 运行时数据验证 |
+- 自动存档：每次对话结束自动保存
+- 手动存档：从存档列表管理（加载/删除/重命名/导入/导出）
+- 快照回滚：回溯到任意历史节点
 
 ---
 
@@ -233,151 +184,135 @@ bun run build
 
 ```
 src/
-├── api/                  # 网络层
-│   ├── client.ts         #   请求 / 流式响应 / 重试
-│   ├── auxiliaryApi.ts   #   辅助 API（变量提取）
-│   └── types.ts          #   ApiConfig / Provider 类型
-│
-├── engine/               # 游戏引擎（纯逻辑）
-│   ├── useGameEngine.ts  #   消息发送 / 流式 / 管线调度
-│   ├── pipelineExecutor.ts#  多阶段管线执行器
-│   ├── promptAssembler.ts#   结构化提示词组装
-│   ├── macroEngine.ts    #   宏替换引擎
-│   ├── variableManager.ts#   变量（快照 / 回滚 / Patch）
-│   └── types.ts          #   ChatMessage / GameEngine
-│
-├── memory/               # 记忆系统
-│   ├── memoryStore.ts    #   记忆状态管理
-│   ├── memoryUtils.ts    #   记忆工具函数
-│   ├── narrativeGraph.ts #   叙事图谱
-│   ├── memoryPrompts.ts  #   记忆提示词
-│   └── useMemorySystem.ts#   记忆系统 hooks
-│
-├── components/
-│   ├── game/             #   游戏主界面
-│   │   ├── GameScreen.tsx#     三栏布局 + 抽屉 + 存档面板
-│   │   ├── chat/         #     聊天（气泡 / 输入 / 思维链 / 管线）
-│   │   └── panels/       #     面板（档案 / 关系 / 笔记）
-│   ├── start/            #   开始页（主菜单 / 向导 / 世界编辑器 / 存档）
-│   ├── settings/         #   设置（API / 变量系统 / 记忆系统）
-│   └── shared/           #   通用组件（Avatar / Dialog / Collapsible）
-│
-├── stores/               # Zustand 状态管理
-│   ├── configStore.ts    #   UI 设置 + API 配置
-│   └── saveStore.ts      #   多槽位存档管理
-│
-├── context/              # React Context（导航 + 引擎生命周期）
-│   └── GameContext.tsx
-│
-├── schema/               # GameState 类型定义
-├── storage/              # IndexedDB 存储层
-├── data/                 # 内置数据（世界 / 预设）
-├── utils/                # 工具函数
-└── worldbook/            # 世界书管理器
+├── api/                    # API 层
+│   ├── client.ts           # 多 Provider API 客户端
+│   ├── rateLimiter.ts      # 限流器
+│   └── types.ts            # API 类型
+├── components/             # UI 组件
+│   ├── start/              # 开始界面（主菜单/向导/存档）
+│   ├── game/               # 游戏界面
+│   │   ├── chat/           # 聊天面板/消息渲染/管线监控
+│   │   └── panels/         # 侧边面板（角色/NPC/变量）
+│   ├── settings/           # 设置界面
+│   └── shared/             # 共享组件
+├── context/                # React Context
+│   ├── GameContext.tsx      # 游戏上下文（导航+引擎+存档）
+│   └── UISettingsContext.tsx# UI 设置上下文
+├── data/                   # 数据定义
+│   ├── worlds/             # 7 个内置世界 JSON
+│   ├── worlds-schema.ts    # WorldDef 类型定义
+│   ├── worldLoader.ts      # 世界加载器
+│   └── builtinPresets.ts   # 内置提示词预设（16 条）
+├── engine/                 # 游戏引擎
+│   ├── useGameEngine.ts    # 核心引擎 hook
+│   ├── pipelineExecutor.ts # 管线执行器
+│   ├── variableManager.ts  # 变量管理器
+│   ├── promptAssembler.ts  # 提示词组装器
+│   ├── macroEngine.ts      # 宏引擎
+│   └── eventBus.ts         # 事件总线
+├── hooks/                  # 自定义 Hooks
+│   ├── useAiFill.ts        # AI 角色自动填充
+│   ├── useCharacterHistory.ts # AI 背景故事生成
+│   └── useWizard.ts        # 向导流程管理
+├── memory/                 # 记忆系统
+│   ├── memoryStore.ts      # Zustand Store
+│   ├── memoryPipeline.ts   # 9 阶段记忆管线
+│   └── types.ts            # 记忆类型定义
+├── modules/                # 游戏模块（属性/成长/资源/骰子/天赋）
+├── schema/                 # 类型定义
+│   └── variables.ts        # GameState 结构
+├── storage/                # 持久化层
+│   └── db.ts               # IndexedDB 存档管理
+├── stores/                 # Zustand Stores
+│   ├── configStore.ts      # 配置管理
+│   └── saveStore.ts        # 存档管理
+├── utils/                  # 工具函数
+│   ├── markdown.ts         # Markdown 渲染
+│   ├── npcHelpers.ts       # NPC 管理工具
+│   └── prompts/            # 提示词模板
+└── worldbook/              # 世界书引擎
+    ├── index.ts            # 世界书管理器
+    ├── worldInfoEngine.ts  # SillyTavern 兼容扫描引擎
+    └── npcWorldbook.ts     # NPC 世界书生成
 ```
 
 ---
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/plug.svg" width="20" height="20" /> API 兼容
+## <img src="https://unpkg.com/lucide-static@latest/icons/layers.svg" width="20" height="20" /> 架构概览
 
-| Provider | 说明 |
-|----------|------|
-| OpenAI 兼容 | 标准 `/v1/chat/completions` 端点 |
-| DeepSeek | 自动合并连续同 role 消息 |
-| Google AI | Gemini API (v1beta) |
-| 自定义 | 任意 OpenAI 兼容端点 |
+```
+┌─────────────────────────────────────────────────────┐
+│                    UI 层                             │
+│  start/  │  game/ (chat/panels)  │  settings/       │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                  状态层                              │
+│  GameContext  │  configStore  │  saveStore           │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                  引擎层                              │
+│  useGameEngine │ PipelineExecutor │ VariableManager  │
+│  PromptAssembler │ MacroEngine │ EventBus            │
+└───────┬──────────────┬──────────────┬───────────────┘
+        │              │              │
+┌───────▼──────┐ ┌─────▼──────┐ ┌────▼────────┐
+│ memory/*     │ │ worldbook/*│ │ modules/*   │
+│ 9阶段记忆管线 │ │ 世界书引擎  │ │ 模块系统     │
+└──────────────┘ └────────────┘ └─────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                  数据层                              │
+│  worldLoader │ variables.ts │ db.ts (IndexedDB)      │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                  API 层                              │
+│  client.ts (OpenAI/DeepSeek/Google) │ rateLimiter    │
+└─────────────────────────────────────────────────────┘
+```
 
-支持保存多个 API 预设，可为不同管线阶段使用不同 API 配置。
-
----
-
-## <img src="https://unpkg.com/lucide-static@latest/icons/help-circle.svg" width="20" height="20" /> 常见问题
-
-### 这是什么类型的游戏？
-
-世界漫游指南是一款 **AI 驱动的文字冒险游戏**。你扮演一名穿越者，在不同的世界观中自由探索、与 NPC 互动、做出选择，AI 会根据你的行动实时生成剧情。没有固定结局，故事由你和 AI 共同书写。
-
-### 内置了哪些世界？
-
-目前内置 **7 个世界**，每个都有独立的设定、种族、职业和 NPC 体系：
-
-| 世界 | 风格 |
-|:----:|:----:|
-| 武侠世界 | 江湖恩怨、门派纷争 |
-| 赛博朋克都市 | 霓虹灯下的暗流涌动 |
-| 水晶世界 | 魔法与水晶的力量 |
-| 日式校园 | 青春与秘密交织 |
-| 废土末日 | 荒野求生、资源争夺 |
-| 宫廷权谋 | 深宫之中步步为营 |
-| 欲望都市 | 现代都市的欲望与选择 |
-
-你也可以用**世界编辑器**创建自己的世界，或导入其他玩家分享的世界 JSON。
-
-### 角色创建有哪些玩法？
-
-向导支持创建**主角**和**自建 NPC**：
-
-- **主角**：姓名、性别、年龄、性格、外貌、职业、阶层、所属组织、特殊身份、初始技能、初始物品，还可以一键 AI 补全
-- **自建 NPC**：设定姓名、关系、性格（表/里）、外貌、目标等，会自动融入剧情
-- **人物模板**：主角和 NPC 都可以保存为模板，下次开局直接导入，不用重复填写
-- **人物经历**：AI 会根据你的角色和世界设定，生成分段式的人生经历（序章 + 多个人生阶段），支持单段重新生成
-
-### 游戏界面怎么操作？
-
-游戏采用**三栏布局**：
-
-- **中间**：对话区域，你和 AI 的互动在这里进行，支持思维链展示和行动选项快捷选择
-- **右侧**：实时世界状态栏（当前时间、地点、天气、权力结构、社会氛围）
-- **导航栏**：点击图标打开对应面板 —— 人物档案、人物关系网格、笔记本（危机/机遇/待办）、变量系统、记忆系统
-
-每条消息右上角的「...」菜单可以编辑、删除、回滚或重新发送。
-
-### 记忆系统有什么用？
-
-记忆系统让 AI **真正记住你的故事**，而不是只看最近几轮对话。它会自动提取场景锚点、叙事线程、NPC 关系变化、重要事件等，存入编译式记忆引擎。下次对话时，AI 会根据记忆规划注入相关上下文，让剧情连贯、NPC 行为一致。还可以在「图谱」面板查看 13 种可视化关系图。
-
-### 变量系统是什么？
-
-变量系统自动追踪生命值、体力、金币等**量化数据**，每轮对话保存快照，支持查看、编辑和回滚。NPC 也会根据感知到的变量变化调整行为。
-
-### AI 回复慢怎么办？
-
-- 换更快的模型（如 GPT-4o、Claude Sonnet）
-- 在设置中减少记忆系统调用频率
-- 管线系统支持独立 API 配置，可以让变量提取用便宜的模型
-
-### 游戏卡住了怎么办？
-
-- 刷新页面（F5 会自动恢复上次进度，不会丢档）
-- 检查设置中的 API 连接状态
-- 查看管线状态监控，看是哪个阶段卡住了
-
-### 存档能备份吗？
-
-支持**导入/导出 JSON 文件**（自动去除 API Key），方便备份或分享给朋友。每次新游戏自动生成独立存档，不限数量。
+> 详细的架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
-## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 更新日志
+## <img src="https://unpkg.com/lucide-static@latest/icons/settings-2.svg" width="20" height="20" /> 技术细节
 
-### v1.5.3 (2026-06-14)
+### AI 兼容性
 
-- 存档取名优化
-- 修复类型和一致性问题
-- 清理调试日志
+| Provider | 流式 | 思考链 | 备注 |
+|----------|:----:|:------:|------|
+| OpenAI | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | 标准实现 |
+| DeepSeek | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | 自动合并连续同角色消息 |
+| Google Gemini | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | 自动适配端点和响应格式 |
+| 自定义 | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" width="14" height="14" /> | 任何 OpenAI 兼容 API |
 
-### v1.5.0 (2026-06-13)
+### 变量系统工作流
 
-- 移动端响应式适配
-- 管线重构 + 限流配置
-- 触控目标优化（≥ 44px）
+```
+AI 生成回复
+  → 独立 API 调用提取 <UpdateVariable> JSON
+  → VariableManager 解析并应用更新
+  → normalizeState() 校验数值范围
+  → 创建快照附加到消息（支持回滚）
+```
 
-### v1.0.0 (2026-06-13)
+### 记忆系统管线
 
-- 首个正式版本
-- 完整游戏引擎、记忆系统与管线架构
+```
+写入 → 摘要 → 向量提取 → 查询重写 → 检索规划
+→ 多轮补充 → 精排 → 检索定稿 → 上下文编译
+```
+
+每阶段独立 API 调用，默认串行执行（可通过配置开启并行）。
 
 ---
+
+## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
+
+- [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责
+- [变更日志](docs/CHANGELOG.md) — 版本更新记录
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/heart.svg" width="20" height="20" /> 致谢
 

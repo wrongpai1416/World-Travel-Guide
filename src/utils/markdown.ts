@@ -91,7 +91,7 @@ renderer.code = function({ text, lang }: Tokens.Code) {
   return `<div class="code-block-wrapper">
     <div class="code-block-header">
       <span class="code-lang">${escapeHtml(langLabel)}</span>
-      <button class="code-copy-btn" onclick="(function(btn){var code=btn.closest('.code-block-wrapper').querySelector('code').textContent;navigator.clipboard.writeText(code).then(function(){btn.textContent='已复制!';setTimeout(function(){btn.textContent='复制'},2000)}).catch(function(){btn.textContent='失败'})})(this)">复制</button>
+      <button class="code-copy-btn" data-action="copy-code">复制</button>
     </div>
     <pre><code class="hljs${language ? ' language-' + escapeHtml(language) : ''}">${highlighted}</code></pre>
   </div>`
@@ -99,13 +99,13 @@ renderer.code = function({ text, lang }: Tokens.Code) {
 
 // 自定义行内代码
 renderer.codespan = function({ text }: Tokens.Codespan) {
-  return `<code class="inline-code">${text}</code>`
+  return `<code class="inline-code">${escapeHtml(text)}</code>`
 }
 
 // 自定义图片渲染（懒加载 + 错误处理）
 renderer.image = function({ href, title, text }: Tokens.Image) {
   const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-  return `<img src="${escapeHtml(href || '')}" alt="${escapeHtml(text || '')}"${titleAttr} loading="lazy" onerror="this.style.display='none'" />`
+  return `<img src="${escapeHtml(href || '')}" alt="${escapeHtml(text || '')}"${titleAttr} loading="lazy" />`
 }
 
 // 自定义引用块
@@ -172,7 +172,8 @@ const PURIFY_CONFIG = {
     'class', 'id', 'style', 'lang', 'dir',
     'colspan', 'rowspan', 'scope', 'headers',
     'open', 'name',
-    'onerror', 'onclick', // 允许我们自己注入的事件
+    // onclick/onerror 已移除，防止 XSS。代码复制改为事件委托（见 initCodeCopyDelegate）
+    'data-action',
     'data-highlighted',
     // font 标签属性
     'color', 'face', 'size',
@@ -416,6 +417,34 @@ export function escapeHtml(text: string): string {
 }
 
 /**
+ * 初始化代码复制按钮的事件委托
+ * 在组件挂载时调用，自动处理 data-action="copy-code" 的点击事件
+ * @param container - 容器 DOM 元素
+ * @returns 清理函数（用于 useEffect cleanup）
+ */
+export function initCodeCopyDelegate(container: HTMLElement): () => void {
+  const handler = async (e: Event) => {
+    const btn = (e.target as HTMLElement).closest?.('[data-action="copy-code"]') as HTMLButtonElement | null
+    if (!btn) return
+    e.preventDefault()
+    e.stopPropagation()
+    const wrapper = btn.closest('.code-block-wrapper')
+    const code = wrapper?.querySelector('code')
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code.textContent || '')
+      btn.textContent = '已复制!'
+      setTimeout(() => { btn.textContent = '复制' }, 2000)
+    } catch {
+      btn.textContent = '失败'
+      setTimeout(() => { btn.textContent = '复制' }, 2000)
+    }
+  }
+  container.addEventListener('click', handler)
+  return () => container.removeEventListener('click', handler)
+}
+
+/**
  * 为 iframe 创建完整的 HTML 文档
  */
 export function createIframeSrcDoc(content: string): string {
@@ -446,7 +475,7 @@ function adjustHeight() {
     document.documentElement.scrollHeight,
     document.documentElement.offsetHeight
   );
-  window.parent.postMessage({ type: 'iframe-resize', height: height }, '*');
+  window.parent.postMessage({ type: 'iframe-resize', height: height }, window.location.origin);
 }
 window.addEventListener('load', adjustHeight);
 new MutationObserver(adjustHeight).observe(document.body, { childList: true, subtree: true, attributes: true });

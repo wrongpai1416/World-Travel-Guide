@@ -6,14 +6,16 @@ import { useState } from 'react';
 import type { PipelineStatus as PipelineStatusType, PipelineStageResult, PipelineTaskId } from '../../../engine/pipelineTypes';
 import { STAGE_LABELS } from '../../../engine/pipelineTypes';
 import { STAGE_META, STAGE_ORDER, STATUS_CONFIG, formatMs } from './pipelineUI';
-import { X, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface Props {
   status: PipelineStatusType | null;
   onClose: () => void;
+  onRetryPipeline?: () => void;
+  isGenerating?: boolean;
 }
 
-export default function PipelineMonitorModal({ status, onClose }: Props) {
+export default function PipelineMonitorModal({ status, onClose, onRetryPipeline, isGenerating }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   if (!status) return null;
@@ -148,10 +150,22 @@ export default function PipelineMonitorModal({ status, onClose }: Props) {
           })}
         </div>
 
-        {/* 总耗时 */}
+        {/* 总耗时 + 重试 */}
         <div style={styles.footer}>
           <span>总耗时</span>
-          <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatMs(elapsed)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatMs(elapsed)}</span>
+            {errorCount > 0 && allDone && onRetryPipeline && (
+              <button
+                onClick={() => { onRetryPipeline(); onClose(); }}
+                disabled={isGenerating}
+                style={styles.retryBtn}
+              >
+                <RefreshCw size={13} />
+                重试管线
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -214,5 +228,12 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 20px',
     borderTop: '1px solid var(--border)',
     fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)',
+  },
+  retryBtn: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    padding: '5px 12px', borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--accent)', background: 'transparent',
+    color: 'var(--accent)', cursor: 'pointer',
+    fontSize: 'var(--font-size-sm)', fontWeight: 600,
   },
 };

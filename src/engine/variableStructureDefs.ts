@@ -328,6 +328,38 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
   },
 
+  // ─── 成长体系 ───
+  {
+    id: 'player_tier_index',
+    section: 'player_progression',
+    sectionLabel: '成长体系',
+    displayName: '当前段位',
+    canonicalPath: '玩家.当前段位索引',
+    description: '当前所在的段位/等级索引',
+    valueType: 'number',
+    editable: true,
+  },
+  {
+    id: 'player_xp',
+    section: 'player_progression',
+    sectionLabel: '成长体系',
+    displayName: '当前经验',
+    canonicalPath: '玩家.当前经验值',
+    description: '当前经验值',
+    valueType: 'number',
+    editable: true,
+  },
+  {
+    id: 'player_attr_points',
+    section: 'player_progression',
+    sectionLabel: '成长体系',
+    displayName: '可用属性点',
+    canonicalPath: '玩家.可用属性点',
+    description: '可分配的属性点数',
+    valueType: 'number',
+    editable: true,
+  },
+
   // ─── 技能系统 ───
   {
     id: 'player_skills',
@@ -651,6 +683,28 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
     isNpcTemplate: true,
   },
+  {
+    id: 'npc_tier',
+    section: 'npc_ability',
+    sectionLabel: 'NPC 能力',
+    displayName: '段位',
+    canonicalPath: '人物档案.[NPC_ID].成长状态.当前段位索引',
+    description: 'NPC 当前的段位/等级索引（对应世界成长体系的层级）',
+    valueType: 'number',
+    editable: true,
+    isNpcTemplate: true,
+  },
+  {
+    id: 'npc_xp',
+    section: 'npc_ability',
+    sectionLabel: 'NPC 能力',
+    displayName: '经验值',
+    canonicalPath: '人物档案.[NPC_ID].成长状态.当前经验值',
+    description: 'NPC 当前的经验值',
+    valueType: 'number',
+    editable: true,
+    isNpcTemplate: true,
+  },
 
   // ─── NPC 装备 ───
   {
@@ -685,13 +739,13 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
 export function groupVariableEntriesBySection(): VariableSection[] {
   const sectionOrder = [
     'world', 'world_info',
-    'player_core', 'player_survival', 'player_identity', 'player_currency', 'player_notebook', 'player_skills',
+    'player_core', 'player_survival', 'player_identity', 'player_currency', 'player_progression', 'player_notebook', 'player_skills',
     'npc_core', 'npc_survival', 'npc_identity', 'npc_relation', 'npc_personal', 'npc_race', 'npc_ability', 'npc_equipment',
   ];
   // Lucide 图标名称（直接一步到位，不再绕 emoji）
   const sectionIcons: Record<string, string> = {
     world: 'Globe', world_info: 'Newspaper',
-    player_core: 'User', player_survival: 'Heart', player_identity: 'IdCard', player_currency: 'DollarSign', player_notebook: 'BookOpen', player_skills: 'Swords',
+    player_core: 'User', player_survival: 'Heart', player_identity: 'IdCard', player_currency: 'DollarSign', player_progression: 'TrendingUp', player_notebook: 'BookOpen', player_skills: 'Swords',
     npc_core: 'Users', npc_survival: 'Heart', npc_identity: 'Tag', npc_relation: 'Handshake', npc_personal: 'FileText', npc_race: 'Dna', npc_ability: 'Sparkles', npc_equipment: 'Backpack',
   };
 

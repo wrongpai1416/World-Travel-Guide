@@ -5,11 +5,13 @@ import { Collapsible } from '../../../shared/Collapsible';
 
 interface BaseStatsCardProps {
   data: StatModuleSchema;
+  /** 自定义标题（世界创建时设置的模块名称） */
+  title?: string;
 }
 
-export default function BaseStatsCard({ data }: BaseStatsCardProps) {
+export default function BaseStatsCard({ data, title }: BaseStatsCardProps) {
   return (
-    <Collapsible icon={<Heart size={15} />} title={data.attrA.name + ' / ' + data.attrB.name} defaultOpen={true}>
+    <Collapsible icon={<Heart size={15} />} title={title || (data.attrA.name + ' / ' + data.attrB.name)} defaultOpen={true}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <GaugeBar
           icon={<Heart size={11} color="#ef4444" />}
@@ -37,7 +39,10 @@ function GaugeBar({ icon, label, value, max, color }: {
   max: number;
   color: string;
 }) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  // 防御：确保 value 和 max 是有效数字
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  const safeMax = typeof max === 'number' && !isNaN(max) && max > 0 ? max : 100;
+  const pct = Math.max(0, Math.min(100, (safeValue / safeMax) * 100));
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
       <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>{icon}</span>
@@ -45,7 +50,7 @@ function GaugeBar({ icon, label, value, max, color }: {
       <div style={{ flex: 1, height: '10px', background: 'var(--bg-tertiary)', borderRadius: '5px', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '4px', transition: 'width 0.3s' }} />
       </div>
-      <span style={{ fontSize: 'var(--font-size-xs)', textAlign: 'right', color: 'var(--text-secondary)', minWidth: '60px' }}>{value}/{max}</span>
+      <span style={{ fontSize: 'var(--font-size-xs)', textAlign: 'right', color: 'var(--text-secondary)', minWidth: '60px' }}>{safeValue}/{safeMax}</span>
     </div>
   );
 }

@@ -34,6 +34,8 @@ export interface GameEngine {
   loadSave: (save: GameSave) => void;
   reset: (worldDef?: WorldDef) => void;
   setPlayerProfile: (profile: PlayerProfile) => void;
+  applyModuleInitData: (moduleInitData: Record<string, unknown>) => void;
   setInitialNPCs: (npcs: CustomNpc[]) => void;
   addMessage: (msg: ChatMessage) => void;
+  retryPipeline: () => Promise<void>;
 }

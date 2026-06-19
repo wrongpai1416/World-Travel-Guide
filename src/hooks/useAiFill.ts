@@ -36,12 +36,30 @@ export function useAiFill({
     const worldData = allWorlds.find(w => w.id === selectedWorld);
     const worldSetting = worldEntry?.content || worldData?.description || '自由穿越模式';
 
+    // 提取世界的数值属性模块配置（用于生成角色初始属性）
+    const statMod = worldData?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
+    const statRaw = (statMod?.moduleConfig || statMod?.data) as any;
+    const statModule = statRaw ? {
+      attrA: { name: statRaw.attrA?.name || '生命', max: statRaw.attrA?.max || 100 },
+      attrB: { name: statRaw.attrB?.name || '能量', max: statRaw.attrB?.max || 100 },
+      dim1: { name: statRaw.dim1?.name || '属性1', range: statRaw.dim1?.range || [0, 100] },
+      dim2: { name: statRaw.dim2?.name || '属性2', range: statRaw.dim2?.range || [0, 100] },
+      dim3: { name: statRaw.dim3?.name || '属性3', range: statRaw.dim3?.range || [0, 100] },
+      dim4: { name: statRaw.dim4?.name || '属性4', range: statRaw.dim4?.range || [0, 100] },
+      dim5: { name: statRaw.dim5?.name || '属性5', range: statRaw.dim5?.range || [0, 100] },
+      dim6: { name: statRaw.dim6?.name || '属性6', range: statRaw.dim6?.range || [0, 100] },
+      special: Array.isArray(statRaw.special) ? statRaw.special.map((s: any) => ({
+        id: s.id || '', name: s.name || '', range: s.range || [0, 100], description: s.description || '',
+      })) : undefined,
+    } : undefined;
+
     const systemPrompt = buildCharacterFillPrompt({
       worldSetting,
       playerName: personalInfo.name,
       playerGender: personalInfo.gender || '',
       playerAge: personalInfo.age || '',
       playerBackground: personalInfo.background || '',
+      statModule,
     });
 
     const messages = [
@@ -82,22 +100,57 @@ export function useAiFill({
       const filledNpcs: CustomNpc[] = [];
       if (Array.isArray(data.npcs)) {
         for (const n of data.npcs) {
-          if (n.name) filledNpcs.push({
-            id: uuid(), name: n.name, gender: n.gender || '', age: n.age || '',
-            race: n.race || '', relationshipType: n.relationship || '',
-            occupation: n.occupation || '', socialStatus: n.socialStatus || '',
-            personality: n.personality || '', hiddenPersonality: n.hiddenPersonality || '',
-            currentThought: n.currentThought || '',
-            appearance: n.appearance || '', currentOutfit: n.currentOutfit || '',
-            currentAction: n.currentAction || '', currentLocation: n.currentLocation || '',
-            currentState: n.currentState || '',
-            shortTermGoal: n.shortTermGoal || '', longTermGoal: n.longTermGoal || '',
-            background: n.background || '',
-            chronicles: Array.isArray(n.chronicles) ? n.chronicles : [],
-            skillsList: n.skillsList && typeof n.skillsList === 'object' ? n.skillsList : {},
-            itemsList: n.itemsList && typeof n.itemsList === 'object' ? n.itemsList : {},
-          });
+          if (n.name) {
+            const npc: CustomNpc = {
+              id: uuid(), name: n.name, gender: n.gender || '', age: n.age || '',
+              race: n.race || '', relationshipType: n.relationship || '',
+              occupation: n.occupation || '', socialStatus: n.socialStatus || '',
+              personality: n.personality || '', hiddenPersonality: n.hiddenPersonality || '',
+              currentThought: n.currentThought || '',
+              appearance: n.appearance || '', currentOutfit: n.currentOutfit || '',
+              currentAction: n.currentAction || '', currentLocation: n.currentLocation || '',
+              currentState: n.currentState || '',
+              shortTermGoal: n.shortTermGoal || '', longTermGoal: n.longTermGoal || '',
+              background: n.background || '',
+              chronicles: Array.isArray(n.chronicles) ? n.chronicles : [],
+              skillsList: n.skillsList && typeof n.skillsList === 'object' ? n.skillsList : {},
+              itemsList: n.itemsList && typeof n.itemsList === 'object' ? n.itemsList : {},
+            };
+            // NPC 属性（数值属性模块）
+            if (n.attrs && typeof n.attrs === 'object' && statModule) {
+              npc.attrs = {};
+              if (n.attrs.attrA != null) npc.attrs['attrA'] = Number(n.attrs.attrA);
+              if (n.attrs.attrB != null) npc.attrs['attrB'] = Number(n.attrs.attrB);
+              for (let i = 1; i <= 6; i++) {
+                const key = `dim${i}`;
+                if (n.attrs[key] != null) npc.attrs[key] = Number(n.attrs[key]);
+              }
+            }
+            // NPC 段位（成长体系模块）
+            if (n.tierIndex != null && hasProgression) {
+              npc.tierIndex = Number(n.tierIndex);
+            }
+            filledNpcs.push(npc);
+          }
         }
+      }
+
+      // 处理 AI 生成的初始属性
+      const moduleInitData: Record<string, unknown> = { ...(personalInfo.moduleInitData || {}) };
+      if (data.initialStats && statModule) {
+        const stats: Record<string, unknown> = {};
+        if (data.initialStats.attrA != null) stats['attrA'] = { current: Number(data.initialStats.attrA) };
+        if (data.initialStats.attrB != null) stats['attrB'] = { current: Number(data.initialStats.attrB) };
+        for (let i = 1; i <= 6; i++) {
+          const key = `dim${i}`;
+          if (data.initialStats[key] != null) stats[key] = { value: Number(data.initialStats[key]) };
+        }
+        if (Array.isArray(data.initialStats.special)) {
+          stats['special'] = data.initialStats.special.map((s: any) => ({
+            id: s.id, value: Number(s.value),
+          }));
+        }
+        moduleInitData['数值属性'] = stats;
       }
 
       setPersonalInfo(prev => ({
@@ -113,6 +166,7 @@ export function useAiFill({
         initialSkills: { ...prev.initialSkills, ...filledSkills },
         initialItems: { ...prev.initialItems, ...filledItems },
         customNpcs: [...prev.customNpcs, ...filledNpcs],
+        moduleInitData,
       }));
 
     } catch (err: any) {

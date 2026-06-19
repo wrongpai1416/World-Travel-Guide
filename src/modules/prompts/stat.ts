@@ -73,24 +73,46 @@ export function buildStatGenPrompt(params: {
    - ${params.dim5Name}: value(初始值), range[最小,最大]
    - ${params.dim6Name}: value(初始值), range[最小,最大]
 
-   初始值建议：40-60（普通世界）或 20-40（高难度世界）
-   范围建议：[0, 100]（普通）或 [0, 200]（高武/修仙）
+   【数值尺度指南 — 根据世界类型选择合适的尺度】
+
+   ● 现实/日常/校园/都市类世界（数值偏小）：
+     - 六维范围：[0, 10]，初始值：3~6
+     - 生命上限：100，能量上限：80
+     - 特色属性范围：[0, 10]
+
+   ● 奇幻/武侠/中世纪类世界（数值中等）：
+     - 六维范围：[0, 100]，初始值：30~60
+     - 生命上限：200，能量上限：150
+     - 特色属性范围：[0, 100]
+
+   ● 网游/MMO/修仙/高武类世界（数值偏大）：
+     - 六维范围：[0, 1000]，初始值：100~300
+     - 生命上限：1000，能量上限：800
+     - 特色属性范围：[0, 500]
+
+   ● 末日/生存/高难度类世界（数值偏低且紧张）：
+     - 六维范围：[0, 20]，初始值：5~10
+     - 生命上限：100，能量上限：60
+     - 特色属性范围：[0, 20]
+
+   请根据「${params.theme}」自动判断属于哪类世界，选择对应的数值尺度。
+   每个六维属性的初始值应在建议范围内波动，不要全部相同！
 
 4. 特色属性（1-2个，根据世界类型）：
    每个需要：id(英文), name(中文), value(初始值), range[最小,最大], description(一句话描述)
 
-输出JSON：
+输出JSON（以下仅为格式示例，实际数值请根据世界类型自行设定）：
 {
-  "attrA": { "name": "${params.attrAName}", "current": 80, "max": 100 },
-  "attrB": { "name": "${params.attrBName}", "current": 60, "max": 100 },
-  "dim1": { "name": "${params.dim1Name}", "value": 50, "range": [0, 100] },
-  "dim2": { "name": "${params.dim2Name}", "value": 50, "range": [0, 100] },
-  "dim3": { "name": "${params.dim3Name}", "value": 50, "range": [0, 100] },
-  "dim4": { "name": "${params.dim4Name}", "value": 50, "range": [0, 100] },
-  "dim5": { "name": "${params.dim5Name}", "value": 50, "range": [0, 100] },
-  "dim6": { "name": "${params.dim6Name}", "value": 50, "range": [0, 100] },
+  "attrA": { "name": "${params.attrAName}", "current": <按世界上限的80%>, "max": <按世界上限> },
+  "attrB": { "name": "${params.attrBName}", "current": <按世界上限的60%>, "max": <按世界上限> },
+  "dim1": { "name": "${params.dim1Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
+  "dim2": { "name": "${params.dim2Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
+  "dim3": { "name": "${params.dim3Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
+  "dim4": { "name": "${params.dim4Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
+  "dim5": { "name": "${params.dim5Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
+  "dim6": { "name": "${params.dim6Name}", "value": <按尺度波动>, "range": [<最小>, <最大>] },
   "special": [
-    { "id": "...", "name": "...", "value": 5, "range": [1, 10], "description": "..." }
+    { "id": "...", "name": "...", "value": <按尺度>, "range": [<最小>, <最大>], "description": "..." }
   ]
 }`;
 }
@@ -99,8 +121,8 @@ export function buildStatGenPrompt(params: {
 export const STAT_UPDATE_RULES = `【数值属性更新规则】
 
 当角色受到伤害/恢复/消耗/提升时，更新对应属性：
-{"世界系统":{"数值属性":{"attrA":{"当前":75}}}}  // 生命类变化
-{"世界系统":{"数值属性":{"attrB":{"当前":55}}}}  // 能量类变化
+{"世界系统":{"数值属性":{"attrA":{"current":75}}}}  // 生命类变化
+{"世界系统":{"数值属性":{"attrB":{"current":55}}}}  // 能量类变化
 {"世界系统":{"数值属性":{"dim1":{"value":47}}}}  // 六维变化
 {"世界系统":{"数值属性":{"special":[{"id":"str","value":8}]}}}  // 特色属性变化
 

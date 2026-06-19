@@ -49,6 +49,7 @@ export default function StartScreen() {
         isFilling={h.isFilling} onAiFill={h.handleAiFill}
         segments={h.segments} setSegments={h.setSegments}
         isGenerating={h.isGenerating} regeneratingId={h.regeneratingId}
+        includeAgeStages={h.includeAgeStages} setIncludeAgeStages={h.setIncludeAgeStages}
         hasApiConfig={!!h.apiConfig}
         onGenerateAll={h.handleGenerateAll} onRegenerateSegment={h.handleRegenerateSegment}
         buildInitialState={h.buildInitialState}

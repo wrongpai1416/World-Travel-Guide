@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { useUISettings } from '../../../context/UISettingsContext';
 import type { ChatMessage } from '../../../engine/types';
 import type { PipelineStatus as PipelineStatusType } from '../../../engine/pipelineTypes';
+import type { WorldSystemData, DiceRoll } from '../../../modules/schema';
 import MessageBubble from './MessageBubble';
 import InputArea from './InputArea';
 import PipelineMonitorModal from './PipelineMonitorModal';
@@ -16,9 +17,15 @@ interface Props {
   onResend: (id: string) => void;
   onResendFromHere: (id: string) => void;
   pipelineStatus?: PipelineStatusType | null;
+  /** 世界系统数据（用于内联骰子卡片） */
+  worldSystem?: WorldSystemData | null;
+  /** 骰子掷骰结果回调 */
+  onDiceRoll?: (roll: DiceRoll) => void;
+  /** 重试管线回调 */
+  onRetryPipeline?: () => void;
 }
 
-export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus }: Props) {
+export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus, worldSystem, onDiceRoll, onRetryPipeline }: Props) {
   const [showMonitor, setShowMonitor] = useState(false);
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -109,6 +116,8 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
             onResendFromHere={onResendFromHere}
             onCopy={handleCopy}
             onOptionClick={handleOptionClick}
+            worldSystem={worldSystem}
+            onDiceRoll={onDiceRoll}
           />
         ))}
       </div>
@@ -130,6 +139,8 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
         <PipelineMonitorModal
           status={pipelineStatus ?? null}
           onClose={() => setShowMonitor(false)}
+          onRetryPipeline={onRetryPipeline}
+          isGenerating={isGenerating}
         />
       )}
     </div>

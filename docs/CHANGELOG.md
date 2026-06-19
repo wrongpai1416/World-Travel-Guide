@@ -1,5 +1,34 @@
 # 更新日志
 
+## v1.6.0 — NPC 模块同步 + NSFW 重写 + PWA 支持 (2026-06-19)
+
+### ✨ 新功能
+
+- **NPC 模块同步**：NPC 继承世界的数值属性和成长体系，AI 补全和变量提取均支持 NPC 属性/段位更新
+- **NSFW 预设重写**：无限制模式升级为六阶段流程（铺垫→探索→升温→攀升→释放→余韵），新增词汇规范和负面清单
+- **PWA 支持**：Service Worker 缓存优先策略 + Web App Manifest，支持安装到桌面
+- **变量结构扩展**：新增 NPC 段位（`npc_tier`）和经验值（`npc_xp`）变量定义
+
+### 🔧 改进
+
+- **加强预设破限**：默认模式和沉浸模式的创作指令增强，扩展角色年龄设定规则
+- **世界编辑器防误触**：点击遮罩层不再关闭面板，防止意外丢失编辑内容
+- **移动端头部优化**：显示世界名称而非世界 ID
+- **世界卡片布局**：桌面端改为单列显示，间距加大
+- **存档导入修复**：支持 `{save: {...}}` 嵌套格式的存档文件导入
+- **存档导出文件名**：改为 `world-wanderer-save-{timestamp}.json`
+- **ProfilePanel 去重**：移除与 RightPanel 重复的生存状态显示
+
+### 🏗 技术架构
+
+- React 18 + TypeScript + Zustand
+- Vite + Bun 开发环境
+- IndexedDB 持久化存储
+- CSS Layers 设计系统 (base/layout/state/theme/print/a11y)
+- PWA: Service Worker + Web App Manifest
+
+---
+
 ## v1.0.0 — 正式发布 (2026-06-13)
 
 首个正式版本。
@@ -18,7 +47,6 @@
 
 ### 🏗 技术架构
 
-- React 19 + TypeScript + Zustand
-- Bun 开发环境 + 构建打包
+- React 18 + TypeScript + Zustand
+- Vite + Bun 开发环境
 - IndexedDB 持久化存储
-- Zod 运行时数据验证

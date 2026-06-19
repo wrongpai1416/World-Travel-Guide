@@ -1,13 +1,14 @@
 import { Clock, MapPin, Cloud, Landmark, Globe, Brain, Heart, Zap } from 'lucide-react';
 import type { GameState } from '../../../schema/variables';
+import type { WorldDef } from '../../../data/worlds-schema';
 import { extractWorldSystemData } from '../../../modules/runtime';
-import type { WorldSystemData } from '../../../modules/schema';
-import { BaseStatsCard, SixDimCard, ProgressionCard, ResourceCard, DiceCard } from './modules';
-import { getModuleTemplate, type ModuleRenderType } from '../../../data/modules';
-import ModuleCard from './ModuleCard';
+import type { WorldSystemData, ProgressionConfig } from '../../../modules/schema';
+import { BaseStatsCard, SixDimCard, ProgressionCard, ResourceCard, TalentCard } from './modules';
+import { findWorldDef } from '../../../data/worldLoader';
 
 interface Props {
   gameState: GameState;
+  worldId?: string;
 }
 
 // 世界状态行 - Lucide 图标 + 文字
@@ -22,7 +23,10 @@ function StatusRow({ icon, text, muted }: { icon: React.ReactNode; text: string;
 
 // 生存状态条
 function GaugeBar({ label, value, max, color, icon }: { label: string; value: number; max: number; color: string; icon: React.ReactNode }) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  // 防御：确保 value 和 max 是有效数字
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  const safeMax = typeof max === 'number' && !isNaN(max) && max > 0 ? max : 100;
+  const pct = Math.max(0, Math.min(100, (safeValue / safeMax) * 100));
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
       <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>{icon}</span>
@@ -30,22 +34,41 @@ function GaugeBar({ label, value, max, color, icon }: { label: string; value: nu
       <div style={{ flex: 1, height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '3px', transition: 'width 0.3s' }} />
       </div>
-      <span style={{ width: '50px', fontSize: 'var(--font-size-xs)', textAlign: 'right', color: 'var(--text-secondary)' }}>{value}/{max}</span>
+      <span style={{ width: '50px', fontSize: 'var(--font-size-xs)', textAlign: 'right', color: 'var(--text-secondary)' }}>{safeValue}/{safeMax}</span>
     </div>
   );
 }
 
-export default function RightPanel({ gameState }: Props) {
+export default function RightPanel({ gameState, worldId }: Props) {
   const world = gameState.世界;
   const player = gameState.玩家;
   const notebook = player.记事本;
 
-  // 提取世界系统数据（兼容v2.1旧格式和v2新格式）
+  // 提取世界系统数据
   const worldSystem = extractWorldSystemData(world.世界系统);
   const hasStatModule = !!worldSystem.数值属性;
 
-  // 兼容旧格式：如果没有新格式数据，尝试从旧格式提取
-  const legacyModules = !hasStatModule && world.世界系统 ? world.世界系统 as Record<string, any> : null;
+  // 提取模块自定义名称（世界创建时设置）
+  const moduleNames = (world.世界系统 as any)?._moduleNames as Record<string, string> | undefined;
+
+  // 从世界定义获取成长体系配置（静态配置，不存入 GameState）
+  const worldDef = worldId ? findWorldDef(worldId) : null;
+  const progMod = worldDef?.modules?.find(m => m.moduleId === 'progression' && m.enabled);
+  const progressionConfig = progMod?.moduleConfig as ProgressionConfig | undefined;
+
+  // 从世界定义获取数值属性配置（用于显示属性中文名称）
+  const statMod = worldDef?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
+  const statModuleData = statMod?.moduleConfig as any;
+  const statConfig = statModuleData ? {
+    attrA: { name: statModuleData.attrA?.name || '生命' },
+    attrB: { name: statModuleData.attrB?.name || '能量' },
+    dim1: { name: statModuleData.dim1?.name || '属性1' },
+    dim2: { name: statModuleData.dim2?.name || '属性2' },
+    dim3: { name: statModuleData.dim3?.name || '属性3' },
+    dim4: { name: statModuleData.dim4?.name || '属性4' },
+    dim5: { name: statModuleData.dim5?.name || '属性5' },
+    dim6: { name: statModuleData.dim6?.name || '属性6' },
+  } : undefined;
 
   return (
     <div style={{
@@ -92,7 +115,7 @@ export default function RightPanel({ gameState }: Props) {
       )}
 
       {/* 生存状态（无数值属性模块时显示默认血量/体力） */}
-      {!hasStatModule && !legacyModules && (
+      {!hasStatModule && (
         <div className="surface-card" style={{ padding: '1rem' }}>
           <h4 style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             生存状态
@@ -105,27 +128,37 @@ export default function RightPanel({ gameState }: Props) {
       {/* ── v2 模块卡片（新格式） ── */}
       {worldSystem.数值属性 && (
         <>
-          <BaseStatsCard data={worldSystem.数值属性} />
-          <SixDimCard data={worldSystem.数值属性} />
+          <BaseStatsCard data={worldSystem.数值属性} title={moduleNames?.['数值属性']} />
+          <SixDimCard data={worldSystem.数值属性} title={moduleNames?.['数值属性'] ? moduleNames['数值属性'] + ' · 六维' : undefined} />
         </>
       )}
-      {worldSystem.成长体系 && (
-        <ProgressionCard data={worldSystem.成长体系} />
+      {/* 成长体系：配置从世界定义读取，状态从玩家读取 */}
+      {progressionConfig && (
+        <ProgressionCard
+          config={progressionConfig}
+          state={{
+            currentTierIndex: player.当前段位索引 ?? 0,
+            currentXP: player.当前经验值 ?? 0,
+          }}
+          title={worldDef?.modules?.find(m => m.moduleId === 'progression')?.name || '成长体系'}
+          statNames={statConfig ? {
+            attrA: statConfig.attrA.name,
+            attrB: statConfig.attrB.name,
+            dim1: statConfig.dim1.name,
+            dim2: statConfig.dim2.name,
+            dim3: statConfig.dim3.name,
+            dim4: statConfig.dim4.name,
+            dim5: statConfig.dim5.name,
+            dim6: statConfig.dim6.name,
+          } : undefined}
+        />
       )}
       {worldSystem.资源管理 && (
-        <ResourceCard data={worldSystem.资源管理} />
+        <ResourceCard data={worldSystem.资源管理} title={moduleNames?.['资源管理']} />
       )}
-      {worldSystem.骰子检定 && (
-        <DiceCard data={worldSystem.骰子检定} statData={worldSystem.数值属性} />
+      {worldSystem.天赋体系 && (
+        <TalentCard data={worldSystem.天赋体系} title={moduleNames?.['天赋体系']} />
       )}
-
-      {/* ── v2.1 旧格式兼容渲染 ── */}
-      {legacyModules && Object.entries(legacyModules).map(([key, mod]) => {
-        if (!mod || typeof mod !== 'object' || !('moduleId' in mod)) return null;
-        return (
-          <LegacyModuleCard key={key} moduleKey={key} mod={mod as any} />
-        );
-      })}
 
       {/* 待办事项 */}
       {Object.keys(notebook.待办事项).length > 0 && (
@@ -161,18 +194,5 @@ export default function RightPanel({ gameState }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-// ── 旧格式兼容卡片 ──
-function LegacyModuleCard({ moduleKey, mod }: { moduleKey: string; mod: { moduleId: string; 名称: string; 描述: string; 数据: Record<string, unknown> } }) {
-  const template = getModuleTemplate(mod.moduleId);
-  const renderType: ModuleRenderType = (template?.renderType || 'stats') as ModuleRenderType;
-  return (
-    <ModuleCard
-      module={mod}
-      moduleKey={moduleKey}
-      renderType={renderType}
-    />
   );
 }

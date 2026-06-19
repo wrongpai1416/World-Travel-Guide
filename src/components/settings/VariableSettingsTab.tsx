@@ -13,6 +13,7 @@ import type { VariableManager } from '../../engine/variableManager';
 import type { ChatMessage } from '../../engine/types';
 import { Section, SettingRow, Select, Toggle } from './SettingsUIComponents';
 import { type ApiPreset, VARIABLE_ENABLED_KEY } from './apiPresetUtils';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ============================================================
 //  类型
@@ -51,10 +52,10 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
     });
     const [auxPresetId, setAuxPresetId] = useState(initialAuxPresetId);
     const [varDelay, setVarDelay] = useState<number>(() => {
-      try { return Math.max(0, Math.min(10, parseFloat(localStorage.getItem('chuanyue_variable_delay') || '1') || 1)); } catch { return 1; }
+      try { return Math.max(0, Math.min(10, parseFloat(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_delay`) || '1') || 1)); } catch { return 1; }
     });
     const [varRetries, setVarRetries] = useState<number>(() => {
-      try { return Math.max(0, Math.min(5, parseInt(localStorage.getItem('chuanyue_variable_retries') || '3') || 3)); } catch { return 3; }
+      try { return Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch { return 3; }
     });
 
     useImperativeHandle(ref, () => ({

@@ -36,6 +36,7 @@ export function useCharacterHistory({
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [includeAgeStages, setIncludeAgeStages] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // segments 变化时同步到缓存
@@ -94,8 +95,10 @@ export function useCharacterHistory({
   };
 
   // ─── 一键生成全部 ───
-  const handleGenerateAll = async () => {
+  const handleGenerateAll = async (drafts?: Record<string, string>) => {
     if (!apiConfig) { await showAlert('请先配置API'); navigate('settings'); return; }
+
+    const draftsMap = drafts || {};
 
     setIsGenerating(true);
     setRegeneratingId(null);
@@ -103,7 +106,18 @@ export function useCharacterHistory({
     abortRef.current = controller;
 
     const ageStages = getAgeStages(personalInfo.age);
-    const stagePrompts = ageStages.map(s => `## ${s.label}\n（${s.label}期间的关键经历：重大事件、人际关系变化、个人成长转折点，2-3段）`).join('\n\n');
+    const stagePrompts = includeAgeStages
+      ? '\n\n' + ageStages.map(s => `## ${s.label}\n（${s.label}期间的关键经历：重大事件、人际关系变化、个人成长转折点，2-3段）`).join('\n\n')
+      : '';
+
+    // 草稿信息
+    const draftEntries = Object.entries(draftsMap).filter(([, v]) => v.trim());
+    const draftBlock = draftEntries.length > 0
+      ? `\n【玩家草稿】\n${draftEntries.map(([id, text]) => {
+        const label = id === 'prologue' ? '序章' : ageStages.find(s => s.id === id)?.label || id;
+        return `【${label}】\n${text}`;
+      }).join('\n\n')}\n\n请参考以上草稿内容，在其基础上扩展、润色、补充细节，生成完整且精彩的经历。保留草稿中的核心设定和关键事件，但用更好的叙事手法呈现。`
+      : '';
 
     // NPC 关联信息
     const npcBlock = personalInfo.customNpcs.length > 0
@@ -117,7 +131,7 @@ ${getWorldSetting()}
 
 【玩家信息】
 ${getPlayerInfoBlock()}
-${npcBlock}
+${npcBlock}${draftBlock}
 ═══════════════════════════════════════
 【写作要求】
 
@@ -139,18 +153,17 @@ ${npcBlock}
    - 描写角色当前所处的场景、感官细节、内心状态
    - 暗示即将到来的冒险或冲突，制造悬念
    - 2-3段，不少于200字
-
+${includeAgeStages ? `
 5. 人生阶段要求：
    - 每个阶段描写2-3个关键事件
    - 要有角色的成长、失去、或认知变化
-   - 阶段之间要自然衔接，体现时间流逝
+   - 阶段之间要自然衔接，体现时间流逝` : ''}
 
 ═══════════════════════════════════════
 【输出格式】
 
 ## 序章
 （冒险开场白，描写当前场景和氛围）
-
 ${stagePrompts}`;
 
     const messages = [
@@ -180,7 +193,7 @@ ${stagePrompts}`;
   };
 
   // ─── 单段重新生成 ───
-  const handleRegenerateSegment = async (segmentId: string) => {
+  const handleRegenerateSegment = async (segmentId: string, draft?: string) => {
     if (!apiConfig) { await showAlert('请先配置API'); navigate('settings'); return; }
 
     setIsGenerating(true);
@@ -203,6 +216,10 @@ ${stagePrompts}`;
     if (prevSegment) contextBlock += `【前一阶段内容】\n${prevSegment}\n\n`;
     if (nextSegment) contextBlock += `【后一阶段内容】\n${nextSegment}\n\n`;
 
+    const draftBlock = draft?.trim()
+      ? `\n【玩家草稿】\n${draft.trim()}\n\n请参考以上草稿内容，在其基础上扩展、润色、补充细节。保留草稿中的核心设定和关键事件，但用更好的叙事手法呈现。\n`
+      : '';
+
     const stageName = segmentNames[segmentId] || segmentId;
     const systemPrompt = `你是一位专业的角色背景故事撰写者。请只为以下阶段生成内容。
 
@@ -212,7 +229,7 @@ ${getWorldSetting()}
 【玩家信息】
 ${getPlayerInfoBlock()}
 
-${contextBlock}
+${contextBlock}${draftBlock}
 【写作要求】
 - 用具体的场景和细节描写，而非概括性叙述
 - 要有明确的事件、冲突或转折，不能流水账
@@ -248,9 +265,11 @@ ${contextBlock}
 
   // ─── 拼接完整文本 ───
   const buildFullCharacterHistory = useCallback(() => {
-    const order = getAllSegmentIds(personalInfo.age);
-    return order.map(id => (segments[id] || '').trim()).filter(Boolean).join('\n\n');
-  }, [segments, personalInfo.age]);
+    const ids = includeAgeStages
+      ? getAllSegmentIds(personalInfo.age)
+      : ['prologue'];
+    return ids.map(id => (segments[id] || '').trim()).filter(Boolean).join('\n\n');
+  }, [segments, personalInfo.age, includeAgeStages]);
 
   // 清理（开始游戏或离开向导时调用）
   const cleanup = () => {
@@ -268,6 +287,7 @@ ${contextBlock}
   return {
     segments, setSegments,
     isGenerating, regeneratingId,
+    includeAgeStages, setIncludeAgeStages,
     handleGenerateAll,
     handleRegenerateSegment,
     buildFullCharacterHistory,

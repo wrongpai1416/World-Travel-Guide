@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { AlertTriangle, Info, HelpCircle, X } from 'lucide-react';
 import { useConfigStore } from '../../stores/configStore';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 interface DialogOptions {
   type: 'confirm' | 'alert' | 'info' | 'prompt';
@@ -81,6 +82,8 @@ export function useDialog() {
     info: Info,
     prompt: HelpCircle,
   };
+
+  useBodyScrollLock(!!dialog?.open);
 
   const DialogUI = dialog?.open ? (
     <div

@@ -3,8 +3,9 @@ import { WORLDS, type WorldDef } from '../data/worldLoader';
 import type { PlayerProfile } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import { loadWorldBook } from '../engine/worldPersonality';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
-const CREATED_WORLDS_KEY = 'chuanye_custom_worlds';
+const CREATED_WORLDS_KEY = STORAGE_KEYS.CUSTOM_WORLDS;
 
 interface UseWizardOptions {
   initialWorld?: string;

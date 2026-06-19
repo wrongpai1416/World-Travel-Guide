@@ -5,6 +5,40 @@ import type { PresetPack, PresetPromptEntry } from '../data/builtinPresets';
 import { getEnabledPrompts, filterTriggeredPrompts } from '../data/builtinPresets';
 import type { MacroEngine } from './macroEngine';
 
+/**
+ * 估算文本的 token 数量（中英文混合，~2.5 字符 ≈ 1 token）
+ * 参考 yijiekkk 的 estimateTokens 启发式
+ */
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 2.5);
+}
+
+/**
+ * 将文本裁剪到指定 token 预算内，按行截断
+ * 参考 yijiekkk 的 trimDynamicMemoryBlock 模式
+ */
+function trimToTokenBudget(text: string, tokenBudget: number): string {
+  if (!text || tokenBudget <= 0) return '';
+  if (estimateTokens(text) <= tokenBudget) return text;
+
+  const lines = text.split('\n');
+  const kept: string[] = [];
+  let usedTokens = 0;
+
+  for (const line of lines) {
+    const lineTokens = estimateTokens(line) + 1;
+    if (kept.length === 0 || usedTokens + lineTokens <= tokenBudget) {
+      kept.push(line);
+      usedTokens += lineTokens;
+    } else {
+      break;
+    }
+  }
+
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** 组装器上下文 —— 包装所有需要注入到 prompt 的数据 */
 export interface AssemblerContext {
   /** 变量快照（序列化的 GameState） */
@@ -25,6 +59,8 @@ export interface AssemblerContext {
   macroEngine: MacroEngine;
   /** 编译后的记忆上下文（来自记忆系统） */
   compiledMemoryContext?: string;
+  /** 世界书 atDepth 条目（需要插入到聊天历史中的指定深度） */
+  atDepthEntries?: Array<{ depth: number; content: string }>;
 }
 
 /**
@@ -49,11 +85,15 @@ export function assembleSystemPrompt(
   const triggered = filterTriggeredPrompts(enabled, ctx.userText);
 
   // 3. 解析每个条目的宏并拼接
+  // 对 varSnapshot 做 token budget 裁剪，防止系统提示过大撑爆上下文
+  const VAR_SNAPSHOT_TOKEN_BUDGET = 1800;
+  const trimmedVarSnapshot = trimToTokenBudget(ctx.varSnapshot, VAR_SNAPSHOT_TOKEN_BUDGET);
+
   const resolvedParts = triggered.map(entry => {
     let content = entry.content;
 
     // 替换 {{VAR_SNAPSHOT}} 占位符（延迟绑定）
-    content = content.replace(/\{\{VAR_SNAPSHOT\}\}/gi, ctx.varSnapshot);
+    content = content.replace(/\{\{VAR_SNAPSHOT\}\}/gi, trimmedVarSnapshot);
 
     // 通过宏引擎解析其他宏
     content = ctx.macroEngine.resolve(content);
@@ -96,8 +136,10 @@ export function assembleSystemPromptLegacy(
   systemPromptTemplate: string,
   ctx: AssemblerContext,
 ): string {
-  // 替换 {{VAR_SNAPSHOT}}
-  let resolved = systemPromptTemplate.replace(/\{\{VAR_SNAPSHOT\}\}/gi, ctx.varSnapshot);
+  // 替换 {{VAR_SNAPSHOT}}（带 token budget 裁剪）
+  const VAR_SNAPSHOT_TOKEN_BUDGET = 1800;
+  const trimmedVarSnapshot = trimToTokenBudget(ctx.varSnapshot, VAR_SNAPSHOT_TOKEN_BUDGET);
+  let resolved = systemPromptTemplate.replace(/\{\{VAR_SNAPSHOT\}\}/gi, trimmedVarSnapshot);
   // 宏解析
   resolved = ctx.macroEngine.resolve(resolved);
 
@@ -110,4 +152,37 @@ export function assembleSystemPromptLegacy(
   parts.push(resolved);
 
   return parts.join('\n\n');
+}
+
+/**
+ * 将 atDepth 世界书条目注入到聊天历史中。
+ *
+ * depth 含义：depth=2 表示"在倒数第 2 条消息之前插入"，
+ * 即 AI 只能看到最近 1 条用户消息时就能看到该条目。
+ *
+ * @param chatHistory 原始聊天历史（不含 system message）
+ * @param atDepthEntries 需要注入的 atDepth 条目
+ * @returns 注入后的聊天历史
+ */
+export function injectAtDepthEntries<T extends { role: string; content: string }>(
+  chatHistory: T[],
+  atDepthEntries: Array<{ depth: number; content: string }>,
+): T[] {
+  if (!atDepthEntries || atDepthEntries.length === 0) return chatHistory;
+
+  const result = [...chatHistory];
+  // 按 depth 从大到小排序（深的先插，避免影响浅的插入位置）
+  const sorted = [...atDepthEntries].sort((a, b) => b.depth - a.depth);
+
+  for (const entry of sorted) {
+    // depth 表示"在倒数第 N 条之前插入"
+    const insertPos = Math.max(0, result.length - entry.depth);
+    const depthMsg = {
+      role: 'user' as const,
+      content: `[世界书补充 - depth:${entry.depth}]\n${entry.content}`,
+    } as T;
+    result.splice(insertPos, 0, depthMsg);
+  }
+
+  return result;
 }

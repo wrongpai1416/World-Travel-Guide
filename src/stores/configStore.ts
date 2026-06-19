@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ApiConfig } from '@/api/types';
 import type { AuxiliaryConfig } from '@/api/auxiliaryApi';
+import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ─── 类型 ───
 
@@ -22,8 +23,8 @@ export interface UISettings {
 
 // ─── 常量 ───
 
-const STORAGE_KEY = 'chuanyue_ui_settings';
-const API_STORAGE_KEY = 'chuanyue_api_config';
+const STORAGE_KEY = STORAGE_KEYS.UI_SETTINGS;
+const API_STORAGE_KEY = STORAGE_KEYS.API_CONFIG;
 
 const DEFAULT_SETTINGS: UISettings = {
   language: 'zh-CN',
