@@ -375,7 +375,7 @@ export function useGameEngine(
       const memApiConfig = resolvePreset(memConfig.apiPresetId) ?? defaultMemApi;
       const playerName = playerProfileRef.current?.name || '冒险者';
       const batchText = userText + '\n\n' + '(等待AI回复)';
-      const recentContext = sanitizeForContext(messages, round)
+      const recentContext = sanitizeForContext(messagesRef.current, round)
         .slice(-6)
         .map(m => m.content)
         .join('\n\n');

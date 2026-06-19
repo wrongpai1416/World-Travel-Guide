@@ -1,14 +1,18 @@
 {
   "name": "world-travel-guide",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "AI-Powered Interactive Fiction Engine — 多世界观、多阶段管线、编译式记忆系统",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "bun run server.ts",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.3",
     "@types/bun": "latest",
     "@types/dompurify": "^3.0.5",
     "@types/lodash-es": "^4.17.12",
