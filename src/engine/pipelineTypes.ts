@@ -56,6 +56,8 @@ export interface PipelineConfig {
   memoryEnabled: boolean;
   /** Claude 模式：使用 Claude 专用预设（针对 Claude 安全机制优化的破限） */
   claudeMode: boolean;
+  /** 增色模式：在基础预设之上叠加增色模块（部位特化、美型化、场景氛围） */
+  enhancementEnabled: boolean;
 }
 
 /**
@@ -129,6 +131,7 @@ export function loadPipelineConfig(): PipelineConfig {
   let variableMaxRetries = 3;
   let memoryEnabled = true;
   let claudeMode = false;
+  let enhancementEnabled = false;
 
   try { variableEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_enabled`) !== 'false'; } catch {}
   try {
@@ -138,6 +141,7 @@ export function loadPipelineConfig(): PipelineConfig {
   try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch {}
   try { memoryEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_memory_enabled`) !== 'false'; } catch {}
   try { claudeMode = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch {}
+  try { enhancementEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`) === 'true'; } catch {}
 
   return {
     executionOrder: DEFAULT_EXECUTION_ORDER,
@@ -146,5 +150,6 @@ export function loadPipelineConfig(): PipelineConfig {
     variableMaxRetries,
     memoryEnabled,
     claudeMode,
+    enhancementEnabled,
   };
 }

@@ -46,6 +46,9 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
   const [claudeMode, setClaudeMode] = useState<boolean>(() => {
     try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { return false; }
   });
+  const [enhancementMode, setEnhancementMode] = useState<boolean>(() => {
+    try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`) === 'true'; } catch { return false; }
+  });
 
   useImperativeHandle(ref, () => ({
     getValues: () => ({ config }),
@@ -452,6 +455,18 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
             <Toggle value={claudeMode} onChange={(v) => {
               setClaudeMode(v);
               try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`, String(v)); } catch {}
+            }} />
+          </div>
+          <div style={rowStyle}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>增色预设</div>
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+                在基础预设之上叠加增色模块（部位特化、美型化、场景氛围）
+              </div>
+            </div>
+            <Toggle value={enhancementMode} onChange={(v) => {
+              setEnhancementMode(v);
+              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`, String(v)); } catch {}
             }} />
           </div>
         </div>
