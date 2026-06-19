@@ -90,7 +90,7 @@ export function parseResponse(rawText: string): ParsedResponse {
   if (actionOptions.length === 0) {
     // 先清理标签，拿到纯文本
     const plainText = rawText
-      .replace(/<(?:action_)?options>[\s\S]*?<(?:action_)?options>/gi, '')
+      .replace(/<(?:action_)?options>[\s\S]*?<\/(?:action_)?options>/gi, '')
       .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
       .replace(/<thinking>[\s\S]*/gi, '')
       .replace(/<integrity>[\s\S]*?<\/integrity>/gi, '')
