@@ -33,6 +33,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '世界漫游指南 ${{ github.ref_name }}'
+          releaseBody: '下载安装即可使用。首次启动如有安全提示，请选择"仍要运行"。'
+          releaseDraft: false
+          prerelease: false
 
   build-macos:
     runs-on: macos-latest
@@ -58,6 +64,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '世界漫游指南 ${{ github.ref_name }}'
+          releaseBody: '下载安装即可使用。首次启动如有安全提示，请选择"仍要运行"。'
+          releaseDraft: false
+          prerelease: false
 
   build-linux:
     runs-on: ubuntu-latest
@@ -88,3 +100,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '世界漫游指南 ${{ github.ref_name }}'
+          releaseBody: '下载安装即可使用。首次启动如有安全提示，请选择"仍要运行"。'
+          releaseDraft: false
+          prerelease: false
