@@ -3,7 +3,6 @@ import type { WorldBookManager } from '../worldbook/index';
 import type { GameState } from '../schema/variables';
 import type { WorldDef } from '../data/worlds-schema';
 import type { ParsedResponse } from './responseExtractor';
-import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import type { ApiConfig } from '../api/types';
 import { callAuxiliaryApi, extractVariableRules } from '../api/auxiliaryApi';
 import { eventBus, EVENTS } from './eventBus';
@@ -47,7 +46,7 @@ function sanitizeForExtraction(state: GameState): GameState {
 }
 
 async function callAuxiliaryApiForEngine(
-  config: AuxiliaryConfig | ApiConfig,
+  config: ApiConfig,
   worldBook: WorldBookManager | null,
   gameState: GameState,
   userMessage: string,
@@ -86,23 +85,22 @@ export async function runVariableExtraction(params: {
   parsed: ParsedResponse;
   round: number;
   userText: string;
-  auxiliaryConfig: AuxiliaryConfig | null;
   mainApiConfig: ApiConfig;
   worldBook: WorldBookManager | null;
   delayMs: number;
   maxRetries: number;
 }): Promise<void> {
-  const { varMgr, parsed, round, userText, auxiliaryConfig, mainApiConfig, worldBook, delayMs, maxRetries } = params;
+  const { varMgr, parsed, round, userText, mainApiConfig, worldBook, delayMs, maxRetries } = params;
 
-  // 选择 API 配置：优先变量提取专用预设 > 辅助API > 主API
-  let effectiveConfig: AuxiliaryConfig | ApiConfig = auxiliaryConfig ?? mainApiConfig;
+  // 选择 API 配置：优先变量提取专用预设 > 主API
+  let effectiveConfig: ApiConfig = mainApiConfig;
   try {
     const varPresetId = localStorage.getItem('world_travel_guide_variable_api_preset');
     if (varPresetId) {
       const presets = loadPresets();
       const preset = presets.find(p => p.id === varPresetId);
       if (preset) {
-        effectiveConfig = { baseUrl: preset.config.baseUrl, apiKey: preset.config.apiKey, model: preset.config.model };
+        effectiveConfig = { ...preset.config };
       }
     }
   } catch { /* localStorage 不可用时 fallback */ }

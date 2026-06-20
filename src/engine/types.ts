@@ -7,9 +7,9 @@ import type { WorldDef } from '../data/worlds-schema';
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
-  content: string;
-  thinking?: string;
-  actionOptions?: string[];
+  /** 完整 API 响应（唯一存储源）。用户消息则为用户输入文本。 */
+  rawText: string;
+  /** 摘要（可选，用于老消息压缩，很短） */
   summary?: string;
   round: number;
   timestamp: number;
@@ -17,6 +17,18 @@ export interface ChatMessage {
   snapshot?: unknown;
   snapshotTime?: number;
   memoryCheckpointId?: string;
+  /**
+   * @deprecated 旧存档兼容字段，新消息使用 rawText
+   */
+  content?: string;
+  /**
+   * @deprecated 旧存档兼容字段，新消息使用 rawText
+   */
+  thinking?: string;
+  /**
+   * @deprecated 旧存档兼容字段，新消息使用 rawText
+   */
+  actionOptions?: string[];
 }
 
 export interface GameEngine {

@@ -5,6 +5,12 @@ import type { ChatMessage } from './types';
 import type { Message } from '../api/types';
 import { processRegexScripts } from '../utils/regexScripts';
 import { getBuiltinPromptScripts } from '../data/builtinPresets';
+import { extractContentForPrompt } from './responseExtractor';
+
+/** 获取消息的纯正文（从 rawText 按需解析，兼容旧存档） */
+export function getMessageContent(msg: ChatMessage): string {
+  return msg.rawText || msg.content || '';
+}
 
 /** 核心函数：清理消息上下文用于发送给AI */
 export function sanitizeForContext(messages: ChatMessage[], currentRound: number): Message[] {
@@ -18,7 +24,10 @@ export function sanitizeForContext(messages: ChatMessage[], currentRound: number
     .slice(-MAX_HISTORY);
 
   return recentMessages.map(m => {
-    let content = m.content;
+    // 从 rawText 提取纯正文（剥掉所有标签）
+    let content = m.role === 'assistant'
+      ? extractContentForPrompt(getMessageContent(m))
+      : getMessageContent(m);
 
     if (m.role === 'assistant') {
       const depth = currentRound - m.round;
@@ -26,7 +35,7 @@ export function sanitizeForContext(messages: ChatMessage[], currentRound: number
       // 用正则脚本清理所有元数据标签
       content = processRegexScripts(content, promptScripts, 'Output', depth);
 
-      // 深度>10：只保留 summary（使用 ChatMessage 上已提取的 summary 字段）
+      // 深度>10：只保留 summary
       if (depth > SUMMARY_DEPTH_THRESHOLD) {
         content = m.summary || content;
       }

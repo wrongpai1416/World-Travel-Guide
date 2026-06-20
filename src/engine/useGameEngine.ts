@@ -3,12 +3,12 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
 import { setRateLimitInterval } from '../api/rateLimiter';
-import { parseResponse } from './responseExtractor';
+import { extractContentForPrompt, extractThinking, extractActionOptions, extractSummary } from './responseExtractor';
+import { getMessageContent } from './contextManager';
 import { VariableManager } from './variableManager';
 import { eventBus, EVENTS } from './eventBus';
 import { v4 as uuid } from 'uuid';
 import type { WorldBookManager } from '../worldbook/index';
-import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import { sanitizeForContext } from './contextManager';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
 import { optimizeSnapshots } from '../storage/db';
@@ -33,7 +33,6 @@ export type { ChatMessage, GameEngine };
 export function useGameEngine(
   apiConfig: ApiConfig | null,
   initialVarMgr?: VariableManager,
-  auxiliaryConfig?: AuxiliaryConfig | null,
   selectedWorld: string = 'default',
   playerProfile?: PlayerProfile | null,
   characterHistory?: string,
@@ -184,7 +183,7 @@ export function useGameEngine(
   }, []);
 
   const editMessage = useCallback((id: string, content: string) => {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, content } : m));
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, rawText: content } : m));
   }, []);
 
   const resendFromMessage = useCallback(async (id: string) => {
@@ -232,7 +231,7 @@ export function useGameEngine(
     });
 
     setTimeout(() => {
-      sendMessageRef.current?.(msg.content);
+      sendMessageRef.current?.(getMessageContent(msg));
     }, 0);
   }, [apiConfig, isGenerating]);
 
@@ -286,7 +285,7 @@ export function useGameEngine(
     });
 
     setTimeout(() => {
-      sendMessageRef.current?.(userMsg.content);
+      sendMessageRef.current?.(getMessageContent(userMsg));
     }, 0);
   }, [apiConfig, isGenerating]);
 
@@ -333,12 +332,12 @@ export function useGameEngine(
     roundRef.current++;
     const round = roundRef.current;
 
-    const userMsg: ChatMessage = { id: uuid(), role: 'user', content: userText, round, timestamp: Date.now() };
+    const userMsg: ChatMessage = { id: uuid(), role: 'user', rawText: userText, round, timestamp: Date.now() };
     addMessage(userMsg);
     eventBus.emit(EVENTS.MESSAGE_SENT, userMsg);
 
     const aiMsgId = uuid();
-    const aiMsg: ChatMessage = { id: aiMsgId, role: 'assistant', content: '', round, timestamp: Date.now(), streaming: true };
+    const aiMsg: ChatMessage = { id: aiMsgId, role: 'assistant', rawText: '', round, timestamp: Date.now(), streaming: true };
     addMessage(aiMsg);
     eventBus.emit(EVENTS.GENERATION_STARTED, aiMsgId);
 
@@ -380,7 +379,7 @@ export function useGameEngine(
       const batchText = userText + '\n\n' + '(等待AI回复)';
       const recentContext = sanitizeForContext(messagesRef.current, round)
         .slice(-6)
-        .map(m => m.content)
+        .map(m => m.content || '')
         .join('\n\n');
 
       const memCtx: MemoryPipelineContext = {
@@ -407,7 +406,6 @@ export function useGameEngine(
         varMgr: varMgrRef.current,
         worldBook: worldBookRef.current,
         userText,
-        auxiliaryConfig: auxiliaryConfig ?? null,
         mainApiConfig: apiConfig,
 
         // 记忆系统任务集
@@ -467,7 +465,7 @@ export function useGameEngine(
             // 构建聊天历史供扫描引擎使用
             const scanHistory = messagesRef.current.map(m => ({
               role: m.role,
-              content: m.content,
+              content: getMessageContent(m),
             }));
             const scanResult = worldBookRef.current.scanAndBuildInjection(scanHistory, userText);
             if (scanResult.beforeChar) wbInjection += scanResult.beforeChar + '\n\n';
@@ -576,46 +574,81 @@ ${perspectiveInstruction}
 
           const result = await requestStreamWithRetry(apiConfig, apiMessages, {
             signal: controller.signal,
-            onDelta: (delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { content: acc }); },
+            onDelta: (delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
             onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
           });
 
-          const parsed = parseResponse(result.text || accumulated);
-
-          let finalContent = parsed.content || result.text || accumulated;
+          let rawText = result.text || accumulated;
 
           // 如果响应为空（SSE尾部丢失等），重试一次
-          if (!finalContent.trim()) {
+          if (!rawText.trim()) {
             let retryAccumulated = '';
             const retryResult = await requestStreamWithRetry(apiConfig, apiMessages, {
               signal: controller.signal,
-              onDelta: (delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { content: acc }); },
+              onDelta: (delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
               onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
             });
-            const retryParsed = parseResponse(retryResult.text || retryAccumulated);
-            finalContent = retryParsed.content || retryResult.text || retryAccumulated;
-            if (retryParsed.thinking) parsed.thinking = retryParsed.thinking;
-            if (retryParsed.actionOptions) parsed.actionOptions = retryParsed.actionOptions;
-            if (retryParsed.summary) parsed.summary = retryParsed.summary;
+            rawText = retryResult.text || retryAccumulated;
+            if (retryResult.reasoning) reasoning = retryResult.reasoning;
           }
 
-          if (finalContent.includes('<StatusPlaceHolderImpl/>')) {
-            finalContent = finalContent.replace(/<StatusPlaceHolderImpl\/>/g, '').trim();
-            if (!finalContent) {
-              finalContent = '🌍 欢迎来到世界漫游指南！\n\n请描述你的角色和想要穿越的世界，开始你的冒险之旅。\n\n你可以：\n• 直接描述你想做什么\n• 选择下方的推荐行动\n• 输入任何你想尝试的行动';
+          // 从 rawText 按需解析各字段
+          let actionOptions = extractActionOptions(rawText);
+          let summary = extractSummary(rawText);
+          const thinking = extractThinking(rawText) || reasoning || result.reasoning || '';
+
+          // 格式不完整补救：有正文但缺少行动选项，用轻量 API 调用补生成
+          const contentForCheck = extractContentForPrompt(rawText);
+          if (contentForCheck.trim() && actionOptions.length === 0) {
+            console.warn('[引擎] 响应缺少行动选项，补生成中...');
+            try {
+              const optionPrompt = `根据以下叙事内容，生成3-5个行动选项。每个选项包含标题和简短描述。
+
+叙事内容：
+${contentForCheck.slice(0, 2000)}
+
+严格按以下格式输出，不要输出其他内容：
+[OPTION_START]
+[OPTION]{t: "选项标题", d: "简短描述"}
+[OPTION]{t: "选项标题", d: "简短描述"}
+[OPTION]{t: "选项标题", d: "简短描述"}
+[OPTION_END]`;
+
+              const optionResult = await requestCompletion(apiConfig, [
+                { role: 'user', content: optionPrompt },
+              ], { maxTokens: 500 });
+
+              const genOptions = extractActionOptions(optionResult.text);
+              if (genOptions.length > 0) {
+                actionOptions = genOptions;
+                // 把补生成的选项追加到 rawText 中，保持一致性
+                rawText = rawText + '\n\n[OPTION_START]\n' + genOptions.map(o => `[OPTION]{t: "${o}", d: ""}`).join('\n') + '\n[OPTION_END]';
+                console.warn(`[引擎] 补生成成功，${genOptions.length} 个选项`);
+              }
+            } catch (err) {
+              console.warn('[引擎] 补生成选项失败:', err);
             }
           }
 
+          // StatusPlaceHolderImpl 处理
+          if (rawText.includes('<StatusPlaceHolderImpl/>')) {
+            rawText = rawText.replace(/<StatusPlaceHolderImpl\/>/g, '').trim();
+            if (!rawText) {
+              rawText = '🌍 欢迎来到世界漫游指南！\n\n请描述你的角色和想要穿越的世界，开始你的冒险之旅。\n\n你可以：\n• 直接描述你想做什么\n• 选择下方的推荐行动\n• 输入任何你想尝试的行动';
+            }
+          }
+
+          // 存储完整原始响应
           updateMessage(aiMsgId, {
-            content: finalContent,
-            thinking: parsed.thinking || reasoning || result.reasoning,
-            actionOptions: parsed.actionOptions,
-            summary: parsed.summary || undefined,
+            rawText,
+            thinking,
+            actionOptions,
+            summary: summary || undefined,
             streaming: false,
           });
           eventBus.emit(EVENTS.MESSAGE_RECEIVED, aiMsgId);
 
-          return { text: finalContent, parsed };
+          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking, actionOptions, summary } };
         },
       });
 
@@ -642,14 +675,14 @@ ${perspectiveInstruction}
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        updateMessage(aiMsgId, { content: '[已停止生成]', streaming: false });
+        updateMessage(aiMsgId, { rawText: '[已停止生成]', streaming: false });
       } else {
         // 不覆盖已流式输出的正文，只在文末追加错误提示
-        const currentContent = messagesRef.current.find(m => m.id === aiMsgId)?.content || '';
+        const currentContent = getMessageContent(messagesRef.current.find(m => m.id === aiMsgId)!) || '';
         const errorSuffix = currentContent.trim()
           ? `\n\n⚠️ [管线错误] ${err.message}`
           : `[错误] ${err.message}`;
-        updateMessage(aiMsgId, { content: errorSuffix, streaming: false });
+        updateMessage(aiMsgId, { rawText: errorSuffix, streaming: false });
       }
     } finally {
       setIsGenerating(false);
@@ -658,7 +691,7 @@ ${perspectiveInstruction}
       // 直接触发自动存档（通过 ref 回调，不依赖事件总线时序）
       try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
     }
-  }, [apiConfig, isGenerating, addMessage, updateMessage, auxiliaryConfig]);
+  }, [apiConfig, isGenerating, addMessage, updateMessage]);
 
   sendMessageRef.current = sendMessage;
 
@@ -671,7 +704,7 @@ ${perspectiveInstruction}
 
     // 找到对应的 AI 消息，确认正文还在
     const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
-    if (!aiMsg || !aiMsg.content || aiMsg.content.startsWith('[错误]')) return;
+    if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) return;
 
     setIsGenerating(true);
     const controller = new AbortController();
@@ -727,7 +760,6 @@ ${perspectiveInstruction}
         varMgr: varMgrRef.current,
         worldBook: worldBookRef.current,
         userText: ctx.userText,
-        auxiliaryConfig: auxiliaryConfig ?? null,
         mainApiConfig: apiConfig,
 
         memoryTasks: memConfig.enabled ? {
@@ -746,7 +778,7 @@ ${perspectiveInstruction}
         } : undefined,
 
         // mainTask 为空（跳过）
-        mainTask: async () => ({ text: aiMsg.content, parsed: { content: aiMsg.content, updateVariable: null, thinking: '', actionOptions: [], summary: null, rawText: aiMsg.content } }),
+        mainTask: async () => ({ text: aiMsg.rawText, parsed: { content: extractContentForPrompt(aiMsg.rawText), thinking: '', actionOptions: [], summary: null } }),
       });
 
       // 重试成功后重新保存快照
@@ -772,7 +804,7 @@ ${perspectiveInstruction}
       cancelRef.current = null;
       try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
     }
-  }, [apiConfig, isGenerating, auxiliaryConfig]);
+  }, [apiConfig, isGenerating]);
 
   // ─── 单步重试（只重跑管线中的某一个失败阶段） ───
   const retrySingleStage = useCallback(async (taskId: PipelineTaskId) => {
@@ -781,7 +813,7 @@ ${perspectiveInstruction}
     if (!apiConfig || isGenerating || !ctx || !executor) return;
 
     const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
-    if (!aiMsg || !aiMsg.content || aiMsg.content.startsWith('[错误]')) return;
+    if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) return;
 
     setIsGenerating(true);
     try {

@@ -1,7 +1,8 @@
 // 游戏引擎核心 - 从 useGameEngine.ts 提取的核心编排逻辑
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
-import { parseResponse } from './responseExtractor';
+import { extractContentForPrompt, extractThinking, extractActionOptions, extractSummary } from './responseExtractor';
+import { getMessageContent } from './contextManager';
 import { VariableManager } from './variableManager';
 import { eventBus, EVENTS } from './eventBus';
 import { v4 as uuid } from 'uuid';
@@ -72,12 +73,12 @@ export class GameEngineCore {
     this.round++;
     const round = this.round;
 
-    const userMsg: ChatMessage = { id: uuid(), role: 'user', content: userText, round, timestamp: Date.now() };
+    const userMsg: ChatMessage = { id: uuid(), role: 'user', rawText: userText, round, timestamp: Date.now() };
     addMessage(userMsg);
     eventBus.emit(EVENTS.MESSAGE_SENT, userMsg);
 
     const aiMsgId = uuid();
-    const aiMsg: ChatMessage = { id: aiMsgId, role: 'assistant', content: '', round, timestamp: Date.now(), streaming: true };
+    const aiMsg: ChatMessage = { id: aiMsgId, role: 'assistant', rawText: '', round, timestamp: Date.now(), streaming: true };
     addMessage(aiMsg);
     eventBus.emit(EVENTS.GENERATION_STARTED, aiMsgId);
 
@@ -308,46 +309,47 @@ ${perspectiveInstruction}
 
           const result = await requestStreamWithRetry(apiConfig, apiMessages, {
             signal: controller.signal,
-            onDelta: (delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { content: acc }); },
+            onDelta: (_delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
             onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
           });
 
-          const parsed = parseResponse(result.text || accumulated);
-
-          let finalContent = parsed.content || result.text || accumulated;
+          let rawText = result.text || accumulated;
 
           // 如果响应为空（SSE尾部丢失等），重试一次
-          if (!finalContent.trim()) {
+          if (!rawText.trim()) {
             let retryAccumulated = '';
             const retryResult = await requestStreamWithRetry(apiConfig, apiMessages, {
               signal: controller.signal,
-              onDelta: (delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { content: acc }); },
+              onDelta: (_delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
               onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
             });
-            const retryParsed = parseResponse(retryResult.text || retryAccumulated);
-            finalContent = retryParsed.content || retryResult.text || retryAccumulated;
-            if (retryParsed.thinking) parsed.thinking = retryParsed.thinking;
-            if (retryParsed.actionOptions) parsed.actionOptions = retryParsed.actionOptions;
-            if (retryParsed.summary) parsed.summary = retryParsed.summary;
+            rawText = retryResult.text || retryAccumulated;
+            if (retryResult.reasoning) reasoning = retryResult.reasoning;
           }
 
-          if (finalContent.includes('<StatusPlaceHolderImpl/>')) {
-            finalContent = finalContent.replace(/<StatusPlaceHolderImpl\/>/g, '').trim();
-            if (!finalContent) {
-              finalContent = '🌍 欢迎来到世界漫游指南！\n\n请描述你的角色和想要穿越的世界，开始你的冒险之旅。\n\n你可以：\n• 直接描述你想做什么\n• 选择下方的推荐行动\n• 输入任何你想尝试的行动';
+          // StatusPlaceHolderImpl 处理
+          if (rawText.includes('<StatusPlaceHolderImpl/>')) {
+            rawText = rawText.replace(/<StatusPlaceHolderImpl\/>/g, '').trim();
+            if (!rawText) {
+              rawText = '🌍 欢迎来到世界漫游指南！\n\n请描述你的角色和想要穿越的世界，开始你的冒险之旅。\n\n你可以：\n• 直接描述你想做什么\n• 选择下方的推荐行动\n• 输入任何你想尝试的行动';
             }
           }
 
+          // 从 rawText 按需解析各字段
+          const thinking = extractThinking(rawText) || reasoning || result.reasoning || '';
+          const actionOptions = extractActionOptions(rawText);
+          const summary = extractSummary(rawText);
+
           updateMessage(aiMsgId, {
-            content: result.text || accumulated,
-            thinking: parsed.thinking || reasoning || result.reasoning,
-            actionOptions: parsed.actionOptions,
-            summary: parsed.summary || undefined,
+            rawText,
+            thinking,
+            actionOptions,
+            summary: summary || undefined,
             streaming: false,
           });
           eventBus.emit(EVENTS.MESSAGE_RECEIVED, aiMsgId);
 
-          return { text: finalContent, parsed };
+          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking, actionOptions, summary } };
         },
       });
 

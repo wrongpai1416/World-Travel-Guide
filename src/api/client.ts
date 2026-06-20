@@ -269,8 +269,14 @@ async function requestWithFallback(
   }
   try {
     const result = await requestCompletionStream(config, messages, options);
-    if (!result.text) {
-      return requestCompletion(config, messages, options);
+    // 内容过短（≤5字符）视为异常响应（429被包装成200、内容审核截断等），触发重试
+    if (!result.text || result.text.trim().length <= 5) {
+      console.warn(`[API] 流式响应内容过短（${result.text.length} 字符），降级到非流式重试`);
+      const fallback = await requestCompletion(config, messages, options);
+      if (!fallback.text || fallback.text.trim().length <= 5) {
+        throw new Error(`API 429: 流式和非流式均返回过短响应，疑似限流或内容审核`);
+      }
+      return fallback;
     }
     return result;
   } catch (err: any) {

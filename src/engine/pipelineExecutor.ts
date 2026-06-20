@@ -4,7 +4,6 @@ import { createPipelineStatus, STAGE_LABELS } from './pipelineTypes';
 import type { VariableManager } from './variableManager';
 import type { WorldBookManager } from '../worldbook/index';
 import type { ParsedResponse } from './responseExtractor';
-import type { AuxiliaryConfig } from '../api/auxiliaryApi';
 import type { ApiConfig } from '../api/types';
 import { runVariableExtraction } from './variableExtraction';
 import { eventBus, EVENTS } from './eventBus';
@@ -86,13 +85,12 @@ export class PipelineExecutor {
     varMgr: VariableManager;
     worldBook: WorldBookManager | null;
     userText: string;
-    auxiliaryConfig: AuxiliaryConfig | null;
     mainApiConfig: ApiConfig;
     signal: AbortSignal;
     /** 记忆系统任务集（可选，由外部注入） */
     memoryTasks?: MemoryTasks;
   }): Promise<PipelineResult> {
-    const { config, mainTask, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks } = params;
+    const { config, mainTask, varMgr, worldBook, userText, mainApiConfig, signal, memoryTasks } = params;
     let mainResult: { text: string; parsed: ParsedResponse } | null = null;
 
     for (const step of config.executionOrder) {
@@ -116,13 +114,13 @@ export class PipelineExecutor {
         if (otherTasks.length > 0 && !signal.aborted) {
           await waitForRateLimit();
           await Promise.all(otherTasks.map(taskId =>
-            this.executeTask(taskId, config, mainResult!, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks)
+            this.executeTask(taskId, config, mainResult!, varMgr, worldBook, userText, mainApiConfig, signal, memoryTasks)
           ));
         }
       } else {
         // 整层并行
         await Promise.all(step.map(taskId =>
-          this.executeTask(taskId, config, mainResult, varMgr, worldBook, userText, auxiliaryConfig, mainApiConfig, signal, memoryTasks)
+          this.executeTask(taskId, config, mainResult, varMgr, worldBook, userText, mainApiConfig, signal, memoryTasks)
         ));
       }
     }
@@ -165,14 +163,13 @@ export class PipelineExecutor {
     varMgr: VariableManager,
     worldBook: WorldBookManager | null,
     userText: string,
-    auxiliaryConfig: AuxiliaryConfig | null,
     mainApiConfig: ApiConfig,
     signal: AbortSignal,
     memoryTasks?: MemoryTasks,
   ): Promise<void> {
     switch (taskId) {
       case 'variable':
-        return this.executeVariable(config, varMgr, mainResult, userText, auxiliaryConfig, mainApiConfig, worldBook);
+        return this.executeVariable(config, varMgr, mainResult, userText, mainApiConfig, worldBook);
       case 'memory_write':
         return this.executeMemoryTask('memory_write', config.memoryEnabled, memoryTasks?.write, memoryTasks?.debugLogger);
       case 'memory_summary':
@@ -235,7 +232,6 @@ export class PipelineExecutor {
     varMgr: VariableManager,
     mainResult: { text: string; parsed: ParsedResponse } | null,
     userText: string,
-    auxiliaryConfig: AuxiliaryConfig | null,
     mainApiConfig: ApiConfig,
     worldBook: WorldBookManager | null,
   ): Promise<void> {
@@ -253,7 +249,6 @@ export class PipelineExecutor {
         parsed: mainResult.parsed,
         round: this.status.round,
         userText,
-        auxiliaryConfig,
         mainApiConfig,
         worldBook,
         delayMs: config.variableDelayMs,

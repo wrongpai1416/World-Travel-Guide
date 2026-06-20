@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { ApiConfig } from '@/api/types';
-import type { AuxiliaryConfig } from '@/api/auxiliaryApi';
 import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ─── 类型 ───
@@ -88,9 +87,6 @@ const translations: Record<Language, Record<string, string>> = {
     'saves.saved': '已保存', 'saves.imported': '导入成功',
     'start.title': '世界漫游指南', 'start.subtitle': '探索未知世界，书写你的故事',
     'start.world': '选择世界', 'start.world.dev': '开发中', 'start.world.default': '默认世界（自由模式）',
-    'start.apiMode': 'API 模式', 'start.apiMode.default': '默认 API',
-    'start.apiMode.default.desc': '主 API 生成内容和变量更新',
-    'start.apiMode.auxiliary': '辅助 API', 'start.apiMode.auxiliary.desc': '主 API 生成 + 辅助 API 提取变量',
     'start.begin': '开始游戏', 'start.continue': '继续游戏', 'start.settings': '设置',
   },
   'en': {
@@ -129,9 +125,6 @@ const translations: Record<Language, Record<string, string>> = {
     'saves.saved': 'Saved', 'saves.imported': 'Imported',
     'start.title': 'Multi-Realm Traversal Simulator', 'start.subtitle': 'Realms converge, your destiny awaits',
     'start.world': 'Select World', 'start.world.dev': 'In Development', 'start.world.default': 'Default World (Free Mode)',
-    'start.apiMode': 'API Mode', 'start.apiMode.default': 'Default API',
-    'start.apiMode.default.desc': 'Main API generates content and updates variables',
-    'start.apiMode.auxiliary': 'Auxiliary API', 'start.apiMode.auxiliary.desc': 'Main API generates + Auxiliary API extracts variables',
     'start.begin': 'Start Game', 'start.continue': 'Continue Game', 'start.settings': 'Settings',
   },
 };
@@ -211,15 +204,11 @@ interface ConfigState {
   settings: UISettings;
   // API 配置
   apiConfig: ApiConfig | null;
-  apiMode: 'default' | 'auxiliary';
-  auxiliaryConfig: AuxiliaryConfig | null;
   // 初始化标记
   _initialized: boolean;
   // Actions
   updateSettings: <K extends keyof UISettings>(key: K, value: UISettings[K]) => void;
   setApiConfig: (config: ApiConfig) => void;
-  setApiMode: (mode: 'default' | 'auxiliary') => void;
-  setAuxiliaryConfig: (config: AuxiliaryConfig | null) => void;
   t: (key: string) => string;
   // 初始化（应用 CSS 变量）
   initialize: () => void;
@@ -228,8 +217,6 @@ interface ConfigState {
 export const useConfigStore = create<ConfigState>((set, get) => ({
   settings: loadUISettings(),
   apiConfig: loadApiConfig(),
-  apiMode: 'default',
-  auxiliaryConfig: null,
   _initialized: false,
 
   updateSettings: (key, value) => {
@@ -245,10 +232,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     localStorage.setItem(API_STORAGE_KEY, JSON.stringify(config));
     set({ apiConfig: config });
   },
-
-  setApiMode: (mode) => set({ apiMode: mode }),
-
-  setAuxiliaryConfig: (config) => set({ auxiliaryConfig: config }),
 
   t: (key) => {
     const { settings } = get();

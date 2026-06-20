@@ -1,39 +1,18 @@
-// 辅助 API 客户端 - 从 AI 回复中提取变量更新
-// 基于酒馆助手脚本-辅助api.json 的逻辑
+// 变量提取 API 客户端 - 从 AI 回复中提取变量更新
 
 import type { ApiConfig } from './types';
 import { buildEndpoint } from './client';
 
-export interface AuxiliaryConfig {
-  endpoint: string;
-  apiKey: string;
-  model: string;
-}
-
-// 调用变量提取 API（辅助API 或 主API fallback）
+// 调用变量提取 API
 export async function callAuxiliaryApi(
-  config: AuxiliaryConfig | ApiConfig,
+  config: ApiConfig,
   messages: { role: string; content: string }[],
   variableUpdatePrompt: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  // 统一处理两种配置类型
-  let url: string;
-  let apiKey: string;
-  let model: string;
-
-  if ('baseUrl' in config) {
-    // ApiConfig: 使用标准 endpoint 构建
-    url = buildEndpoint(config);
-    apiKey = config.apiKey;
-    model = config.model;
-  } else {
-    // AuxiliaryConfig: 保持原有逻辑
-    const { endpoint, apiKey: auxKey, model: auxModel } = config;
-    url = endpoint.endsWith('/') ? endpoint + 'chat/completions' : endpoint + '/chat/completions';
-    apiKey = auxKey;
-    model = auxModel;
-  }
+  const url = buildEndpoint(config);
+  const apiKey = config.apiKey;
+  const model = config.model;
 
   // 构建完整消息列表，最后加上变量更新指令
   const fullMessages = [

@@ -265,7 +265,7 @@ export function useStartScreen() {
       // 附加快照到初始消息，确保第一轮重新发送时能回滚到初始状态
       const initialSnapshot = engine.variableManager.createSnapshot();
       const historyMsg: ChatMessage = {
-        id: uuid(), role: 'assistant', content: characterHistory, round: 0, timestamp: Date.now(),
+        id: uuid(), role: 'assistant', rawText: characterHistory, round: 0, timestamp: Date.now(),
         snapshot: initialSnapshot, snapshotTime: Date.now(),
       };
       initialMessages.push(historyMsg);

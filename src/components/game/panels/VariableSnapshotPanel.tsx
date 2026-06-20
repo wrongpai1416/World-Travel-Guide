@@ -12,7 +12,6 @@ import type { GameState } from '../../../schema/variables';
 import type { VariableManager } from '../../../engine/variableManager';
 import type { ChatMessage } from '../../../engine/types';
 import { loadPresets } from '../../settings/apiPresetUtils';
-import { useConfigStore } from '../../../stores/configStore';
 
 // ============================================================
 //  类型
@@ -60,27 +59,10 @@ export default function VariableSnapshotPanel({
     try { return localStorage.getItem('world_travel_guide_variable_api_preset') || ''; } catch { return ''; }
   });
 
-  const { setAuxiliaryConfig, setApiMode } = useConfigStore();
-
   const handleSaveApiSettings = useCallback(() => {
     localStorage.setItem('world_travel_guide_variable_api_preset', varApiPresetId);
-    // 同步到 configStore 的 auxiliaryConfig（让运行中的引擎立即生效）
-    if (varApiPresetId) {
-      const preset = apiPresets.find(p => p.id === varApiPresetId);
-      if (preset) {
-        setAuxiliaryConfig({
-          endpoint: preset.config.baseUrl,
-          apiKey: preset.config.apiKey,
-          model: preset.config.model,
-        });
-        setApiMode('auxiliary');
-      }
-    } else {
-      setAuxiliaryConfig(null);
-      setApiMode('default');
-    }
     onSave?.();
-  }, [varApiPresetId, apiPresets, setAuxiliaryConfig, setApiMode, onSave]);
+  }, [varApiPresetId, onSave]);
 
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -109,9 +91,10 @@ export default function VariableSnapshotPanel({
           snapshot: msg.snapshot as GameState,
           snapshotTime: (msg as any).snapshotTime || Date.now(),
           isInitial: false,
-          content: typeof msg.content === 'string'
-            ? msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : '')
-            : '',
+          content: (() => {
+            const raw = msg.rawText || msg.content || '';
+            return raw.slice(0, 80) + (raw.length > 80 ? '...' : '');
+          })(),
         });
       }
     }

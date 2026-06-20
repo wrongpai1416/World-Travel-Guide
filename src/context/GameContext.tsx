@@ -102,7 +102,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // 从 configStore 读取 API 配置
   const apiConfig = useConfigStore(s => s.apiConfig);
-  const auxiliaryConfig = useConfigStore(s => s.auxiliaryConfig);
 
   // ─── 自动存档桥接 ───
   const scheduleAutoSave = useSaveStore(s => s.scheduleAutoSave);
@@ -151,7 +150,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const engine = useGameEngine(
     apiConfig,
     undefined,
-    auxiliaryConfig,
     state.selectedWorld,
     state.personalInfo,
     state.characterHistory,

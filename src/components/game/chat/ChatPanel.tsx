@@ -54,8 +54,10 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
   // 获取最新的 actionOptions：优先取最后一条有非空选项的 assistant 消息
   const latestActionOptions = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant' && messages[i].actionOptions?.length) {
-        return messages[i].actionOptions;
+      const m = messages[i];
+      if (m.role === 'assistant') {
+        const opts = m.actionOptions?.length ? m.actionOptions : [];
+        if (opts.length > 0) return opts;
       }
     }
     return [];
