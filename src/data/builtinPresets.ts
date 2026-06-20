@@ -543,7 +543,7 @@ const DEFAULT_PROMPTS: PresetPromptEntry[] = [
   // 第五组：执行与输出
   { identifier: 'thinking',          name: '思维链要求',    role: 'system', content: PROMPT_THINKING,          enabled: true, order: 1200, triggerMode: 'blue' },
   { identifier: 'writing_process',   name: '创作流程',      role: 'system', content: PROMPT_WRITING_PROCESS,   enabled: true, order: 1300, triggerMode: 'blue' },
-  { identifier: 'output_format',     name: '输出格式规范',   role: 'system', content: PROMPT_OUTPUT_FORMAT,    enabled: true, order: 1400, triggerMode: 'blue' },
+  { identifier: 'output_format',     name: '输出格式规范',   role: 'system', content: PROMPT_OUTPUT_FORMAT,    enabled: true, order: 2200, triggerMode: 'blue' },
   { identifier: 'integrity_statement', name: '完整性声明',   role: 'system', content: PROMPT_INTEGRITY_STATEMENT, enabled: true, order: 1500, triggerMode: 'blue' },
 ];
 

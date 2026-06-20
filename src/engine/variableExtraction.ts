@@ -9,6 +9,7 @@ import { callAuxiliaryApi, extractVariableRules } from '../api/auxiliaryApi';
 import { eventBus, EVENTS } from './eventBus';
 import { buildVariableExtractionPrompt } from '../utils/prompts';
 import { findWorldDef } from '../data/worldLoader';
+import { loadPresets } from '../components/settings/apiPresetUtils';
 function sleep(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -93,8 +94,18 @@ export async function runVariableExtraction(params: {
 }): Promise<void> {
   const { varMgr, parsed, round, userText, auxiliaryConfig, mainApiConfig, worldBook, delayMs, maxRetries } = params;
 
-  // 选择 API 配置：优先辅助API，fallback 到主API
-  const effectiveConfig = auxiliaryConfig ?? mainApiConfig;
+  // 选择 API 配置：优先变量提取专用预设 > 辅助API > 主API
+  let effectiveConfig: AuxiliaryConfig | ApiConfig = auxiliaryConfig ?? mainApiConfig;
+  try {
+    const varPresetId = localStorage.getItem('world_travel_guide_variable_api_preset');
+    if (varPresetId) {
+      const presets = loadPresets();
+      const preset = presets.find(p => p.id === varPresetId);
+      if (preset) {
+        effectiveConfig = { baseUrl: preset.config.baseUrl, apiKey: preset.config.apiKey, model: preset.config.model };
+      }
+    }
+  } catch { /* localStorage 不可用时 fallback */ }
 
   // 等待一段时间，让记忆系统的 API 调用完成，避免 429 限流
   const totalDelay = delayMs + 3000; // 额外等待 3 秒
