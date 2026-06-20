@@ -154,7 +154,7 @@ export default function MainMenuView({
         transition: 'opacity 1s ease 1.2s',
         letterSpacing: '0.05em',
       }}>
-        v1.6.1
+        v1.6.3
       </div>
     </div>
   );

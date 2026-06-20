@@ -208,9 +208,8 @@ export function ensureNpcStructureDefaults(state: GameState): void {
       if (n.社会身份.社会地位 === undefined || n.社会身份.社会地位 === '') n.社会身份.社会地位 = '普通';
     }
     if (!n.关系数据 || typeof n.关系数据 !== 'object') {
-      n.关系数据 = { 好感度: 0, 关系类型: '陌生人', 核心锚点: [] };
+      n.关系数据 = { 好感度: 0, 关系类型: '陌生人' };
     } else {
-      if (!Array.isArray(n.关系数据.核心锚点)) n.关系数据.核心锚点 = [];
       if (typeof n.关系数据.好感度 !== 'number') n.关系数据.好感度 = 0;
     }
     if (!n.个人信息 || typeof n.个人信息 !== 'object') {
@@ -337,17 +336,6 @@ function formatNpcCompact(npc: Record<string, unknown>, npcId: string): string {
   if (favor !== '' && favor !== undefined) relationParts.push(`好感度:${favor}`);
   if (relationType) relationParts.push(`关系:${relationType}`);
   if (relationParts.length > 0) lines.push(`> 关系: ${relationParts.join(', ')}`);
-
-  // 核心锚点（影响关系的关键事件）
-  const anchors = Array.isArray(rd.核心锚点) ? rd.核心锚点 : [];
-  if (anchors.length > 0) {
-    const anchorText = anchors.slice(-3).map((a: any) => {
-      const event = a.事件 ?? '';
-      const impact = a.影响 ?? '';
-      return event + (impact ? `(${impact})` : '');
-    }).filter(Boolean).join('; ');
-    if (anchorText) lines.push(`> 关键事件: ${truncate(anchorText, 80)}`);
-  }
 
   // 外貌与性格
   const appearance = truncate(pi.外貌 ?? ext.外貌, 40);

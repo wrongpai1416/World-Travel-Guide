@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useUISettings } from '../../../context/UISettingsContext';
 import type { ChatMessage } from '../../../engine/types';
-import type { PipelineStatus as PipelineStatusType } from '../../../engine/pipelineTypes';
+import type { PipelineStatus as PipelineStatusType, PipelineTaskId } from '../../../engine/pipelineTypes';
 import type { WorldSystemData, DiceRoll } from '../../../modules/schema';
 import MessageBubble from './MessageBubble';
 import InputArea from './InputArea';
@@ -23,9 +23,11 @@ interface Props {
   onDiceRoll?: (roll: DiceRoll) => void;
   /** 重试管线回调 */
   onRetryPipeline?: () => void;
+  /** 单步重试回调 */
+  onRetrySingleStage?: (taskId: PipelineTaskId) => void;
 }
 
-export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus, worldSystem, onDiceRoll, onRetryPipeline }: Props) {
+export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus, worldSystem, onDiceRoll, onRetryPipeline, onRetrySingleStage }: Props) {
   const [showMonitor, setShowMonitor] = useState(false);
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -140,6 +142,7 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
           status={pipelineStatus ?? null}
           onClose={() => setShowMonitor(false)}
           onRetryPipeline={onRetryPipeline}
+          onRetrySingleStage={onRetrySingleStage}
           isGenerating={isGenerating}
         />
       )}

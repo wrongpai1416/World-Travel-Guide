@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
-  BarChart3, Tag, Anchor, Briefcase, MapPin, Sparkles,
+  BarChart3, Tag, Briefcase, MapPin, Sparkles,
   Brain, Dna, Zap, Backpack, Shield,
   FileText, Edit3, Trash2, Plus, Save,
 } from 'lucide-react';
@@ -130,7 +130,7 @@ function GaugeBar({ value, color }: { value: number; color: string }) {
 
 // NPC 卡片
 function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () => void }) {
-  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 核心锚点: [] };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知' };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const fav = favorClass(rd.好感度);
   const cat = categoryStyle(npc.人物分类);
@@ -653,7 +653,7 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
   const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
-  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知', 核心锚点: [] as any[] };
+  const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知' };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
 
@@ -763,26 +763,6 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
                   </div>
                   <ExcelRow label="关系类型" value={rd.关系类型} />
                 </Section>
-
-                {rd.核心锚点.length > 0 && (
-                  <Section icon={Anchor} title="核心锚点">
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {rd.核心锚点.map((a, i) => {
-                        // 兼容两种格式：字符串 或 {事件, 影响, 权重} 对象
-                        const text = typeof a === 'string' ? a : (a as any).事件 ?? JSON.stringify(a);
-                        return (
-                          <span key={i} style={{
-                            padding: '4px 10px', background: 'var(--bg-primary)',
-                            borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
-                            fontSize: 'var(--font-size-sm)',
-                          }}>
-                            {text}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </Section>
-                )}
 
                 <Section icon={Briefcase} title="社会身份">
                   <ExcelRow label="职业" value={sj.职业} />

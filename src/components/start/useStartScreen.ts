@@ -187,7 +187,7 @@ export function useStartScreen() {
           职业: npc.occupation || '',
           社会地位: npc.socialStatus || '',
         },
-        关系数据: { 好感度: 50, 关系类型: npc.relationshipType || '同伴', 核心锚点: [] },
+        关系数据: { 好感度: 50, 关系类型: npc.relationshipType || '同伴' },
         个人信息: {
           外貌: npc.appearance || '',
           表性格: npc.personality || '',

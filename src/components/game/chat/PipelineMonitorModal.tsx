@@ -6,16 +6,18 @@ import { useState } from 'react';
 import type { PipelineStatus as PipelineStatusType, PipelineStageResult, PipelineTaskId } from '../../../engine/pipelineTypes';
 import { STAGE_LABELS } from '../../../engine/pipelineTypes';
 import { STAGE_META, STAGE_ORDER, STATUS_CONFIG, formatMs } from './pipelineUI';
+import { RETRYABLE_STAGES } from '../../../engine/pipelineExecutor';
 import { X, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface Props {
   status: PipelineStatusType | null;
   onClose: () => void;
   onRetryPipeline?: () => void;
+  onRetrySingleStage?: (taskId: PipelineTaskId) => void;
   isGenerating?: boolean;
 }
 
-export default function PipelineMonitorModal({ status, onClose, onRetryPipeline, isGenerating }: Props) {
+export default function PipelineMonitorModal({ status, onClose, onRetryPipeline, onRetrySingleStage, isGenerating }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   if (!status) return null;
@@ -129,20 +131,32 @@ export default function PipelineMonitorModal({ status, onClose, onRetryPipeline,
                     </div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: statusCfg.color }}>
-                    {statusCfg.label}
-                    {stage.status === 'success' && elapsed != null ? ` · ${formatMs(elapsed)}` : ''}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'right' }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: statusCfg.color }}>
+                      {statusCfg.label}
+                      {stage.status === 'success' && elapsed != null ? ` · ${formatMs(elapsed)}` : ''}
+                    </div>
+                    {stage.status === 'error' && stage.error && (
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: '#f44336', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {stage.error}
+                      </div>
+                    )}
+                    {stage.dataLength != null && (
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                        {stage.dataLength} 字
+                      </div>
+                    )}
                   </div>
-                  {stage.status === 'error' && stage.error && (
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: '#f44336', marginTop: '2px', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {stage.error}
-                    </div>
-                  )}
-                  {stage.dataLength != null && (
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
-                      {stage.dataLength} 字
-                    </div>
+                  {stage.status === 'error' && RETRYABLE_STAGES.has(id) && onRetrySingleStage && (
+                    <button
+                      onClick={() => { onRetrySingleStage(id); }}
+                      disabled={isGenerating}
+                      title="重试此步骤"
+                      style={styles.retrySmallBtn}
+                    >
+                      <RefreshCw size={11} />
+                    </button>
                   )}
                 </div>
               </div>
@@ -235,5 +249,12 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--accent)', background: 'transparent',
     color: 'var(--accent)', cursor: 'pointer',
     fontSize: 'var(--font-size-sm)', fontWeight: 600,
+  },
+  retrySmallBtn: {
+    width: '24px', height: '24px', borderRadius: '50%',
+    border: '1px solid var(--border)', background: 'transparent',
+    color: 'var(--text-muted)', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, transition: 'all 0.15s',
   },
 };

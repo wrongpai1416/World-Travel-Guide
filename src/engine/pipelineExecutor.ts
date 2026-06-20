@@ -18,6 +18,13 @@ export interface PipelineCallbacks {
 /** 纯本地操作的阶段 ID（不调用 API，无需限流等待） */
 const LOCAL_ONLY_STAGES = new Set(['memory_retrieve_finalize', 'memory_compile']);
 
+/** 可重试的阶段（需要调用 API 的阶段，本地阶段不会失败无需重试） */
+export const RETRYABLE_STAGES = new Set<PipelineTaskId>([
+  'main', 'memory_write', 'memory_summary', 'memory_vector',
+  'memory_query_rewrite', 'memory_retrieve_plan', 'memory_multi_round',
+  'memory_rerank', 'variable',
+]);
+
 /** 管线执行结果 */
 export interface PipelineResult {
   mainResult: {
@@ -266,6 +273,26 @@ export class PipelineExecutor {
         attempts: maxAttempts,
       });
       console.warn('[管线] 变量提取失败:', err.message);
+    }
+  }
+
+  /**
+   * 重试单个阶段
+   * 将该阶段重置为 running 状态，执行 taskFn，更新最终状态
+   */
+  async retryStage(taskId: PipelineTaskId, taskFn: () => Promise<void>): Promise<void> {
+    this.updateStage(taskId, {
+      status: 'running', startTime: Date.now(),
+      endTime: undefined, error: undefined, skipped: false,
+    });
+    try {
+      await taskFn();
+      this.updateStage(taskId, { status: 'success', endTime: Date.now() });
+    } catch (err: any) {
+      this.updateStage(taskId, {
+        status: 'error', endTime: Date.now(),
+        error: err.message || `${STAGE_LABELS[taskId]}失败`,
+      });
     }
   }
 

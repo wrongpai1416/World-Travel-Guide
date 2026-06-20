@@ -1,7 +1,7 @@
 import type { VariableManager } from './variableManager';
 import type { WorldBookManager } from '../worldbook/index';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
-import type { PipelineStatus } from './pipelineTypes';
+import type { PipelineStatus, PipelineTaskId } from './pipelineTypes';
 import type { WorldDef } from '../data/worlds-schema';
 
 export interface ChatMessage {
@@ -38,4 +38,5 @@ export interface GameEngine {
   setInitialNPCs: (npcs: CustomNpc[]) => void;
   addMessage: (msg: ChatMessage) => void;
   retryPipeline: () => Promise<void>;
+  retrySingleStage: (taskId: PipelineTaskId) => Promise<void>;
 }

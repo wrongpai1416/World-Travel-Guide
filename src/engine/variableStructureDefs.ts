@@ -547,17 +547,6 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
     isNpcTemplate: true,
   },
-  {
-    id: 'npc_core_anchors',
-    section: 'npc_relation',
-    sectionLabel: 'NPC 关系',
-    displayName: '核心锚点',
-    canonicalPath: '人物档案.[NPC_ID].关系数据.核心锚点',
-    description: '影响关系的关键事件（事件+影响+权重）',
-    valueType: 'array',
-    editable: true,
-    isNpcTemplate: true,
-  },
 
   // ─── NPC 个人信息 ───
   {

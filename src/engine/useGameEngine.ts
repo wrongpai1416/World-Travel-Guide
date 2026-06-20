@@ -17,7 +17,7 @@ import { WORLDS } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
-import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
+import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
 import { getBuiltinPreset, getClaudePreset, getEnhancementModules } from '../data/builtinPresets';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
@@ -60,6 +60,8 @@ export function useGameEngine(
   const playerProfileRef = useRef(playerProfile ?? null);
   const characterHistoryRef = useRef(characterHistory ?? '');
   const onAutoSaveRef = useRef(onAutoSave);
+  // 存储最后一轮管线执行器实例（用于单步重试）
+  const lastExecutorRef = useRef<PipelineExecutor | null>(null);
   // 存储最后一轮管线执行上下文（用于重试管线）
   const lastPipelineCtxRef = useRef<{
     round: number;
@@ -356,6 +358,7 @@ export function useGameEngine(
       },
     });
     setPipelineStatus(executor.getStatus());
+    lastExecutorRef.current = executor;
 
     try {
       // 使用管线执行器运行执行链
@@ -771,6 +774,86 @@ ${perspectiveInstruction}
     }
   }, [apiConfig, isGenerating, auxiliaryConfig]);
 
+  // ─── 单步重试（只重跑管线中的某一个失败阶段） ───
+  const retrySingleStage = useCallback(async (taskId: PipelineTaskId) => {
+    const ctx = lastPipelineCtxRef.current;
+    const executor = lastExecutorRef.current;
+    if (!apiConfig || isGenerating || !ctx || !executor) return;
+
+    const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
+    if (!aiMsg || !aiMsg.content || aiMsg.content.startsWith('[错误]')) return;
+
+    setIsGenerating(true);
+    try {
+      const memStore = useMemoryStore.getState();
+      const memConfig = memStore.config;
+      const presets = loadPresets();
+      const resolvePreset = (presetId: string | null | undefined) => {
+        if (!presetId) return null;
+        const preset = presets.find(p => p.id === presetId);
+        return preset ? { baseUrl: preset.config.baseUrl, apiKey: preset.config.apiKey, model: preset.config.model } : null;
+      };
+      const defaultMemApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
+      const memApiConfig = resolvePreset(memConfig.apiPresetId) ?? defaultMemApi;
+
+      const memCtx: MemoryPipelineContext = {
+        floor: ctx.round,
+        batchText: ctx.batchText,
+        inputText: ctx.userText,
+        recentContext: ctx.recentContext,
+        playerName: ctx.playerName,
+        apiConfig: memApiConfig,
+        writeApiConfig: resolvePreset(memConfig.writePipeline.apiPresetId) ?? undefined,
+        summaryApiConfig: resolvePreset(memConfig.writePipeline.summaryApiPresetId) ?? undefined,
+        conflictJudgeApiConfig: resolvePreset(memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
+        retrievalApiConfig: resolvePreset(memConfig.retrieval.plannerApiPresetId) ?? undefined,
+        vectorApiConfig: resolvePreset(memConfig.vectorExtractApiPresetId) ?? undefined,
+      };
+
+      // 根据 taskId 构建对应的执行函数
+      const taskFnMap: Record<string, () => Promise<void>> = {
+        memory_write: () => executeMemoryWrite(memStore, memCtx),
+        memory_summary: () => executeMemorySummary(memStore, memCtx),
+        memory_vector: () => executeMemoryVector(memStore, memCtx),
+        memory_query_rewrite: () => executeMemoryQueryRewrite(memStore, memCtx),
+        memory_retrieve_plan: () => executeMemoryRetrievePlan(memStore, memCtx),
+        memory_multi_round: () => executeMemoryMultiRound(memStore, memCtx),
+        memory_rerank: () => executeMemoryRerank(memStore, memCtx),
+        memory_retrieve_finalize: () => executeMemoryRetrieveFinalize(memStore, memCtx),
+        memory_compile: () => executeMemoryCompile(memStore, memCtx),
+      };
+
+      const taskFn = taskFnMap[taskId];
+      if (!taskFn) {
+        console.warn(`[单步重试] 不支持重试阶段: ${taskId}`);
+        return;
+      }
+
+      await executor.retryStage(taskId, taskFn);
+
+      // 重试成功后更新快照
+      try {
+        const snapshot = varMgrRef.current.createSnapshot();
+        const memStoreForCheckpoint = useMemoryStore.getState();
+        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
+        updateMessage(ctx.aiMsgId, {
+          snapshot,
+          snapshotTime: Date.now(),
+          memoryCheckpointId: memCheckpoint?.id,
+        });
+      } catch (snapErr: any) {
+        console.warn('[单步重试快照] 创建失败:', snapErr.message);
+      }
+
+      setPipelineStatus({ ...executor.getStatus(), stages: { ...executor.getStatus().stages } });
+    } catch (err: any) {
+      console.error('[单步重试] 失败:', err.message);
+    } finally {
+      setIsGenerating(false);
+      try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
+    }
+  }, [apiConfig, isGenerating]);
+
   const reset = useCallback((worldDef?: WorldDef) => {
     cancelRef.current?.abort();
     setIsGenerating(false);
@@ -1013,7 +1096,6 @@ ${perspectiveInstruction}
         关系数据: {
           好感度: 50,
           关系类型: npc.relationshipType || '同伴',
-          核心锚点: [],
         },
         个人信息: {
           外貌: npc.appearance || '',
@@ -1051,7 +1133,7 @@ ${perspectiveInstruction}
     pipelineStatus,
     deleteSingleMessage, editMessage, resendFromMessage, resendFromAssistantMessage,
     loadSave, reset, setPlayerProfile, applyModuleInitData, setInitialNPCs, addMessage,
-    retryPipeline,
+    retryPipeline, retrySingleStage,
   };
 }
 
