@@ -144,6 +144,10 @@ export default function WizardShell({
                 isFilling={isFilling} fillElapsed={fillElapsed} onAiFill={onAiFill} onCancelFill={onCancelFill}
                 hasApiConfig={hasApiConfig}
                 worldModules={allWorlds.find(w => w.id === selectedWorld)?.modules}
+                apiConfig={apiConfig}
+                selectedWorld={selectedWorld}
+                allWorlds={allWorlds}
+                worldEntry={worldEntry}
                 onNext={() => setStep(3)} onPrev={() => setStep(1)}
               />
             )}

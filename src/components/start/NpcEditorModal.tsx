@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { CustomNpc } from '../../storage/db';
-import { X } from 'lucide-react';
+import type { ApiConfig } from '../../api/types';
+import type { WorldDef } from '../../data/worldLoader';
+import type { WorldBookEntry } from '../../worldbook/index';
+import { X, Wand2, Loader } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { useConfigStore } from '../../stores/configStore';
+import { useNpcFill } from '../../hooks/useNpcFill';
 
 interface Props {
   initial?: CustomNpc | null;
   onSave: (npc: CustomNpc) => void;
   onCancel: () => void;
+  apiConfig?: ApiConfig | null;
+  playerName?: string;
+  playerGender?: string;
+  playerAge?: string;
+  playerBackground?: string;
+  selectedWorld?: string;
+  allWorlds?: WorldDef[];
+  worldEntry?: WorldBookEntry | null;
 }
 
 const emptyNpc = (): CustomNpc => ({
@@ -36,7 +48,11 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
+export default function NpcEditorModal({
+  initial, onSave, onCancel,
+  apiConfig, playerName, playerGender, playerAge, playerBackground,
+  selectedWorld, allWorlds, worldEntry,
+}: Props) {
   const t = useConfigStore(s => s.t);
   const [npc, setNpc] = useState<CustomNpc>(() => initial || emptyNpc());
 
@@ -45,6 +61,20 @@ export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
 
   const canSave = npc.name.trim().length > 0;
 
+  // NPC AI 补全
+  const { isFilling, fillElapsed, handleAiFill } = useNpcFill({
+    apiConfig: apiConfig || null,
+    npc,
+    playerName: playerName || '',
+    playerGender: playerGender || '',
+    playerAge: playerAge || '',
+    playerBackground: playerBackground || '',
+    selectedWorld: selectedWorld || '',
+    allWorlds: allWorlds || [],
+    worldEntry: worldEntry || null,
+    setNpc,
+  });
+
   return (
     <div className="world-editor-overlay" onClick={onCancel}>
       <div className="world-editor-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px' }}>
@@ -52,9 +82,21 @@ export default function NpcEditorModal({ initial, onSave, onCancel }: Props) {
           <span style={{ fontWeight: '600', fontSize: '1rem' }}>
             {initial ? '编辑NPC' : '创建NPC'}
           </span>
-          <button onClick={onCancel} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}>
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {apiConfig && (
+              <button
+                className="pi-ai-btn"
+                onClick={handleAiFill}
+                disabled={isFilling || !npc.name.trim()}
+                title="AI 补全NPC信息"
+              >
+                {isFilling ? <><Loader size={12} className="animate-spin" /> 生成中{fillElapsed > 0 ? ` ${fillElapsed}s` : ''}</> : <><Wand2 size={12} /> AI 补全</>}
+              </button>
+            )}
+            <button onClick={onCancel} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}>
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="world-editor-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

@@ -9,5 +9,7 @@ export type { CharacterFillOptions } from './editor-prompts';
 // 编辑器 AI 相关
 export {
   buildCharacterFillPrompt,
+  buildNpcCreatePrompt,
+  buildNpcFillPrompt,
   buildVariableExtractionPrompt,
 } from './editor-prompts';

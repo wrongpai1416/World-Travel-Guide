@@ -1,10 +1,9 @@
 import { useState, useRef } from 'react';
-import type { PlayerProfile, CustomNpc } from '../storage/db';
+import type { PlayerProfile } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import type { WorldDef } from '../data/worldLoader';
 import type { ApiConfig } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
-import { v4 as uuid } from 'uuid';
 import { buildCharacterFillPrompt } from '../utils/prompts';
 
 interface UseAiFillOptions {
@@ -35,7 +34,7 @@ export function useAiFill({
     setFillElapsed(0);
     const controller = new AbortController();
     abortRef.current = controller;
-    // 计时器：每秒更新已用时间
+    let timedOut = false;
     const startTime = Date.now();
     timerRef.current = setInterval(() => setFillElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
@@ -44,7 +43,6 @@ export function useAiFill({
 
     // 提取世界的数值属性模块配置（用于生成角色初始属性）
     const statMod = worldData?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
-    const hasProgression = !!worldData?.modules?.some(m => m.moduleId === 'progression' && m.enabled);
     const statRaw = (statMod?.moduleConfig || statMod?.data) as any;
     const statModule = statRaw ? {
       attrA: { name: statRaw.attrA?.name || '生命', max: statRaw.attrA?.max || 100 },
@@ -75,10 +73,19 @@ export function useAiFill({
     ];
 
     try {
+      // 60秒硬超时
+      const hardTimeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 60_000);
+
       const result = await requestStreamWithRetry(apiConfig, messages, {
         signal: controller.signal,
         onDelta: () => {},
+        maxTokens: 4096,
       });
+
+      clearTimeout(hardTimeout);
 
       const text = result.text;
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -86,6 +93,7 @@ export function useAiFill({
 
       const data = JSON.parse(jsonMatch[0]);
 
+      // 处理技能
       const filledSkills: PlayerProfile['initialSkills'] = {};
       if (Array.isArray(data.skills)) {
         for (const s of data.skills) {
@@ -95,6 +103,7 @@ export function useAiFill({
         }
       }
 
+      // 处理物品
       const filledItems: PlayerProfile['initialItems'] = {};
       if (Array.isArray(data.items)) {
         for (const it of data.items) {
@@ -104,45 +113,7 @@ export function useAiFill({
         }
       }
 
-      const filledNpcs: CustomNpc[] = [];
-      if (Array.isArray(data.npcs)) {
-        for (const n of data.npcs) {
-          if (n.name) {
-            const npc: CustomNpc = {
-              id: uuid(), name: n.name, gender: n.gender || '', age: n.age || '',
-              race: n.race || '', relationshipType: n.relationship || '',
-              occupation: n.occupation || '', socialStatus: n.socialStatus || '',
-              personality: n.personality || '', hiddenPersonality: n.hiddenPersonality || '',
-              currentThought: n.currentThought || '',
-              appearance: n.appearance || '', currentOutfit: n.currentOutfit || '',
-              currentAction: n.currentAction || '', currentLocation: n.currentLocation || '',
-              currentState: n.currentState || '',
-              shortTermGoal: n.shortTermGoal || '', longTermGoal: n.longTermGoal || '',
-              background: n.background || '',
-              chronicles: Array.isArray(n.chronicles) ? n.chronicles : [],
-              skillsList: n.skillsList && typeof n.skillsList === 'object' ? n.skillsList : {},
-              itemsList: n.itemsList && typeof n.itemsList === 'object' ? n.itemsList : {},
-            };
-            // NPC 属性（数值属性模块）
-            if (n.attrs && typeof n.attrs === 'object' && statModule) {
-              npc.attrs = {};
-              if (n.attrs.attrA != null) npc.attrs['attrA'] = Number(n.attrs.attrA);
-              if (n.attrs.attrB != null) npc.attrs['attrB'] = Number(n.attrs.attrB);
-              for (let i = 1; i <= 6; i++) {
-                const key = `dim${i}`;
-                if (n.attrs[key] != null) npc.attrs[key] = Number(n.attrs[key]);
-              }
-            }
-            // NPC 段位（成长体系模块）
-            if (n.tierIndex != null && hasProgression) {
-              npc.tierIndex = Number(n.tierIndex);
-            }
-            filledNpcs.push(npc);
-          }
-        }
-      }
-
-      // 处理 AI 生成的初始属性
+      // 处理初始属性
       const moduleInitData: Record<string, unknown> = { ...(personalInfo.moduleInitData || {}) };
       if (data.initialStats && statModule) {
         const stats: Record<string, unknown> = {};
@@ -160,6 +131,7 @@ export function useAiFill({
         moduleInitData['数值属性'] = stats;
       }
 
+      // 更新玩家信息（不含NPC）
       setPersonalInfo(prev => ({
         ...prev,
         age: data.age || prev.age,
@@ -172,12 +144,16 @@ export function useAiFill({
         specialIdentity: data.specialIdentity || prev.specialIdentity,
         initialSkills: { ...prev.initialSkills, ...filledSkills },
         initialItems: { ...prev.initialItems, ...filledItems },
-        customNpcs: [...prev.customNpcs, ...filledNpcs],
         moduleInitData,
       }));
 
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') {
+        if (timedOut) {
+          await showAlert('AI 补全超时（60秒），请检查网络或 API 配置后重试', { title: '超时' });
+        }
+        return;
+      }
       console.error('[AI补全] 失败:', err);
       await showAlert(`AI补全失败: ${err.message}`, { title: '补全失败' });
     } finally {
@@ -187,10 +163,7 @@ export function useAiFill({
     }
   };
 
-  // 取消补全
   const cancelFill = () => { abortRef.current?.abort(); };
-
-  // 清理
   const cleanup = () => { abortRef.current?.abort(); };
 
   return { isFilling, fillElapsed, handleAiFill, cancelFill, cleanup };

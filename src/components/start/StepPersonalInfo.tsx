@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { PlayerProfile, CustomNpc } from '../../storage/db';
 import type { SkillData, InventoryItem } from '../../schema/variables';
 import type { WorldModule } from '../../data/worlds-schema';
+import type { WorldDef } from '../../data/worldLoader';
+import type { WorldBookEntry } from '../../worldbook/index';
+import type { ApiConfig } from '../../api/types';
 import NpcEditorModal from './NpcEditorModal';
 import TemplatePickerDialog from '../shared/TemplatePickerDialog';
 import { useDialog } from '../shared/Dialog';
@@ -21,6 +24,10 @@ interface StepPersonalInfoProps {
   onCancelFill: () => void;
   hasApiConfig: boolean;
   worldModules?: WorldModule[];
+  apiConfig?: ApiConfig | null;
+  selectedWorld?: string;
+  allWorlds?: WorldDef[];
+  worldEntry?: WorldBookEntry | null;
   onNext: () => void;
   onPrev: () => void;
 }
@@ -43,7 +50,9 @@ const RIGHT_TABS: Array<{ key: RightTab; label: string; icon: React.ReactNode }>
 ];
 
 export default function StepPersonalInfo({
-  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill, hasApiConfig, worldModules, onNext, onPrev,
+  personalInfo, setPersonalInfo, isFilling, fillElapsed, onAiFill, onCancelFill, hasApiConfig, worldModules,
+  apiConfig, selectedWorld, allWorlds, worldEntry,
+  onNext, onPrev,
 }: StepPersonalInfoProps) {
   const [rightTab, setRightTab] = useState<RightTab>('identity');
   const [npcEditorOpen, setNpcEditorOpen] = useState(false);
@@ -360,7 +369,19 @@ export default function StepPersonalInfo({
       </div>
 
       {npcEditorOpen && (
-        <NpcEditorModal initial={editingNpc} onSave={handleSaveNpc} onCancel={() => { setNpcEditorOpen(false); setEditingNpc(null); }} />
+        <NpcEditorModal
+          initial={editingNpc}
+          onSave={handleSaveNpc}
+          onCancel={() => { setNpcEditorOpen(false); setEditingNpc(null); }}
+          apiConfig={apiConfig}
+          playerName={personalInfo.name}
+          playerGender={personalInfo.gender}
+          playerAge={personalInfo.age}
+          playerBackground={personalInfo.background}
+          selectedWorld={selectedWorld}
+          allWorlds={allWorlds}
+          worldEntry={worldEntry}
+        />
       )}
 
       {npcPickerOpen && (

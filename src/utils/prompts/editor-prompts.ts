@@ -29,7 +29,7 @@ export interface CharacterFillOptions {
 }
 
 /**
- * 构建角色 AI 补全的 System Prompt
+ * 构建角色 AI 补全的 System Prompt（只补全玩家信息，不含NPC）
  */
 export function buildCharacterFillPrompt(options: CharacterFillOptions): string {
   const { worldSetting, playerName, playerGender, playerAge, playerBackground, statModule } = options;
@@ -97,16 +97,8 @@ ${worldSetting}
    - 生成 1~3 个合理的初始物品
    - 物品要与职业、背景、技能相关
    - 品质分级：普通/精良/稀有/史诗/传说
-
-11. 关联NPC（npcs）
-   - 生成 1~2 个与角色有关联的NPC
-   - 所有字段都必须填写，不可留空
-   - 关系要合理，如：师徒、朋友、亲人、同事、宿敌等
-   - 性格要有层次：personality（外在表现）和 hiddenPersonality（内心深处）可以不同
-   - 外貌描写要具体：包含发型、体型、标志性特征等
-   - 技能列表生成 1~3 个技能，物品列表生成 1~2 个物品
 ${statModule ? `
-12. 初始属性（initialStats）
+11. 初始属性（initialStats）
    - 根据角色的职业、背景、年龄，为每个属性分配合理的初始值
    - 初始值应在属性范围内，体现角色的特点
    - 例如：战士力量高但魔力低，法师魔力高但体质低
@@ -154,43 +146,6 @@ JSON字段必须完全如下：
       "type": "物品类型",
       "note": "备注"
     }
-  ],
-  "npcs": [
-    {
-      "name": "NPC姓名",
-      "gender": "性别",
-      "age": "年龄",
-      "race": "种族",
-      "relationship": "与角色的关系类型（如：师徒、青梅竹马、宿敌）",
-      "occupation": "职业",
-      "socialStatus": "社会地位（如：贵族、平民、边缘人）",
-      "personality": "外在表性格（2-4个关键词）",
-      "hiddenPersonality": "内在里性格（与表性格可能不同）",
-      "currentThought": "NPC当前的想法",
-      "appearance": "外貌特征（具体描写，不少于20字）",
-      "currentOutfit": "当前穿着描述",
-      "currentAction": "NPC当前正在做的事",
-      "currentLocation": "NPC当前位置",
-      "currentState": "当前动作/表情/情绪",
-      "shortTermGoal": "近期目标",
-      "longTermGoal": "长期人生追求",
-      "background": "NPC背景故事（2-3句话）",
-      "skillsList": {"技能名": {"描述": "技能描述", "类型": "战斗/生活/社交/特殊", "品质": "普通/精良/稀有/史诗/传说"}},
-      "itemsList": {"物品名": {"数量": 1, "类型": "物品类型", "品质": "普通/精良/稀有/史诗/传说", "备注": "备注"}}
-      ${statModule ? `,
-      "attrs": {
-        "attrA": <生命类初始值，取上限的60%~90%>,
-        "attrB": <能量类初始值，取上限的50%~80%>,
-        "dim1": <${statModule.dim1.name}初始值，在范围内根据角色特点设定>,
-        "dim2": <${statModule.dim2.name}初始值>,
-        "dim3": <${statModule.dim3.name}初始值>,
-        "dim4": <${statModule.dim4.name}初始值>,
-        "dim5": <${statModule.dim5.name}初始值>,
-        "dim6": <${statModule.dim6.name}初始值>
-      }` : ''}
-      ${hasProgression ? `,
-      "tierIndex": <NPC的段位索引，根据实力设定，0=最低段位>` : ''}
-    }
   ]${statModule ? `,
   "initialStats": {
     "attrA": <生命类初始值，取上限的60%~90%>,
@@ -208,6 +163,191 @@ JSON字段必须完全如下：
 }`;
 }
 
+/**
+ * 构建 NPC 创建的 System Prompt
+ */
+export function buildNpcCreatePrompt(options: {
+  worldSetting: string;
+  playerName: string;
+  playerGender: string;
+  playerAge: string;
+  playerBackground: string;
+  statModule?: CharacterFillOptions['statModule'];
+  hasProgression?: boolean;
+}): string {
+  const { worldSetting, playerName, playerGender, playerAge, playerBackground, statModule, hasProgression } = options;
+
+  return `你是一个专业的NPC角色生成器，擅长根据玩家信息和世界设定创建有趣的NPC。
+
+═══════════════════════════════════════
+【世界设定】
+${worldSetting}
+
+【玩家信息】
+- 姓名：${playerName}
+- 性别：${playerGender || '未设定'}
+- 年龄：${playerAge || '未设定'}
+- 背景：${playerBackground || '无'}
+
+【NPC生成要求】
+- 生成 1 个与玩家有关联的NPC
+- 关系要合理，如：师徒、朋友、亲人、同事、宿敌、青梅竹马等
+- 性格要有层次：personality（外在表现）和 hiddenPersonality（内心深处）可以不同
+- 外貌描写要具体：包含发型、体型、标志性特征等，不少于20字
+- 技能列表生成 1~3 个技能，物品列表生成 1~2 个物品
+- 所有字段都必须填写，不可留空
+
+═══════════════════════════════════════
+【输出要求】
+只输出一个合法JSON对象，不要markdown，不要代码块，不要额外解释。
+
+{
+  "name": "NPC姓名",
+  "gender": "性别",
+  "age": "年龄",
+  "race": "种族",
+  "relationship": "与角色的关系类型（如：师徒、青梅竹马、宿敌）",
+  "occupation": "职业",
+  "socialStatus": "社会地位（如：贵族、平民、边缘人）",
+  "personality": "外在表性格（2-4个关键词）",
+  "hiddenPersonality": "内在里性格（与表性格可能不同）",
+  "currentThought": "NPC当前的想法",
+  "appearance": "外貌特征（具体描写，不少于20字）",
+  "currentOutfit": "当前穿着描述",
+  "currentAction": "NPC当前正在做的事",
+  "currentLocation": "NPC当前位置",
+  "currentState": "当前动作/表情/情绪",
+  "shortTermGoal": "近期目标",
+  "longTermGoal": "长期人生追求",
+  "background": "NPC背景故事（2-3句话）",
+  "skillsList": {"技能名": {"描述": "技能描述", "类型": "战斗/生活/社交/特殊", "品质": "普通/精良/稀有/史诗/传说"}},
+  "itemsList": {"物品名": {"数量": 1, "类型": "物品类型", "品质": "普通/精良/稀有/史诗/传说", "备注": "备注"}}
+  ${statModule ? `,
+  "attrs": {
+    "attrA": <生命类初始值，取上限的60%~90%>,
+    "attrB": <能量类初始值，取上限的50%~80%>,
+    "dim1": <${statModule.dim1.name}初始值，在范围内根据角色特点设定>,
+    "dim2": <${statModule.dim2.name}初始值>,
+    "dim3": <${statModule.dim3.name}初始值>,
+    "dim4": <${statModule.dim4.name}初始值>,
+    "dim5": <${statModule.dim5.name}初始值>,
+    "dim6": <${statModule.dim6.name}初始值>
+  }` : ''}
+  ${hasProgression ? `,
+  "tierIndex": <NPC的段位索引，根据实力设定，0=最低段位>` : ''}
+}`;
+}
+
+/**
+ * 构建 NPC 补全的 System Prompt（已知部分信息，补全其余）
+ */
+export function buildNpcFillPrompt(options: {
+  worldSetting: string;
+  playerName: string;
+  playerGender: string;
+  playerAge: string;
+  playerBackground: string;
+  npc: {
+    name: string;
+    gender: string;
+    age: string;
+    race: string;
+    relationshipType: string;
+    occupation: string;
+    socialStatus: string;
+    personality: string;
+    hiddenPersonality: string;
+    appearance: string;
+    currentOutfit: string;
+    currentThought: string;
+    currentAction: string;
+    currentLocation: string;
+    currentState: string;
+    shortTermGoal: string;
+    longTermGoal: string;
+    background: string;
+  };
+  statModule?: CharacterFillOptions['statModule'];
+  hasProgression?: boolean;
+}): string {
+  const { worldSetting, playerName, playerGender, playerAge, playerBackground, npc } = options;
+
+  // 构建NPC已填信息列表
+  const npcInfo: string[] = [];
+  if (npc.name) npcInfo.push(`- 姓名：${npc.name}`);
+  if (npc.gender) npcInfo.push(`- 性别：${npc.gender}`);
+  if (npc.age) npcInfo.push(`- 年龄：${npc.age}`);
+  if (npc.race) npcInfo.push(`- 种族：${npc.race}`);
+  if (npc.relationshipType) npcInfo.push(`- 与玩家关系：${npc.relationshipType}`);
+  if (npc.occupation) npcInfo.push(`- 职业：${npc.occupation}`);
+  if (npc.socialStatus) npcInfo.push(`- 社会地位：${npc.socialStatus}`);
+  if (npc.personality) npcInfo.push(`- 表性格：${npc.personality}`);
+  if (npc.hiddenPersonality) npcInfo.push(`- 里性格：${npc.hiddenPersonality}`);
+  if (npc.appearance) npcInfo.push(`- 外貌：${npc.appearance}`);
+  if (npc.currentOutfit) npcInfo.push(`- 穿着：${npc.currentOutfit}`);
+  if (npc.currentThought) npcInfo.push(`- 当前想法：${npc.currentThought}`);
+  if (npc.currentAction) npcInfo.push(`- 当前行动：${npc.currentAction}`);
+  if (npc.currentLocation) npcInfo.push(`- 当前位置：${npc.currentLocation}`);
+  if (npc.currentState) npcInfo.push(`- 当前状态：${npc.currentState}`);
+  if (npc.shortTermGoal) npcInfo.push(`- 短期目标：${npc.shortTermGoal}`);
+  if (npc.longTermGoal) npcInfo.push(`- 长期目标：${npc.longTermGoal}`);
+  if (npc.background) npcInfo.push(`- 背景：${npc.background}`);
+
+  return `你是一个专业的NPC角色设定补全器，擅长根据已知信息补全NPC的完整设定。
+
+═══════════════════════════════════════
+【核心原则】
+1. ★ 保持已填信息不变 ★，只补全空缺内容
+2. 所有生成内容必须与世界设定一致
+3. NPC设定要与玩家角色有关联，关系合理
+
+【世界设定】
+${worldSetting}
+
+【玩家信息】
+- 姓名：${playerName}
+- 性别：${playerGender || '未设定'}
+- 年龄：${playerAge || '未设定'}
+- 背景：${playerBackground || '无'}
+
+【NPC已知信息】（★ 已填字段必须原样保留 ★）
+${npcInfo.length > 0 ? npcInfo.join('\n') : '- （暂无）'}
+
+【补全要求】
+- 已填字段必须原样输出，不得修改
+- 只补全空缺字段
+- 性格要有层次：personality（外在）和 hiddenPersonality（内在）可以不同
+- 外貌描写要具体，不少于20字
+- 技能列表 1~3 个，物品列表 1~2 个
+
+═══════════════════════════════════════
+【输出要求】
+只输出一个合法JSON对象，不要markdown，不要代码块。
+所有字段都必须输出（包括已填的，原样保留）。
+
+{
+  "gender": "性别",
+  "age": "年龄",
+  "race": "种族",
+  "relationship": "与角色的关系",
+  "occupation": "职业",
+  "socialStatus": "社会地位",
+  "personality": "外在表性格（2-4个关键词）",
+  "hiddenPersonality": "内在里性格",
+  "currentThought": "NPC当前的想法",
+  "appearance": "外貌特征（不少于20字）",
+  "currentOutfit": "当前穿着描述",
+  "currentAction": "NPC当前正在做的事",
+  "currentLocation": "NPC当前位置",
+  "currentState": "当前动作/表情/情绪",
+  "shortTermGoal": "近期目标",
+  "longTermGoal": "长期人生追求",
+  "background": "NPC背景故事（2-3句话）",
+  "skillsList": {"技能名": {"描述": "技能描述", "类型": "战斗/生活/社交/特殊", "品质": "普通/精良/稀有/史诗/传说"}},
+  "itemsList": {"物品名": {"数量": 1, "类型": "物品类型", "品质": "普通/精良/稀有/史诗/传说", "备注": "备注"}}
+}`;
+}
+
 /** 根据当前世界系统数据，生成具体的模块更新规则 */
 function generateModuleUpdateRules(worldSystem?: Record<string, unknown>, progressionConfig?: Record<string, unknown>): string {
   if (!worldSystem && !progressionConfig) return '';
@@ -218,12 +358,12 @@ function generateModuleUpdateRules(worldSystem?: Record<string, unknown>, progre
   // ── 数值属性 ──
   if (data.数值属性) {
     const s = data.数值属性 as StatModuleSchema;
-    const dims = [s.dim1, s.dim2, s.dim3, s.dim4, s.dim5, s.dim6];
+    const dims = [s.dim1, s.dim2, s.dim3, s.dim4, s.dim5, s.dim6].filter(Boolean);
     const dimKeys = ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6'];
     rules.push(`   【数值属性更新规则】
    - 生命类（${s.attrA.name}）：{"世界系统":{"数值属性":{"attrA":{"current":新值}}}}
    - 能量类（${s.attrB.name}）：{"世界系统":{"数值属性":{"attrB":{"current":新值}}}}
-   - 六维属性：${dims.map((d, i) => `${d.name}(${dimKeys[i]})`).join('、')}
+   - 六维属性：${dims.map((d, i) => `${d!.name}(${dimKeys[i]})`).join('、')}
      示例：{"世界系统":{"数值属性":{"dim1":{"value":新值}}}}
    - 属性值不能超过range[1]，不能低于range[0]
    ${s.special.length > 0 ? `  - 特色属性：${s.special.map(sp => `${sp.name}(${sp.id})`).join('、')}
