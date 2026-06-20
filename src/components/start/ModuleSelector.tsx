@@ -47,7 +47,6 @@ export const MODULE_OPTIONS: ModuleOption[] = [
     name: '经营资产',
     description: '网吧/房东/商店模拟器类，资产、收支、利润',
     icon: Briefcase,
-    disabled: true,
   },
   {
     id: 'dice',

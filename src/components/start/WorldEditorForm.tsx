@@ -149,12 +149,13 @@ export default function WorldEditorForm({
     stat: '数值属性', progression: '成长体系', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
   };
 
-  // 模块互斥规则：生存资源 与 数值属性/成长体系/天赋体系 互斥
+  // 模块互斥规则：生存资源/经营资产 与 数值属性/成长体系 互斥
   const MUTEX: Record<string, string[]> = {
-    survival: ['stat', 'progression', 'talent'],
-    stat: ['survival'],
-    progression: ['survival'],
+    survival: ['stat', 'progression', 'talent', 'business'],
+    stat: ['survival', 'business'],
+    progression: ['survival', 'business'],
     talent: ['survival'],
+    business: ['stat', 'progression', 'survival'],
   };
 
   // 计算因互斥而被禁用的模块集合
@@ -1063,11 +1064,37 @@ function SurvivalModuleEditor({ data, onChange }: {
   );
 }
 
-/** 经营资产编辑器（占位） */
+/** 经营资产编辑器 — 显示 AI 生成的经营概览 */
 function BusinessModuleEditor({ data, onChange }: { data: BusinessModuleSchema; onChange: (d: Record<string, unknown>) => void }) {
   return (
-    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
-      经营资产编辑器（待实现）
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--font-size-xs)' }}>
+      <div style={{ color: 'var(--text-muted)' }}>
+        经营系统已由 AI 生成，可在游戏内通过经营管理面板查看详情。
+      </div>
+      {data.description && (
+        <div style={{ padding: '6px 10px', background: 'var(--bg-tertiary)', borderRadius: '6px', color: 'var(--text-secondary)' }}>
+          {data.description}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)' }}>
+        <span>初始资金: <strong style={{ color: 'var(--text-primary)' }}>{data.funds ?? 0}</strong></span>
+        <span>资产数: <strong style={{ color: 'var(--text-primary)' }}>{data.assets?.length ?? 0}</strong></span>
+        <span>结算周期: <strong style={{ color: 'var(--text-primary)' }}>每{data.cycleName || '天'}</strong></span>
+      </div>
+      {data.assets && data.assets.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {data.assets.map(a => (
+            <div key={a.id} style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px',
+            }}>
+              <span style={{ fontWeight: 600 }}>{a.name}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Lv.{a.level}/{a.maxLevel}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{a.type}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -766,13 +766,20 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
 
                 {rd.核心锚点.length > 0 && (
                   <Section icon={Anchor} title="核心锚点">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {rd.核心锚点.map((a, i) => (
-                        <div key={i} style={{ padding: '6px 10px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 'var(--font-size-sm)' }}>
-                          <div style={{ fontWeight: '600', marginBottom: '2px' }}>{a.事件}</div>
-                          <div style={{ color: 'var(--text-muted)' }}>影响: {a.影响} · 权重: {a.权重}</div>
-                        </div>
-                      ))}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {rd.核心锚点.map((a, i) => {
+                        // 兼容两种格式：字符串 或 {事件, 影响, 权重} 对象
+                        const text = typeof a === 'string' ? a : (a as any).事件 ?? JSON.stringify(a);
+                        return (
+                          <span key={i} style={{
+                            padding: '4px 10px', background: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                            fontSize: 'var(--font-size-sm)',
+                          }}>
+                            {text}
+                          </span>
+                        );
+                      })}
                     </div>
                   </Section>
                 )}

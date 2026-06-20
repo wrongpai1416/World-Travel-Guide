@@ -17,6 +17,8 @@ interface Props {
   onSurvivalDeleteRecipe?: (recipeId: string) => void;
   /** 是否正在生成配方 */
   isGeneratingRecipe?: boolean;
+  /** 经营资产：打开覆盖层 */
+  onOpenBusinessOverlay?: () => void;
 }
 
 // 世界状态行 - Lucide 图标 + 文字
@@ -47,7 +49,7 @@ function GaugeBar({ label, value, max, color, icon }: { label: string; value: nu
   );
 }
 
-export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecipe, onSurvivalCraft, onSurvivalDeleteRecipe, isGeneratingRecipe }: Props) {
+export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecipe, onSurvivalCraft, onSurvivalDeleteRecipe, isGeneratingRecipe, onOpenBusinessOverlay }: Props) {
   const world = gameState.世界;
   const player = gameState.玩家;
   const notebook = player.记事本;
@@ -172,7 +174,11 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
         />
       )}
       {worldSystem.经营资产 && (
-        <BusinessCard data={worldSystem.经营资产} title={moduleNames?.['经营资产']} />
+        <BusinessCard
+          data={worldSystem.经营资产}
+          title={moduleNames?.['经营资产']}
+          onOpenOverlay={onOpenBusinessOverlay ?? (() => {})}
+        />
       )}
       {worldSystem.天赋体系 && (
         <TalentCard data={worldSystem.天赋体系} title={moduleNames?.['天赋体系']} />

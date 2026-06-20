@@ -141,11 +141,78 @@ export interface SurvivalModuleSchema {
   [key: string]: unknown;
 }
 
-// ─── 经营资产模块 ───（TODO: 待设计完善，当前为占位）
+// ─── 经营资产模块 ───
+
+/** 单个经营资产 */
+export interface BusinessAsset {
+  id: string;              // 英文标识 (如 'tavern', 'mine')
+  name: string;            // AI 生成名称（如"酒馆"/"灵田"）
+  type: string;            // AI 生成类别（如"餐饮"/"修炼"/"回收"）
+  level: number;           // 当前等级 (1~maxLevel)
+  maxLevel: number;        // 最大等级
+  description: string;     // AI 生成描述
+
+  /** 收益（每周期） */
+  income: {
+    base: number;          // 基础收益
+    perLevel: number;      // 每级额外收益
+    resource?: string;     // 产出资源名（可选）
+    cycle: string;         // 结算周期："天"/"周"/"回合"
+  };
+
+  /** 每周期维护费 */
+  maintenance: number;
+  /** 升级费用（资金） */
+  upgradeCost?: number;
+  /** 升级所需材料 */
+  upgradeMaterials?: Record<string, number>;
+
+  /** 员工（可选） */
+  staff?: {
+    current: number;
+    max: number;
+    efficiency: number;    // 效率系数 0.5~2.0
+  };
+
+  /** 风险（可选） */
+  risk?: {
+    level: 'low' | 'medium' | 'high';
+    description: string;
+  };
+
+  status: 'active' | 'idle' | 'damaged' | 'destroyed';
+  /** AI可添加自定义字段 */
+  [key: string]: unknown;
+}
+
+/** 市场行情条目 */
+export interface MarketItem {
+  name: string;
+  basePrice: number;
+  trend: 'up' | 'down' | 'stable';
+  changePercent: number;
+}
+
+/** 经营日志条目 */
+export interface TransactionEntry {
+  cycle: number;
+  type: 'income' | 'expense' | 'acquire' | 'upgrade' | 'event';
+  description: string;
+  amount?: number;
+}
 
 /** 完整的经营资产模块 */
 export interface BusinessModuleSchema {
-  description: string;
+  description: string;      // 经济环境描述
+  funds: number;            // 总资金
+  cycleName: string;        // 结算周期名（"天"/"周"/"回合"）
+  assets: BusinessAsset[];  // 资产列表
+  /** 市场行情（可选） */
+  market?: {
+    items: MarketItem[];
+  };
+  /** 经营日志（可选） */
+  transactionLog?: TransactionEntry[];
   /** AI可添加自定义字段 */
   [key: string]: unknown;
 }

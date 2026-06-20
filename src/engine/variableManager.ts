@@ -356,6 +356,25 @@ export class VariableManager {
         continue;
       }
 
+      // 处理经营资产模块的 assets 数组（按 id 匹配）
+      if (moduleKey === '经营资产') {
+        const merged = { ...(existingModule as Record<string, unknown>) };
+        const incomingModule = moduleValue as Record<string, unknown>;
+
+        if (Array.isArray(incomingModule.assets) && Array.isArray((existingModule as any).assets)) {
+          merged.assets = this.mergeArrayById(
+            (existingModule as any).assets,
+            incomingModule.assets,
+            'id'
+          );
+          delete incomingModule.assets;
+        }
+
+        // 其他字段正常合并
+        result[moduleKey] = _.merge({}, merged, incomingModule);
+        continue;
+      }
+
       // 处理天赋体系模块的 categories 数组（按 id 匹配大类，内部 talents 按 id 匹配）
       if (moduleKey === '天赋体系') {
         const merged = { ...(existingModule as Record<string, unknown>) };

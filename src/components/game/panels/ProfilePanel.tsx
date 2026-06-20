@@ -12,6 +12,8 @@ import { getQualityColor } from '../../shared/qualityUtils';
 
 interface Props {
   gameState: GameState;
+  /** 是否启用了经营模块（启用时隐藏货币资源，因为右侧已有经营卡片） */
+  hasBusinessModule?: boolean;
 }
 
 // ─── 物品类型 → Lucide 图标映射 ───
@@ -133,7 +135,7 @@ function DetailRow({ label, value, icon }: { label: string; value: string | numb
   );
 }
 
-export default function ProfilePanel({ gameState }: Props) {
+export default function ProfilePanel({ gameState, hasBusinessModule }: Props) {
   const p = gameState.玩家;
   const w = gameState.世界;
   const s = p.生存状态;
@@ -158,19 +160,21 @@ export default function ProfilePanel({ gameState }: Props) {
         </div>
       </Collapsible>
 
-      {/* 货币资源 */}
-      <Collapsible icon={<DollarSign size={15} />} title="货币资源">
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 'var(--font-size-md)' }}>
-          <span style={{ color: 'var(--accent)' }}>{p.货币资源.主货币.名称 || '金币'}</span>
-          <span style={{ fontWeight: '600' }}>{p.货币资源.主货币.数量}</span>
-        </div>
-        {Object.entries(p.货币资源.次级货币).map(([name, cur]) => (
-          <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-            <span>{name}</span>
-            <span>{cur.数量}</span>
+      {/* 货币资源（经营模块启用时隐藏，资金已在右侧经营卡片显示） */}
+      {!hasBusinessModule && (
+        <Collapsible icon={<DollarSign size={15} />} title="货币资源">
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 'var(--font-size-md)' }}>
+            <span style={{ color: 'var(--accent)' }}>{p.货币资源.主货币.名称 || '金币'}</span>
+            <span style={{ fontWeight: '600' }}>{p.货币资源.主货币.数量}</span>
           </div>
-        ))}
-      </Collapsible>
+          {Object.entries(p.货币资源.次级货币).map(([name, cur]) => (
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+              <span>{name}</span>
+              <span>{cur.数量}</span>
+            </div>
+          ))}
+        </Collapsible>
+      )}
 
       {/* 技能系统 - 列表样式，可点击 */}
       {Object.keys(p.技能系统).length > 0 && (

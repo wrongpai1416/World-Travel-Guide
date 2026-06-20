@@ -153,13 +153,13 @@ export async function executeBuildPipeline(
     } catch { /* 解析失败则不设置 */ }
   }
 
-  // 2d. 生成经营资产系统（占位，TODO: 待设计完善）
+  // 2d. 生成经营资产系统
   if (hasModule('business')) {
     await waitForRateLimit();
     onProgress?.('阶段2', '生成经营资产系统...');
     const businessTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
     const businessTone = ctx.theme?.tone || '中等';
-    const bizPrompt = buildBusinessGenPrompt({ theme: businessTheme, tone: businessTone });
+    const bizPrompt = buildBusinessGenPrompt({ theme: businessTheme, tone: businessTone, userDesc: ctx.businessUserDesc });
     const bizRaw = await callAI([{ role: 'user', content: bizPrompt }]);
     try {
       ctx.businessData = JSON.parse(extractJSON(bizRaw)) as BusinessModuleSchema;
@@ -304,11 +304,35 @@ function extractSurvivalConfig(survData: SurvivalModuleSchema): SurvivalConfig {
 }
 
 /**
- * 从经营资产原始数据中提取配置（占位）
+ * 从经营资产原始数据中提取配置
  */
 function extractBusinessConfig(bizData: BusinessModuleSchema): BusinessConfig {
   return {
-    description: bizData.description,
+    description: bizData.description || '',
+    funds: bizData.funds ?? 500,
+    cycleName: bizData.cycleName || '天',
+    assets: Array.isArray(bizData.assets) ? bizData.assets.map(a => ({
+      id: a.id,
+      name: a.name,
+      type: a.type || '',
+      level: a.level ?? 1,
+      maxLevel: a.maxLevel ?? 3,
+      description: a.description || '',
+      income: a.income || { base: 0, perLevel: 0, cycle: '天' },
+      maintenance: a.maintenance ?? 0,
+      upgradeCost: a.upgradeCost,
+      staff: a.staff,
+      risk: a.risk ? { level: a.risk.level, description: a.risk.description } : undefined,
+      status: a.status || 'active',
+    })) : [],
+    market: bizData.market ? {
+      items: bizData.market.items.map(i => ({
+        name: i.name,
+        basePrice: i.basePrice ?? 0,
+        trend: i.trend || 'stable',
+        changePercent: i.changePercent ?? 0,
+      })),
+    } : undefined,
   };
 }
 
@@ -438,14 +462,20 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
     });
   }
 
-  // ─── 经营资产模块（占位）───
+  // ─── 经营资产模块（绿灯：关键词触发）───
   if (ctx.businessData) {
+    const businessKeywords = [
+      ...(ctx.businessData.assets?.map(a => a.name) || []),
+      ...(ctx.businessData.assets?.map(a => a.type) || []),
+      '经营', '资产', '收购', '升级', '出售', '资金', '收益', '维护', '员工', '市场',
+    ].filter(k => k && k.length > 0);
+
     entries.push({
       uid: -5009,
       comment: '[模块] 经营资产 - 规则',
       content: BUSINESS_UPDATE_RULES,
       constant: false,
-      key: ['经营', '资产', '收入', '支出', '利润', '员工'],
+      key: businessKeywords,
       order: 58,
       position: 'after_char',
     });

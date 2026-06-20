@@ -12,7 +12,7 @@ const MODULE_KEYWORDS: Record<string, string[]> = {
   stat: ['属性', '数值', '战斗', '能力值', '六维'],
   progression: ['段位', '等级', '境界', '修炼', '经验', '升级'],
   survival: ['生存', '资源', '采集', '制作', '消耗', '食物', '淡水', '木材'],
-  business: ['经营', '资产', '收入', '支出', '利润', '员工', '店铺'],
+  business: ['经营', '资产', '收购', '升级', '出售', '资金', '收益', '维护', '员工', '市场', '店铺', '产业', '收入', '支出'],
   dice: ['骰子', '检定', '判定', '掷骰'],
   talent: ['天赋', '能力', '血脉', '体质', '灵根'],
 };
@@ -97,14 +97,77 @@ function formatProgressionModule(data: Record<string, unknown>): string {
 }
 
 function formatSurvivalModule(data: Record<string, unknown>): string {
-  const lines: string[] = ['【生存资源系统】（TODO: 待设计完善）'];
+  const lines: string[] = ['【生存资源系统】'];
   if (data.description) lines.push(String(data.description));
+
+  const rules = data.rules as Record<string, unknown> | undefined;
+  if (rules) {
+    lines.push(`结算周期：每${rules.cycleName || '天'}`);
+    if (rules.consumePerCycle) lines.push(`每周期消耗：${rules.consumePerCycle}`);
+    if (rules.criticalThreshold) lines.push(`危机阈值：低于 ${rules.criticalThreshold} 触发危险`);
+  }
+
+  const resources = data.resources as Array<Record<string, unknown>> | undefined;
+  if (resources && resources.length > 0) {
+    lines.push('\n资源列表：');
+    for (const r of resources) {
+      const scarce = r.scarce ? ' [稀缺]' : '';
+      lines.push(`- ${r.symbol || ''}${r.name}（${r.id}）：${r.amount ?? 0}/${r.max}${scarce}`);
+      if (r.gatherRate) lines.push(`  采集：${r.gatherRate}`);
+      if (r.usage) lines.push(`  消耗：${r.usage}`);
+      if (r.description) lines.push(`  ${r.description}`);
+    }
+  }
+
+  const recipes = data.recipes as Array<Record<string, unknown>> | undefined;
+  if (recipes && recipes.length > 0) {
+    lines.push('\n制作配方：');
+    for (const r of recipes) {
+      const inputs = r.inputs as Record<string, number> | undefined;
+      const inputStr = inputs ? Object.entries(inputs).map(([k, v]) => `${k}×${v}`).join(' + ') : '?';
+      const output = r.output as Record<string, unknown> | undefined;
+      const outputStr = output ? `${output.resourceId}×${output.amount}` : '?';
+      lines.push(`- ${r.name}：${inputStr} → ${outputStr}`);
+    }
+  }
+
   return lines.join('\n');
 }
 
 function formatBusinessModule(data: Record<string, unknown>): string {
-  const lines: string[] = ['【经营资产系统】（TODO: 待设计完善）'];
+  const lines: string[] = ['【经营资产系统】'];
   if (data.description) lines.push(String(data.description));
+  lines.push(`结算周期：每${data.cycleName || '天'}`);
+  lines.push(`当前资金：${data.funds ?? 0}`);
+
+  const assets = data.assets as Array<Record<string, unknown>> | undefined;
+  if (assets && assets.length > 0) {
+    lines.push('\n资产列表：');
+    for (const a of assets) {
+      const income = a.income as Record<string, unknown> | undefined;
+      const netIncome = income ? (Number(income.base) || 0) + (Number(income.perLevel) || 0) * ((Number(a.level) || 1) - 1) - (Number(a.maintenance) || 0) : 0;
+      const staff = a.staff as Record<string, unknown> | undefined;
+      const risk = a.risk as Record<string, unknown> | undefined;
+
+      lines.push(`- ${a.name} [Lv.${a.level}/${a.maxLevel}] [${a.status || 'active'}]`);
+      lines.push(`  类型: ${a.type || '未分类'} | 收益: ${income?.base ?? 0}+${income?.perLevel ?? 0}/级 ${income?.resource || '金'}/${income?.cycle || '天'}`);
+      lines.push(`  维护: ${a.maintenance ?? 0}/${income?.cycle || '天'} | 净收益: ${netIncome > 0 ? '+' : ''}${netIncome}`);
+      if (staff) lines.push(`  员工: ${staff.current}/${staff.max} 效率: ${staff.efficiency}`);
+      if (risk) lines.push(`  风险: ${risk.level} - ${risk.description}`);
+      if (a.description) lines.push(`  ${a.description}`);
+    }
+  }
+
+  const market = data.market as Record<string, unknown> | undefined;
+  const items = market?.items as Array<Record<string, unknown>> | undefined;
+  if (items && items.length > 0) {
+    lines.push('\n市场行情：');
+    for (const item of items) {
+      const trend = item.trend === 'up' ? '▲' : item.trend === 'down' ? '▼' : '─';
+      lines.push(`- ${item.name}：${item.basePrice} ${trend}${Math.abs(Number(item.changePercent) || 0)}%`);
+    }
+  }
+
   return lines.join('\n');
 }
 

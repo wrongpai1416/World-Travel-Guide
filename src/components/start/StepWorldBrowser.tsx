@@ -6,6 +6,7 @@ import {
   Sparkles, ChevronRight, Layers, Shield, Users,
   Calendar, Heart, Zap, Target, BarChart3,
   Compass, BookOpen, Star, Upload, ArrowLeft,
+  Briefcase, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
@@ -494,8 +495,43 @@ function SystemsTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 经营资产（占位） */}
-
+      {/* 经营资产 */}
+      {(() => {
+        const bizMod = world.modules?.find(m => m.moduleId === 'business' && m.enabled);
+        const bizData = (bizMod?.moduleConfig || bizMod?.data) as any;
+        if (!bizData) return null;
+        return (
+          <div className="detail-block">
+            <div className="detail-block-title"><Briefcase size={15} />经营资产</div>
+            <div className="detail-block-body">
+              {bizData.description && <p>{bizData.description}</p>}
+              <div className="detail-row">
+                <DollarSign size={13} /><strong>初始资金：</strong>{bizData.funds ?? 0}
+              </div>
+              <div className="detail-row">
+                <Clock size={13} /><strong>结算周期：</strong>每{bizData.cycleName || '天'}
+              </div>
+              {bizData.market?.items && bizData.market.items.length > 0 && (
+                <>
+                  <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-muted)', marginTop: 8, marginBottom: 4 }}>
+                    市场行情
+                  </div>
+                  <div className="detail-pills">
+                    {bizData.market.items.map((item: any, i: number) => (
+                      <span key={i} className="detail-pill" title={`基准价: ${item.basePrice}`}>
+                        {item.name} {item.trend === 'up' ? '▲' : item.trend === 'down' ? '▼' : '─'}{Math.abs(item.changePercent || 0)}%
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: 8, fontStyle: 'italic' }}>
+                资产将在游戏内通过角色行动获取
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 关系系统 */}
       {world.relationships && (

@@ -72,9 +72,22 @@ export interface SurvivalConfig {
   };
 }
 
-/** 经营资产配置（静态，存入世界定义/世界书）（占位） */
+/** 经营资产配置（静态，存入世界定义/世界书） */
 export interface BusinessConfig {
   description: string;
+  funds: number;
+  cycleName: string;
+  assets: Array<{
+    id: string; name: string; type: string;
+    level: number; maxLevel: number; description: string;
+    income: { base: number; perLevel: number; resource?: string; cycle: string };
+    maintenance: number;
+    upgradeCost?: number;
+    staff?: { current: number; max: number; efficiency: number };
+    risk?: { level: string; description: string };
+    status: string;
+  }>;
+  market?: { items: Array<{ name: string; basePrice: number; trend: string; changePercent: number }> };
 }
 
 /** 世界创建管线的上下文数据 */
@@ -124,6 +137,8 @@ export interface BuildContext {
 
   /** 用户对生存资源的额外描述（可选） */
   survivalUserDesc?: string;
+  /** 用户对经营资产的额外描述（可选） */
+  businessUserDesc?: string;
   /** 阶段5合成的最终结果 */
   result?: Record<string, unknown>;
 }

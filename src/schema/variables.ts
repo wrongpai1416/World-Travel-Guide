@@ -87,11 +87,13 @@ export interface PlayerState {
   属性?: Record<string, number>;
 }
 
-export interface CoreAnchor {
-  事件: string;
-  影响: string;
-  权重: string;
-}
+/** 核心锚点 — AI 实际生成为纯字符串数组，兼容旧的对象格式 */
+export type CoreAnchor = string | {
+  事件?: string;
+  影响?: string;
+  权重?: string;
+  [key: string]: unknown;
+};
 
 export interface NPCData {
   姓名: string;

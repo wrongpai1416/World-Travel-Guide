@@ -41,9 +41,11 @@ export const SURVIVAL_DEFAULTS = {
   criticalThreshold: 2,
 };
 
-/** 经营资产模块默认值（占位） */
+/** 经营资产模块默认值 */
 export const BUSINESS_DEFAULTS = {
-  initialCurrencyAmount: 500,
+  initialFunds: 500,
+  maxAssets: 10,
+  defaultCycleName: '天',
 };
 
 /** 骰子检定模块默认值 */
@@ -95,10 +97,15 @@ export function createDefaultSurvivalModule(): SurvivalModuleSchema {
   };
 }
 
-/** 创建默认的经营资产模块数据（占位） */
+/** 创建默认的经营资产模块数据 */
 export function createDefaultBusinessModule(): BusinessModuleSchema {
   return {
     description: '',
+    funds: BUSINESS_DEFAULTS.initialFunds,
+    cycleName: BUSINESS_DEFAULTS.defaultCycleName,
+    assets: [],
+    market: { items: [] },
+    transactionLog: [],
   };
 }
 

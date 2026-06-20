@@ -12,9 +12,10 @@ import NotebookPanel from './panels/NotebookPanel';
 import VariableSnapshotPanel from './panels/VariableSnapshotPanel';
 import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
+import BusinessOverlay from './panels/BusinessOverlay';
 import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
 import { extractWorldSystemData } from '../../modules/runtime';
-import type { DiceRoll, SurvivalRecipe } from '../../modules/schema';
+import type { DiceRoll, SurvivalRecipe, BusinessModuleSchema } from '../../modules/schema';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
 import { findWorldDef } from '../../data/worldLoader';
@@ -133,6 +134,7 @@ export default function GameScreen() {
 
   // 桌面端状态
   const [overlay, setOverlay] = useState<OverlayPanel>(null);
+  const [businessOverlayOpen, setBusinessOverlayOpen] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -181,6 +183,7 @@ export default function GameScreen() {
 
   // 提取世界系统数据（用于内联骰子卡片）
   const worldSystem = extractWorldSystemData(gameState.世界.世界系统);
+  const hasBusinessModule = !!worldSystem.经营资产;
 
   // 骰子掷骰结果回调 — 更新世界系统中的骰子数据
   const handleDiceRoll = useCallback((roll: DiceRoll) => {
@@ -289,6 +292,41 @@ export default function GameScreen() {
     setStateVersion(v => v + 1);
   }, [engine]);
 
+  // ── 经营资产：自动结算（每轮变量更新后，纯机械计算） ──
+  useEffect(() => {
+    const handler = () => {
+      const state = engine.variableManager.getState();
+      const biz = (state.世界?.世界系统 as any)?.经营资产 as BusinessModuleSchema | undefined;
+      if (!biz?.assets?.length) return;
+
+      let totalIncome = 0;
+      let totalMaintenance = 0;
+      for (const asset of biz.assets) {
+        if (asset.status !== 'active') continue;
+        const levelBonus = (asset.income?.perLevel ?? 0) * Math.max(0, (asset.level ?? 1) - 1);
+        totalIncome += (asset.income?.base ?? 0) + levelBonus;
+        totalMaintenance += asset.maintenance ?? 0;
+      }
+
+      const net = totalIncome - totalMaintenance;
+      if (net === 0) return;
+
+      biz.funds = (biz.funds ?? 0) + net;
+      if (!biz.transactionLog) biz.transactionLog = [];
+      biz.transactionLog.push({
+        cycle: 0, type: net >= 0 ? 'income' : 'expense',
+        description: `周期结算：收入 +${totalIncome}，维护 -${totalMaintenance}`,
+        amount: net,
+      });
+
+      engine.variableManager.setState(state);
+      setStateVersion(v => v + 1);
+    };
+
+    eventBus.on(EVENTS.VARIABLE_UPDATE_ENDED, handler);
+    return () => { eventBus.off(EVENTS.VARIABLE_UPDATE_ENDED, handler); };
+  }, [engine]);
+
   // 变量更新后刷新右侧面板
   useEffect(() => {
     const handler = () => setStateVersion(v => v + 1);
@@ -338,7 +376,7 @@ export default function GameScreen() {
 
   const renderOverlayContent = () => {
     switch (overlay) {
-      case 'profile': return <ProfilePanel gameState={gameState} />;
+      case 'profile': return <ProfilePanel gameState={gameState} hasBusinessModule={hasBusinessModule} />;
       case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
       case 'variables': return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
@@ -362,7 +400,7 @@ export default function GameScreen() {
   const renderMobilePanelContent = () => {
     switch (mobileActivePanel) {
       case 'profile':
-        return <ProfilePanel gameState={gameState} />;
+        return <ProfilePanel gameState={gameState} hasBusinessModule={hasBusinessModule} />;
       case 'characters':
         return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook':
@@ -556,6 +594,7 @@ export default function GameScreen() {
               onSurvivalCraft={handleSurvivalCraft}
               onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
               isGeneratingRecipe={isGeneratingRecipe}
+              onOpenBusinessOverlay={() => setBusinessOverlayOpen(true)}
             />}
           </div>
 
@@ -661,9 +700,23 @@ export default function GameScreen() {
             onSurvivalCraft={handleSurvivalCraft}
             onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
             isGeneratingRecipe={isGeneratingRecipe}
+            onOpenBusinessOverlay={() => setBusinessOverlayOpen(true)}
           />
         </MobileOverlay>
       )}
+
+      {/* 经营管理覆盖层（纯展示） */}
+      {(() => {
+        const bizData = (gameState.世界?.世界系统 as any)?.经营资产 as BusinessModuleSchema | undefined;
+        if (!bizData) return null;
+        return (
+          <BusinessOverlay
+            open={businessOverlayOpen}
+            data={bizData}
+            onClose={() => setBusinessOverlayOpen(false)}
+          />
+        );
+      })()}
 
       {/* 通知提示 */}
       {notification && (
