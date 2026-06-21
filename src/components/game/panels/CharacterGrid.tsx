@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
   BarChart3, Tag, Briefcase, MapPin, Sparkles,
@@ -445,6 +445,12 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
   onMerge?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }) {
   const [chronicles, setChronicles] = useState<string[]>(initialChronicles);
+
+  // 同步父组件数据（合并/总结后刷新）
+  useEffect(() => {
+    setChronicles(initialChronicles);
+  }, [initialChronicles]);
+
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [adding, setAdding] = useState(false);
@@ -496,17 +502,10 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
     try {
       const ok = await onMerge(npcId, mergeStart, mergeEnd);
       if (ok) {
-        // 重新读取合并后的数据
-        setChronicles(prev => {
-          const selected = prev.slice(mergeStart, mergeEnd + 1);
-          // 合并后的结果需要从父组件刷新，这里先做乐观更新
-          return prev;
-        });
         setMergeMode(false);
         setMergeStart(null);
         setMergeEnd(null);
-        // 通知父组件刷新
-        onClose();
+        // 数据通过 useEffect 自动同步，无需关闭弹窗
       }
     } finally {
       setMerging(false);
