@@ -144,6 +144,62 @@ export function useGameEngine(
     setMessages(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
   }, []);
 
+  // 辅助：回滚变量快照 + 记忆检查点，并截断消息列表到指定索引
+  const rollbackAndTruncate = useCallback((truncateAt: number) => {
+    const currentMessages = messagesRef.current;
+
+    // 1. 回滚变量快照
+    let restored = false;
+    for (let i = truncateAt - 1; i >= 0; i--) {
+      if (currentMessages[i].snapshot) {
+        varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
+        restored = true;
+        break;
+      }
+    }
+    if (!restored && initialSnapshotRef.current) {
+      varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
+    }
+
+    // 2. 回滚记忆系统
+    const memStore = useMemoryStore.getState();
+    for (let i = truncateAt - 1; i >= 0; i--) {
+      if (currentMessages[i].memoryCheckpointId) {
+        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
+        break;
+      }
+    }
+    memStore.clearPipelineOutputs();
+
+    // 3. 截断消息
+    setMessages(prev => {
+      const truncated = prev.slice(0, truncateAt);
+      messagesRef.current = truncated;
+      return truncated;
+    });
+  }, []);
+
+  // 辅助：构建记忆管线上下文（加载 preset、解析各阶段 API 配置）
+  const buildMemoryContext = useCallback((
+    floor: number, batchText: string, inputText: string,
+    recentContext: string, playerName: string, mainApiConfig: ApiConfig,
+  ): MemoryPipelineContext => {
+    const memStore = useMemoryStore.getState();
+    const memConfig = memStore.config;
+    const presets = loadPresets();
+    const defaultMemApi = { baseUrl: mainApiConfig.baseUrl, apiKey: mainApiConfig.apiKey, model: mainApiConfig.model };
+    const memApiConfig = resolvePreset(presets, memConfig.apiPresetId) ?? defaultMemApi;
+    return {
+      floor, batchText, inputText, recentContext, playerName,
+      apiConfig: memApiConfig,
+      writeApiConfig: resolvePreset(presets, memConfig.writePipeline.apiPresetId) ?? undefined,
+      summaryApiConfig: resolvePreset(presets, memConfig.writePipeline.summaryApiPresetId) ?? undefined,
+      conflictJudgeApiConfig: resolvePreset(presets, memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
+      retrievalApiConfig: resolvePreset(presets, memConfig.retrieval.plannerApiPresetId) ?? undefined,
+      vectorApiConfig: resolvePreset(presets, memConfig.vectorExtractApiPresetId) ?? undefined,
+    };
+  }, []);
+
   // 删除消息：级联删除 + 回滚状态（用户消息连同后面的AI消息一起删）
   const deleteSingleMessage = useCallback((id: string) => {
     const currentMessages = messagesRef.current;
@@ -160,38 +216,8 @@ export function useGameEngine(
     }
     if (userIdx < 0 || currentMessages[userIdx]?.role !== 'user') return;
 
-    // 回滚变量状态：从 userIdx-1 向前找最近的 snapshot，找不到则用全局初始快照
-    let restored = false;
-    for (let i = userIdx - 1; i >= 0; i--) {
-      if (currentMessages[i].snapshot) {
-        varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
-        restored = true;
-        break;
-      }
-    }
-    if (!restored && initialSnapshotRef.current) {
-      varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
-    }
-
-    // 回滚记忆系统
-    const memStore = useMemoryStore.getState();
-    for (let i = userIdx - 1; i >= 0; i--) {
-      if (currentMessages[i].memoryCheckpointId) {
-        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
-        break;
-      }
-    }
-    memStore.setCompiledContext(null);
-    memStore.setRuntimeFlow(null);
-    memStore.setRetrievePlan(null);
-
-    // 截断到用户消息（不含），删除用户消息及之后所有消息
-    setMessages(prev => {
-      const truncated = prev.slice(0, userIdx);
-      messagesRef.current = truncated;
-      return truncated;
-    });
-  }, []);
+    rollbackAndTruncate(userIdx);
+  }, [rollbackAndTruncate]);
 
   const editMessage = useCallback((id: string, content: string) => {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, rawText: content } : m));
@@ -205,46 +231,12 @@ export function useGameEngine(
     const msg = currentMessages[idx];
     if (!msg || msg.role !== 'user') return;
 
-    // 回滚变量状态：从 idx-1 向前找最近的 snapshot，找不到则用全局初始快照
-    let restored = false;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (currentMessages[i].snapshot) {
-        varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
-        restored = true;
-        break;
-      }
-    }
-    if (!restored) {
-      if (initialSnapshotRef.current) {
-        varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
-      } else {
-        console.log('[回滚] 没有找到任何快照！');
-      }
-    }
-
-    // 回滚记忆系统：从 idx-1 向前找最近的 memoryCheckpointId
-    const memStore = useMemoryStore.getState();
-    for (let i = idx - 1; i >= 0; i--) {
-      if (currentMessages[i].memoryCheckpointId) {
-        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
-        break;
-      }
-    }
-    memStore.setCompiledContext(null);
-    memStore.setRuntimeFlow(null);
-    memStore.setRetrievePlan(null);
-
-    // 截断到用户消息（不含），重新发送（参考项目的 splice + push + generateResponse）
-    setMessages(prev => {
-      const truncated = prev.slice(0, idx);
-      messagesRef.current = truncated;
-      return truncated;
-    });
+    rollbackAndTruncate(idx);
 
     setTimeout(() => {
       sendMessageRef.current?.(getMessageContent(msg));
     }, 0);
-  }, [apiConfig, isGenerating]);
+  }, [apiConfig, isGenerating, rollbackAndTruncate]);
 
   // 从 AI 消息回滚并重新发送
   const resendFromAssistantMessage = useCallback(async (id: string) => {
@@ -263,42 +255,12 @@ export function useGameEngine(
     if (userIdx === -1) return;
     const userMsg = currentMessages[userIdx];
 
-    // 回滚变量状态：从 userIdx-1 向前找最近的 snapshot，找不到则用全局初始快照
-    let restored = false;
-    for (let i = userIdx - 1; i >= 0; i--) {
-      if (currentMessages[i].snapshot) {
-        varMgrRef.current.restoreSnapshot(currentMessages[i].snapshot as any);
-        restored = true;
-        break;
-      }
-    }
-    if (!restored && initialSnapshotRef.current) {
-      varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
-    }
-
-    // 回滚记忆系统：从 userIdx-1 向前找最近的 memoryCheckpointId
-    const memStore = useMemoryStore.getState();
-    for (let i = userIdx - 1; i >= 0; i--) {
-      if (currentMessages[i].memoryCheckpointId) {
-        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
-        break;
-      }
-    }
-    memStore.setCompiledContext(null);
-    memStore.setRuntimeFlow(null);
-    memStore.setRetrievePlan(null);
-
-    // 截断到用户消息之前，重新发送
-    setMessages(prev => {
-      const truncated = prev.slice(0, userIdx);
-      messagesRef.current = truncated;
-      return truncated;
-    });
+    rollbackAndTruncate(userIdx);
 
     setTimeout(() => {
       sendMessageRef.current?.(getMessageContent(userMsg));
     }, 0);
-  }, [apiConfig, isGenerating]);
+  }, [apiConfig, isGenerating, rollbackAndTruncate]);
 
   const loadSave = useCallback((save: GameSave) => {
     setMessages(save.messages);
@@ -319,9 +281,7 @@ export function useGameEngine(
     // 先完全重置记忆系统，防止跨存档污染
     const memStore = useMemoryStore.getState();
     memStore.resetMemoryRuntime();
-    memStore.setCompiledContext(null);
-    memStore.setRuntimeFlow(null);
-    memStore.setRetrievePlan(null);
+    memStore.clearPipelineOutputs();
     // 再从存档恢复记忆数据
     if (save.memoryRuntime || save.memoryConfig || save.vectorMemory) {
       memStore.fromJSON({
@@ -376,11 +336,6 @@ export function useGameEngine(
       const memStore = useMemoryStore.getState();
       const memConfig = memStore.config;
 
-      // 解析记忆系统的 API preset，支持独立 API 配置
-      const presets = loadPresets();
-      const defaultMemApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
-      // 顶层 apiPresetId 作为记忆系统的默认 API；未设置则跟随主 API
-      const memApiConfig = resolvePreset(presets, memConfig.apiPresetId) ?? defaultMemApi;
       const playerName = playerProfileRef.current?.name || '冒险者';
       const batchText = userText + '\n\n' + '(等待AI回复)';
       const recentContext = sanitizeForContext(messagesRef.current, round)
@@ -388,20 +343,7 @@ export function useGameEngine(
         .map(m => m.content || '')
         .join('\n\n');
 
-      const memCtx: MemoryPipelineContext = {
-        floor: round,
-        batchText,
-        inputText: userText,
-        recentContext,
-        playerName,
-        apiConfig: memApiConfig,
-        // 各阶段独立 API preset（未设置则回退到 memApiConfig）
-        writeApiConfig: resolvePreset(presets, memConfig.writePipeline.apiPresetId) ?? undefined,
-        summaryApiConfig: resolvePreset(presets, memConfig.writePipeline.summaryApiPresetId) ?? undefined,
-        conflictJudgeApiConfig: resolvePreset(presets, memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
-        retrievalApiConfig: resolvePreset(presets, memConfig.retrieval.plannerApiPresetId) ?? undefined,
-        vectorApiConfig: resolvePreset(presets, memConfig.vectorExtractApiPresetId) ?? undefined,
-      };
+      const memCtx = buildMemoryContext(round, batchText, userText, recentContext, playerName, apiConfig);
 
       // 保存管线上下文（用于重试管线）
       lastPipelineCtxRef.current = { round, userText, aiMsgId, batchText, recentContext, playerName };
@@ -698,23 +640,7 @@ ${perspectiveInstruction}
     try {
       const memStore = useMemoryStore.getState();
       const memConfig = memStore.config;
-      const presets = loadPresets();
-      const defaultMemApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
-      const memApiConfig = resolvePreset(presets, memConfig.apiPresetId) ?? defaultMemApi;
-
-      const memCtx: MemoryPipelineContext = {
-        floor: ctx.round,
-        batchText: ctx.batchText,
-        inputText: ctx.userText,
-        recentContext: ctx.recentContext,
-        playerName: ctx.playerName,
-        apiConfig: memApiConfig,
-        writeApiConfig: resolvePreset(presets, memConfig.writePipeline.apiPresetId) ?? undefined,
-        summaryApiConfig: resolvePreset(presets, memConfig.writePipeline.summaryApiPresetId) ?? undefined,
-        conflictJudgeApiConfig: resolvePreset(presets, memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
-        retrievalApiConfig: resolvePreset(presets, memConfig.retrieval.plannerApiPresetId) ?? undefined,
-        vectorApiConfig: resolvePreset(presets, memConfig.vectorExtractApiPresetId) ?? undefined,
-      };
+      const memCtx = buildMemoryContext(ctx.round, ctx.batchText, ctx.userText, ctx.recentContext, ctx.playerName, apiConfig);
 
       const pipelineResult = await executor.execute({
         config: pipelineConfig,
@@ -780,24 +706,7 @@ ${perspectiveInstruction}
     setIsGenerating(true);
     try {
       const memStore = useMemoryStore.getState();
-      const memConfig = memStore.config;
-      const presets = loadPresets();
-      const defaultMemApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
-      const memApiConfig = resolvePreset(presets, memConfig.apiPresetId) ?? defaultMemApi;
-
-      const memCtx: MemoryPipelineContext = {
-        floor: ctx.round,
-        batchText: ctx.batchText,
-        inputText: ctx.userText,
-        recentContext: ctx.recentContext,
-        playerName: ctx.playerName,
-        apiConfig: memApiConfig,
-        writeApiConfig: resolvePreset(presets, memConfig.writePipeline.apiPresetId) ?? undefined,
-        summaryApiConfig: resolvePreset(presets, memConfig.writePipeline.summaryApiPresetId) ?? undefined,
-        conflictJudgeApiConfig: resolvePreset(presets, memConfig.writePipeline.conflictJudgeApiPresetId) ?? undefined,
-        retrievalApiConfig: resolvePreset(presets, memConfig.retrieval.plannerApiPresetId) ?? undefined,
-        vectorApiConfig: resolvePreset(presets, memConfig.vectorExtractApiPresetId) ?? undefined,
-      };
+      const memCtx = buildMemoryContext(ctx.round, ctx.batchText, ctx.userText, ctx.recentContext, ctx.playerName, apiConfig);
 
       // 根据 taskId 构建对应的执行函数
       const taskFnMap: Record<string, () => Promise<void>> = {
@@ -853,9 +762,7 @@ ${perspectiveInstruction}
     // 重置记忆系统，防止跨存档污染
     const memStore = useMemoryStore.getState();
     memStore.resetMemoryRuntime();
-    memStore.setCompiledContext(null);
-    memStore.setRuntimeFlow(null);
-    memStore.setRetrievePlan(null);
+    memStore.clearPipelineOutputs();
     // 初始化世界系统模块数据
     // 新格式：moduleConfig（配置，注入世界书）+ initialState（状态，初始化变量）
     // 旧格式：data（配置+状态混在一起，向后兼容）

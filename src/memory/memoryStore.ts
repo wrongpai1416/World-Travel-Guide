@@ -146,6 +146,7 @@ interface MemoryStoreActions {
   setCompiledContext: (snapshot: CompiledContextSnapshot | null) => void;
   setRuntimeFlow: (snapshot: RuntimeFlowSnapshot | null) => void;
   setRetrievePlan: (plan: RetrievePlanSnapshot | null) => void;
+  clearPipelineOutputs: () => void;
 
   // 调试日志
   appendWriteDebugLog: (log: DebugLog) => void;
@@ -724,6 +725,17 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
       lastRetrievePlan: plan,
       memoryRuntime: state.memoryRuntime
         ? { ...state.memoryRuntime, lastRetrievePlan: plan }
+        : null,
+    }));
+  },
+
+  clearPipelineOutputs: () => {
+    set((state) => ({
+      lastCompiledContext: null,
+      lastRuntimeFlow: null,
+      lastRetrievePlan: null,
+      memoryRuntime: state.memoryRuntime
+        ? { ...state.memoryRuntime, lastCompiledContext: null, lastRuntimeFlow: null, lastRetrievePlan: null }
         : null,
     }));
   },

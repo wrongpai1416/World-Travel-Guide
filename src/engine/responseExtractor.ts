@@ -57,4 +57,6 @@ function stripAllTags(text: string): string {
 export interface ParsedResponse {
   content: string;
   thinking: string;
+  actionOptions?: unknown[];
+  summary?: string | null;
 }
