@@ -217,7 +217,6 @@ src/
 │   └── modules.ts          # 模块渲染类型映射
 ├── engine/                 # 游戏引擎
 │   ├── useGameEngine.ts    # 核心引擎 hook（记忆管线 + 正文生成）
-│   ├── gameEngineCore.ts   # 引擎核心逻辑（管线任务组装）
 │   ├── pipelineExecutor.ts # 管线执行器（同层并行/层间串行）
 │   ├── pipelineTypes.ts    # 管线类型定义和执行顺序
 │   ├── variableManager.ts  # 变量管理器

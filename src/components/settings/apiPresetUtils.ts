@@ -22,3 +22,15 @@ export function loadPresets(): ApiPreset[] {
 export function savePresets(presets: ApiPreset[]) {
   localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
 }
+
+/** 解析 API preset 为记忆系统可用的窄配置（baseUrl + apiKey + model） */
+export function resolvePreset(
+  presets: ApiPreset[],
+  presetId: string | null | undefined,
+): { baseUrl: string; apiKey: string; model: string } | null {
+  if (!presetId) return null;
+  const preset = presets.find(p => p.id === presetId);
+  return preset
+    ? { baseUrl: preset.config.baseUrl, apiKey: preset.config.apiKey, model: preset.config.model }
+    : null;
+}
