@@ -698,10 +698,20 @@ ${perspectiveInstruction}
   const retrySingleStage = useCallback(async (taskId: PipelineTaskId) => {
     const ctx = lastPipelineCtxRef.current;
     const executor = lastExecutorRef.current;
-    if (!apiConfig || isGenerating || !ctx || !executor) return;
+    if (isGenerating) return; // 正在生成中，按钮已 disabled，静默返回
+    if (!apiConfig || !ctx || !executor) {
+      const reason = !apiConfig ? 'API 配置缺失' : '管线上下文或执行器已丢失（可能页面刷新过）';
+      console.warn('[单步重试] 无法重试：', reason);
+      alert(`无法重试：${reason}`);
+      return;
+    }
 
     const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
-    if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) return;
+    if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) {
+      console.warn('[单步重试] 无法重试：AI 消息不存在或正文为空');
+      alert('无法重试：AI 消息不存在或正文为空');
+      return;
+    }
 
     setIsGenerating(true);
     try {
