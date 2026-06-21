@@ -17,18 +17,6 @@ export interface ChatMessage {
   snapshot?: unknown;
   snapshotTime?: number;
   memoryCheckpointId?: string;
-  /**
-   * @deprecated 旧存档兼容字段，新消息使用 rawText
-   */
-  content?: string;
-  /**
-   * @deprecated 旧存档兼容字段，新消息使用 rawText
-   */
-  thinking?: string;
-  /**
-   * @deprecated 旧存档兼容字段，新消息使用 rawText
-   */
-  actionOptions?: string[];
 }
 
 export interface GameEngine {

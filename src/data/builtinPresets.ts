@@ -92,10 +92,20 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     promptOnly: false,
   },
   {
+    id: 'builtin_display_fold_thinking',
+    scriptName: '思维链折叠',
+    findRegex: '<thinking>([\\s\\S]*?)</thinking>',
+    replaceString: '<details class="thinking-card"><summary>思维链</summary><div class="thinking-body">$1</div></details>',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
+  {
     id: 'builtin_display_strip_meta',
     scriptName: '去除AI元数据标签',
-    // 匹配所有已知闭合标签及其内容、details/summary 嵌套块、未闭合标签、孤立标签、元数据行
-    findRegex: '<thinking>[\\s\\S]*?</thinking>|<details>\\s*<summary>[\\s\\S]*?</details>|<details>[\\s\\S]*?</details>|<summary>[\\s\\S]*?</summary>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<thinking>[\\s\\S]*|<integrity>[\\s\\S]*|<details>[\\s\\S]*|This content is produced for educational[\\s\\S]*?creative exploration\\.|(?:^|\\n).*(?:时间|地点|人物|摘要).*(?:\\n|$)|<br\\s*/?>\\s*(?:###|时间|地点|人物|摘要|This content)|<br\\s*/?>\\s*(?:时间|地点|人物|摘要)|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
+    // 匹配所有已知闭合标签及其内容（thinking 已由折叠脚本处理，不再剥除）
+    findRegex: '<details>(?!\\s*<summary>💭)[\\s\\S]*?</details>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<integrity>[\\s\\S]*|This content is produced for educational[\\s\\S]*?creative exploration\\.|(?:^|\\n).*(?:时间|地点|人物|摘要).*(?:\\n|$)|<br\\s*/?>\\s*(?:###|时间|地点|人物|摘要|This content)|<br\\s*/?>\\s*(?:时间|地点|人物|摘要)|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
     replaceString: '',
     placement: [2],
     disabled: false,

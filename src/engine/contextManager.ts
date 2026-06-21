@@ -7,9 +7,9 @@ import { processRegexScripts } from '../utils/regexScripts';
 import { getBuiltinPromptScripts } from '../data/builtinPresets';
 import { extractContentForPrompt } from './responseExtractor';
 
-/** 获取消息的纯正文（从 rawText 按需解析，兼容旧存档） */
+/** 获取消息的原始文本 */
 export function getMessageContent(msg: ChatMessage): string {
-  return msg.rawText || msg.content || '';
+  return msg.rawText || '';
 }
 
 /** 核心函数：清理消息上下文用于发送给AI */

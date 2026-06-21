@@ -92,7 +92,7 @@ export default function VariableSnapshotPanel({
           snapshotTime: (msg as any).snapshotTime || Date.now(),
           isInitial: false,
           content: (() => {
-            const raw = msg.rawText || msg.content || '';
+            const raw = msg.rawText || '';
             return raw.slice(0, 80) + (raw.length > 80 ? '...' : '');
           })(),
         });

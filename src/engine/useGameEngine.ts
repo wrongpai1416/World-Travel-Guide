@@ -3,7 +3,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
 import { setRateLimitInterval } from '../api/rateLimiter';
-import { extractContentForPrompt, extractThinking, extractActionOptions, extractSummary } from './responseExtractor';
+import { extractContentForPrompt } from './responseExtractor';
 import { getMessageContent } from './contextManager';
 import { VariableManager } from './variableManager';
 import { eventBus, EVENTS } from './eventBus';
@@ -570,12 +570,10 @@ ${perspectiveInstruction}
           ];
 
           let accumulated = '';
-          let reasoning = '';
 
           const result = await requestStreamWithRetry(apiConfig, apiMessages, {
             signal: controller.signal,
-            onDelta: (delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
-            onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
+            onDelta: (_delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
           });
 
           let rawText = result.text || accumulated;
@@ -585,49 +583,9 @@ ${perspectiveInstruction}
             let retryAccumulated = '';
             const retryResult = await requestStreamWithRetry(apiConfig, apiMessages, {
               signal: controller.signal,
-              onDelta: (delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
-              onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
+              onDelta: (_delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
             });
             rawText = retryResult.text || retryAccumulated;
-            if (retryResult.reasoning) reasoning = retryResult.reasoning;
-          }
-
-          // 从 rawText 按需解析各字段
-          let actionOptions = extractActionOptions(rawText);
-          let summary = extractSummary(rawText);
-          const thinking = extractThinking(rawText) || reasoning || result.reasoning || '';
-
-          // 格式不完整补救：有正文但缺少行动选项，用轻量 API 调用补生成
-          const contentForCheck = extractContentForPrompt(rawText);
-          if (contentForCheck.trim() && actionOptions.length === 0) {
-            console.warn('[引擎] 响应缺少行动选项，补生成中...');
-            try {
-              const optionPrompt = `根据以下叙事内容，生成3-5个行动选项。每个选项包含标题和简短描述。
-
-叙事内容：
-${contentForCheck.slice(0, 2000)}
-
-严格按以下格式输出，不要输出其他内容：
-[OPTION_START]
-[OPTION]{t: "选项标题", d: "简短描述"}
-[OPTION]{t: "选项标题", d: "简短描述"}
-[OPTION]{t: "选项标题", d: "简短描述"}
-[OPTION_END]`;
-
-              const optionResult = await requestCompletion(apiConfig, [
-                { role: 'user', content: optionPrompt },
-              ], { maxTokens: 500 });
-
-              const genOptions = extractActionOptions(optionResult.text);
-              if (genOptions.length > 0) {
-                actionOptions = genOptions;
-                // 把补生成的选项追加到 rawText 中，保持一致性
-                rawText = rawText + '\n\n[OPTION_START]\n' + genOptions.map(o => `[OPTION]{t: "${o}", d: ""}`).join('\n') + '\n[OPTION_END]';
-                console.warn(`[引擎] 补生成成功，${genOptions.length} 个选项`);
-              }
-            } catch (err) {
-              console.warn('[引擎] 补生成选项失败:', err);
-            }
           }
 
           // StatusPlaceHolderImpl 处理
@@ -638,17 +596,14 @@ ${contentForCheck.slice(0, 2000)}
             }
           }
 
-          // 存储完整原始响应
+          // 存储完整原始响应（thinking/options/summary 全由正则脚本处理）
           updateMessage(aiMsgId, {
             rawText,
-            thinking,
-            actionOptions,
-            summary: summary || undefined,
             streaming: false,
           });
           eventBus.emit(EVENTS.MESSAGE_RECEIVED, aiMsgId);
 
-          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking, actionOptions, summary } };
+          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking: '' } };
         },
       });
 
@@ -675,7 +630,13 @@ ${contentForCheck.slice(0, 2000)}
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        updateMessage(aiMsgId, { rawText: '[已停止生成]', streaming: false });
+        // 不覆盖已生成的正文，只标记停止
+        const existingRaw = getMessageContent(messagesRef.current.find(m => m.id === aiMsgId)!) || '';
+        if (!existingRaw.trim()) {
+          updateMessage(aiMsgId, { rawText: '[已停止生成]', streaming: false });
+        } else {
+          updateMessage(aiMsgId, { streaming: false });
+        }
       } else {
         // 不覆盖已流式输出的正文，只在文末追加错误提示
         const currentContent = getMessageContent(messagesRef.current.find(m => m.id === aiMsgId)!) || '';

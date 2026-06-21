@@ -51,18 +51,6 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
     }
   }, [messages, settings.autoScroll]);
 
-  // 获取最新的 actionOptions：优先取最后一条有非空选项的 assistant 消息
-  const latestActionOptions = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role === 'assistant') {
-        const opts = m.actionOptions?.length ? m.actionOptions : [];
-        if (opts.length > 0) return opts;
-      }
-    }
-    return [];
-  }, [messages]);
-
   // 复制到剪贴板
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).catch(() => {
@@ -131,7 +119,6 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
         onSend={onSend}
         onCancel={onCancel}
         isGenerating={isGenerating}
-        actionOptions={latestActionOptions}
         pipelineStatus={pipelineStatus ?? null}
         onOpenMonitor={() => setShowMonitor(true)}
         externalText={inputText}

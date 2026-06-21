@@ -8,14 +8,13 @@ interface Props {
   onSend: (text: string) => void;
   onCancel: () => void;
   isGenerating: boolean;
-  actionOptions?: string[];
   pipelineStatus?: PipelineStatusType | null;
   onOpenMonitor?: () => void;
   externalText?: string;
   onExternalTextChange?: () => void;
 }
 
-export default function InputArea({ onSend, onCancel, isGenerating, actionOptions, pipelineStatus, onOpenMonitor, externalText, onExternalTextChange }: Props) {
+export default function InputArea({ onSend, onCancel, isGenerating, pipelineStatus, onOpenMonitor, externalText, onExternalTextChange }: Props) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { t } = useUISettings();
@@ -45,60 +44,12 @@ export default function InputArea({ onSend, onCancel, isGenerating, actionOption
     }
   }, [handleSend]);
 
-  const handleActionClick = useCallback((option: string) => {
-    setText(option);
-    inputRef.current?.focus();
-  }, []);
 
   return (
     <div style={{
       borderTop: '1px solid var(--border)',
       background: 'var(--bg-secondary)',
     }}>
-      {/* 推荐选项 */}
-      {actionOptions && actionOptions.length > 0 && !isGenerating && (
-        <div style={{
-          padding: '8px 12px 0',
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-          overflow: 'hidden',
-          maxHeight: '120px',
-          overflowY: 'auto',
-        }}>
-          {actionOptions.map((opt, i) => (
-            <button
-              key={i}
-              onClick={() => handleActionClick(opt)}
-              style={{
-                padding: '4px 12px',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: '16px',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--accent)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'var(--accent-dim)';
-                e.currentTarget.style.borderColor = 'var(--accent)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'var(--bg-primary)';
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* 输入区 */}
       <div style={{
         padding: isMobile ? '8px 12px' : '12px 16px',

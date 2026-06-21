@@ -5,14 +5,11 @@ import { useUISettings } from '../../../context/UISettingsContext';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import type { ChatMessage } from '../../../engine/types';
 import type { WorldSystemData, DiceRoll } from '../../../modules/schema';
-import ReasoningBlock from './ReasoningBlock';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
-import InlineDiceCard from './InlineDiceCard';
 import { parseContent, createIframeSrcDoc } from '../../../utils/markdown';
 import { getEnabledTextColorizationRules } from '../../../utils/text-colorization';
 import { processRegexScripts } from '../../../utils/regexScripts';
 import { getBuiltinDisplayScripts } from '../../../data/builtinPresets';
-import { renderForDisplay, extractThinking } from '../../../engine/responseExtractor';
 
 interface Props {
   message: ChatMessage;
@@ -29,7 +26,6 @@ interface Props {
 }
 
 export default function MessageBubble({ message, onDelete, onEdit, onResend, onResendFromHere, onCopy, onOptionClick, worldSystem, onDiceRoll }: Props) {
-  const [showThinking, setShowThinking] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
@@ -44,19 +40,16 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
   const renderedContent = useMemo(() => {
     if (isUser) return null; // 用户消息不走渲染管线
-    const raw = message.rawText ?? message.content ?? '';
+    const raw = message.rawText || '';
     if (!raw) return { type: 'html' as const, content: '' };
-    // 从原始响应提取用于显示的文本（剥掉 thinking/元标签，保留 OPTION 供正则渲染）
-    const displayText = renderForDisplay(raw);
-    if (!displayText.trim()) return { type: 'html' as const, content: '' };
-    // 用正则脚本处理 OPTION 标签 → 卡片 HTML
-    const cleaned = processRegexScripts(displayText, displayScripts);
+    // 全部交给正则脚本处理（thinking 折叠、OPTION 卡片、元标签剥除）
+    const cleaned = processRegexScripts(raw, displayScripts);
     if (!cleaned.trim()) return { type: 'html' as const, content: '' };
     return parseContent(cleaned, {
       isStreaming: !!message.streaming,
       textColorizationRules: colorizationRules,
     });
-  }, [isUser, message.rawText, message.content, message.streaming, colorizationRules, displayScripts]);
+  }, [isUser, message.rawText, message.streaming, colorizationRules, displayScripts]);
 
   // iframe 高度自适应
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -127,19 +120,19 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
   const handleEdit = useCallback(() => {
     // 编辑时显示原始全文（含 thinking/options 等标签），方便查看和修改
-    const raw = message.rawText || message.content || '';
+    const raw = message.rawText || '';
     setEditText(raw);
     setEditing(true);
     setTimeout(() => editRef.current?.focus(), 0);
-  }, [message.rawText, message.content]);
+  }, [message.rawText]);
 
   const handleEditConfirm = useCallback(() => {
-    const raw = message.rawText || message.content || '';
+    const raw = message.rawText || '';
     if (editText.trim() !== raw) {
       onEdit(message.id, editText.trim());
     }
     setEditing(false);
-  }, [editText, message.id, message.rawText, message.content, onEdit]);
+  }, [editText, message.id, message.rawText, onEdit]);
 
   const handleEditCancel = useCallback(() => {
     setEditing(false);
@@ -165,8 +158,8 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
       label: '复制内容',
       icon: <Copy size={14} />,
       action: () => {
-        const raw = message.rawText || message.content || '';
-        onCopy(isUser ? raw : processRegexScripts(renderForDisplay(raw), displayScripts));
+        const raw = message.rawText || '';
+        onCopy(isUser ? raw : processRegexScripts(raw, displayScripts));
       },
     },
     ...(isUser ? [{
@@ -209,16 +202,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
         }}
         onContextMenu={handleContextMenu}
       >
-        {/* 思维链 */}
-        {(() => {
-          const thinkingText = message.thinking || extractThinking(message.rawText || message.content || '');
-          return thinkingText && !editing ? (
-          <ReasoningBlock
-            reasoning={thinkingText}
-            expanded={showThinking}
-            onToggle={() => setShowThinking(!showThinking)}
-          />
-        ) : null})()}
+        {/* 思维链现在由正则脚本渲染为 <details> 折叠块 */}
 
         {/* 编辑模式 */}
         {editing ? (
@@ -282,7 +266,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
             {/* 正文 —— Markdown 渲染管线 */}
             {isUser ? (
               <div style={{ whiteSpace: 'pre-wrap' }}>
-                {message.rawText || message.content || ''}
+                {message.rawText || ''}
               </div>
             ) : renderedContent?.type === 'iframe' ? (
               <iframe
@@ -341,7 +325,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                       }
                     }}
                   />
-                ) : message.streaming && !(message.rawText || message.content) ? (
+                ) : message.streaming && !(message.rawText) ? (
                   <span style={{ opacity: 0.5 }}>{t('chat.thinking')}</span>
                 ) : null}
                 {message.streaming && (

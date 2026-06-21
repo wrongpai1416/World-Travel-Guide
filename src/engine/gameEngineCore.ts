@@ -1,13 +1,12 @@
 // 游戏引擎核心 - 从 useGameEngine.ts 提取的核心编排逻辑
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
-import { extractContentForPrompt, extractThinking, extractActionOptions, extractSummary } from './responseExtractor';
-import { getMessageContent } from './contextManager';
+import { extractContentForPrompt } from './responseExtractor';
 import { VariableManager } from './variableManager';
 import { eventBus, EVENTS } from './eventBus';
 import { v4 as uuid } from 'uuid';
 import type { WorldBookManager } from '../worldbook/index';
-import { sanitizeForContext } from './contextManager';
+import { sanitizeForContext, getMessageContent } from './contextManager';
 import { optimizeSnapshots } from '../storage/db';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus } from './pipelineTypes';
@@ -203,7 +202,7 @@ export class GameEngineCore {
             // 构建聊天历史供扫描引擎使用
             const scanHistory = messages.map(m => ({
               role: m.role,
-              content: m.content,
+              content: getMessageContent(m),
             }));
             const scanResult = worldBook.scanAndBuildInjection(scanHistory, userText);
             if (scanResult.beforeChar) wbInjection += scanResult.beforeChar + '\n\n';
@@ -310,7 +309,7 @@ ${perspectiveInstruction}
           const result = await requestStreamWithRetry(apiConfig, apiMessages, {
             signal: controller.signal,
             onDelta: (_delta, acc) => { accumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
-            onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
+            onReasoning: (r) => { reasoning = r; },
           });
 
           let rawText = result.text || accumulated;
@@ -321,7 +320,7 @@ ${perspectiveInstruction}
             const retryResult = await requestStreamWithRetry(apiConfig, apiMessages, {
               signal: controller.signal,
               onDelta: (_delta, acc) => { retryAccumulated = acc; updateMessage(aiMsgId, { rawText: acc }); },
-              onReasoning: (r) => { reasoning = r; updateMessage(aiMsgId, { thinking: r }); },
+              onReasoning: (r) => { reasoning = r; },
             });
             rawText = retryResult.text || retryAccumulated;
             if (retryResult.reasoning) reasoning = retryResult.reasoning;
@@ -335,21 +334,13 @@ ${perspectiveInstruction}
             }
           }
 
-          // 从 rawText 按需解析各字段
-          const thinking = extractThinking(rawText) || reasoning || result.reasoning || '';
-          const actionOptions = extractActionOptions(rawText);
-          const summary = extractSummary(rawText);
-
           updateMessage(aiMsgId, {
             rawText,
-            thinking,
-            actionOptions,
-            summary: summary || undefined,
             streaming: false,
           });
           eventBus.emit(EVENTS.MESSAGE_RECEIVED, aiMsgId);
 
-          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking, actionOptions, summary } };
+          return { text: rawText, parsed: { content: extractContentForPrompt(rawText), thinking: '' } };
         },
       });
 
@@ -371,9 +362,10 @@ ${perspectiveInstruction}
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        updateMessage(aiMsgId, { content: '[已停止生成]', streaming: false });
+        // 不覆盖已生成的正文，只标记停止
+        updateMessage(aiMsgId, { streaming: false });
       } else {
-        updateMessage(aiMsgId, { content: `[错误] ${err.message}`, streaming: false });
+        updateMessage(aiMsgId, { rawText: `[错误] ${err.message}`, streaming: false });
       }
     } finally {
       setIsGenerating(false);

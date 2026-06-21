@@ -40,16 +40,8 @@ function printResult(result: any) {
 
   if (result.assistantMessage) {
     const msg = result.assistantMessage;
-    console.log(`\n📖 正文 (${msg.content?.length || 0}字):`);
-    console.log(msg.content?.slice(0, 500) || '(空)');
-    if (msg.thinking) {
-      console.log(`\n💭 思考:`);
-      console.log(msg.thinking.slice(0, 300));
-    }
-    if (msg.actionOptions?.length) {
-      console.log(`\n🎯 选项:`);
-      msg.actionOptions.forEach((opt: string, i: number) => console.log(`  ${i + 1}. ${opt}`));
-    }
+    console.log(`\n📖 原始响应 (${msg.rawText?.length || 0}字):`);
+    console.log(msg.rawText?.slice(0, 500) || '(空)');
   }
 
   if (result.pipelineStatus) {

@@ -107,9 +107,10 @@ export function VariableSettingsOverlay({
           snapshot: msg.snapshot as GameState,
           snapshotTime: (msg as any).snapshotTime || Date.now(),
           isInitial: false,
-          content: typeof msg.content === 'string'
-            ? msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : '')
-            : '',
+          content: (() => {
+            const raw = msg.rawText || '';
+            return raw.slice(0, 80) + (raw.length > 80 ? '...' : '');
+          })(),
         });
       }
     }
