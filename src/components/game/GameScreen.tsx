@@ -351,13 +351,6 @@ export default function GameScreen() {
     return btn ? t(btn.labelKey) : '';
   };
 
-  const handleSummarizeChronicles = useCallback(async (npcId: string) => {
-    if (!apiConfig) return false;
-    const ok = await engine.variableManager.summarizeNpcChronicles(npcId, apiConfig);
-    if (ok) setStateVersion(v => v + 1);
-    return ok;
-  }, [engine, apiConfig]);
-
   const handleUpdateChronicles = useCallback((npcId: string, chronicles: string[]) => {
     const state = engine.variableManager.getState();
     const npc = state.人物档案?.[npcId];
@@ -377,7 +370,7 @@ export default function GameScreen() {
   const renderOverlayContent = () => {
     switch (overlay) {
       case 'profile': return <ProfilePanel gameState={gameState} hasBusinessModule={hasBusinessModule} />;
-      case 'characters': return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
+      case 'characters': return <CharacterGrid gameState={gameState} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
       case 'variables': return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
       case 'memory': return <MemorySettingsOverlay visible={true} onClose={() => setOverlay(null)} onSave={() => {}} mode="inline" />;
@@ -402,7 +395,7 @@ export default function GameScreen() {
       case 'profile':
         return <ProfilePanel gameState={gameState} hasBusinessModule={hasBusinessModule} />;
       case 'characters':
-        return <CharacterGrid gameState={gameState} onSummarizeChronicles={handleSummarizeChronicles} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
+        return <CharacterGrid gameState={gameState} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook':
         return <NotebookPanel gameState={gameState} />;
       case 'variables':

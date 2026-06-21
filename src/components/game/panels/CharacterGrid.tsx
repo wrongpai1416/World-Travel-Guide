@@ -89,7 +89,6 @@ function npcDataToCustomNpc(npc: NPCData): CustomNpc {
 
 interface Props {
   gameState: GameState;
-  onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
   onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
   onMergeChronicles?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }
@@ -438,10 +437,9 @@ function InventoryGrid({ data }: { data: Record<string, unknown> | undefined }) 
 }
 
 // 事迹弹窗组件
-function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, onUpdate, onSummarize, onMerge }: {
+function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, onUpdate, onMerge }: {
   npcId: string; npcName: string; chronicles: string[];
   onClose: () => void; onUpdate: (npcId: string, chronicles: string[]) => void;
-  onSummarize?: (npcId: string) => Promise<boolean>;
   onMerge?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }) {
   const [chronicles, setChronicles] = useState<string[]>(initialChronicles);
@@ -455,7 +453,6 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
   const [editText, setEditText] = useState('');
   const [adding, setAdding] = useState(false);
   const [addText, setAddText] = useState('');
-  const [summarizing, setSummarizing] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeStart, setMergeStart] = useState<number | null>(null);
@@ -536,6 +533,10 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
             {chronicles.length >= 2 && onMerge && (
               mergeMode ? (
                 <>
+                  <button onClick={() => { setMergeStart(0); setMergeEnd(chronicles.length - 1); }} style={{
+                    border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
+                    background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500',
+                  }}>全选</button>
                   {mergeStart !== null && mergeEnd !== null && mergeEnd > mergeStart && (
                     <button onClick={handleMergeConfirm} disabled={merging} style={{
                       border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
@@ -554,14 +555,6 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
                   background: 'var(--accent-dim)', color: 'var(--accent)', cursor: 'pointer', fontWeight: '500',
                 }}>合并事迹</button>
               )
-            )}
-            {chronicles.length > 5 && onSummarize && !mergeMode && (
-              <button onClick={async () => { setSummarizing(true); try { await onSummarize(npcId); } finally { setSummarizing(false); } }}
-                disabled={summarizing} style={{
-                  border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 12px', fontSize: 'var(--font-size-sm)',
-                  background: summarizing ? 'var(--bg-tertiary)' : 'var(--accent-dim)',
-                  color: summarizing ? 'var(--text-muted)' : 'var(--accent)', cursor: summarizing ? 'wait' : 'pointer', fontWeight: '500',
-                }}>{summarizing ? '总结中...' : '总结事迹'}</button>
             )}
             <button onClick={onClose} className="btn-ghost btn-icon-sm" style={{ background: 'var(--bg-tertiary)' }}><X size={14} /></button>
           </div>
@@ -640,9 +633,8 @@ function DeedsModal({ npcId, npcName, chronicles: initialChronicles, onClose, on
 }
 
 // NPC 详情弹窗
-function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronicles, onMergeChronicles }: {
+function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles }: {
   npc: NPCData; npcId: string; onClose: () => void;
-  onSummarizeChronicles?: (npcId: string) => Promise<boolean>;
   onUpdateChronicles?: (npcId: string, chronicles: string[]) => void;
   onMergeChronicles?: (npcId: string, startIndex: number, endIndex: number) => Promise<boolean>;
 }) {
@@ -904,7 +896,6 @@ function NPCDetail({ npc, npcId, onClose, onSummarizeChronicles, onUpdateChronic
           chronicles={chronicles}
           onClose={() => setShowDeeds(false)}
           onUpdate={onUpdateChronicles ?? (() => {})}
-          onSummarize={onSummarizeChronicles}
           onMerge={onMergeChronicles}
         />
       )}
@@ -925,7 +916,7 @@ function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: str
   );
 }
 
-export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpdateChronicles, onMergeChronicles }: Props) {
+export default function CharacterGrid({ gameState, onUpdateChronicles, onMergeChronicles }: Props) {
   const npcs = gameState.人物档案;
   const [selected, setSelected] = useState<{ id: string; data: NPCData } | null>(null);
 
@@ -941,7 +932,7 @@ export default function CharacterGrid({ gameState, onSummarizeChronicles, onUpda
       {sorted.length === 0 && (
         <EmptyState icon={Users} message="暂无人物档案" />
       )}
-      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onSummarizeChronicles={onSummarizeChronicles} onUpdateChronicles={onUpdateChronicles} onMergeChronicles={onMergeChronicles} />}
+      {selected && <NPCDetail npc={selected.data} npcId={selected.id} onClose={() => setSelected(null)} onUpdateChronicles={onUpdateChronicles} onMergeChronicles={onMergeChronicles} />}
     </div>
   );
 }
