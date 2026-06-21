@@ -147,7 +147,7 @@ export default function PipelineMonitorModal({ status, onClose, onRetrySingleSta
                       </div>
                     )}
                   </div>
-                  {(stage.status === 'success' || stage.status === 'error') && RETRYABLE_STAGES.has(id) && onRetrySingleStage && (
+                  {allDone && (stage.status === 'success' || stage.status === 'error') && RETRYABLE_STAGES.has(id) && onRetrySingleStage && (
                     <button
                       onClick={() => { onRetrySingleStage(id); }}
                       disabled={isGenerating}

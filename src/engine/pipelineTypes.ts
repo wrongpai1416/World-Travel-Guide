@@ -61,24 +61,20 @@ export interface PipelineConfig {
 }
 
 /**
- * 默认执行顺序（串行，避免连续 API 调用触发 429 限流）
+ * 默认执行顺序（写入阶段并行，检索阶段串行）
  * 1. main — 正文生成
- * 2. memory_write — 记忆写入
- * 3. memory_summary — 摘要保存
- * 4. memory_vector — 向量提取
- * 5. memory_query_rewrite — 查询改写
- * 6. memory_retrieve_plan — 检索规划
- * 7. memory_multi_round — 多轮补充
- * 8. memory_rerank — 精排
- * 9. memory_retrieve_finalize — 检索收尾
- * 10. memory_compile — 编译注入
- * 11. variable — 变量提取
+ * 2. memory_write + memory_summary + memory_vector — 写入阶段（并行，都只依赖正文结果）
+ * 3. memory_query_rewrite — 查询改写
+ * 4. memory_retrieve_plan — 检索规划
+ * 5. memory_multi_round — 多轮补充
+ * 6. memory_rerank — 精排
+ * 7. memory_retrieve_finalize — 检索收尾
+ * 8. memory_compile — 编译注入
+ * 9. variable — 变量提取
  */
 export const DEFAULT_EXECUTION_ORDER: PipelineTaskId[][] = [
   ['main'],
-  ['memory_write'],
-  ['memory_summary'],
-  ['memory_vector'],
+  ['memory_write', 'memory_summary', 'memory_vector'],  // 写入阶段并行
   ['memory_query_rewrite'],
   ['memory_retrieve_plan'],
   ['memory_multi_round'],

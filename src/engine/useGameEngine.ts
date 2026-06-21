@@ -1212,25 +1212,49 @@ async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipelineCont
         const rawResult = await callMemoryAI(ctx.writeApiConfig ?? ctx.apiConfig, prompt, '请分析上述剧情并输出结构化叙事记忆 JSON。');
         const parsed = parseNarrativePayload(rawResult);
 
-        // 冲突裁决
+        // 冲突裁决（并行处理所有冲突）
         if (memStore.config.writePipeline.conflictJudgeEnabled) {
-          const eventCandidates = parsed.eventCandidates as Array<Record<string, unknown>> | undefined;
-          if (Array.isArray(eventCandidates)) {
-            for (const newCard of eventCandidates) {
-              const existing = runtime.eventCards.find((c: { title?: string; id?: string }) => c.title === newCard.title || c.id === newCard.id);
+          const conflictTasks: Array<() => Promise<void>> = [];
+          const eventCandidates = parsed.eventCandidates as Array<{ id?: string; title?: string; status?: string }> | undefined;
+          const entityPatches = parsed.entityPatches as Array<{ id?: string; title?: string; status?: string }> | undefined;
+
+          const checkConflict = <T extends { id?: string; title?: string; status?: string }>(
+            incomingList: T[] | undefined,
+            runtimeList: T[],
+          ) => {
+            if (!Array.isArray(incomingList)) return;
+            for (let i = 0; i < incomingList.length; i++) {
+              const incoming = incomingList[i];
+              if (!incoming || !incoming.id) continue;
+              const existing = runtimeList.find((c) => c.title === incoming.title || c.id === incoming.id);
               if (existing) {
-                try {
-                  const judgePrompt = templates.conflictJudge
-                    .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
-                    .replace(/\{\{currentObject\}\}/g, JSON.stringify(existing))
-                    .replace(/\{\{incomingObject\}\}/g, JSON.stringify(newCard));
-                  const judgeRaw = await callMemoryAI(ctx.conflictJudgeApiConfig ?? ctx.apiConfig, judgePrompt, '请裁决冲突，输出 JSON。');
-                  const judgeResult = parseNarrativeConflictJudgeResult(judgeRaw);
-                  if (judgeResult.action === 'reject_incoming') continue;
-                  if (judgeResult.action === 'mark_expired') { (existing as unknown as Record<string, unknown>).status = 'cold'; continue; }
-                } catch { /* 裁决失败按默认处理 */ }
+                conflictTasks.push(async () => {
+                  try {
+                    const judgePrompt = templates.conflictJudge
+                      .replace(/\{\{玩家名字\}\}/g, ctx.playerName)
+                      .replace(/\{\{currentObject\}\}/g, JSON.stringify(existing))
+                      .replace(/\{\{incomingObject\}\}/g, JSON.stringify(incoming));
+                    const judgeRaw = await callMemoryAI(ctx.conflictJudgeApiConfig ?? ctx.apiConfig, judgePrompt, '请裁决冲突，输出 JSON。');
+                    const judgeResult = parseNarrativeConflictJudgeResult(judgeRaw);
+                    if (judgeResult.action === 'reject_incoming') {
+                      incomingList[i] = null as unknown as T;
+                    } else if (judgeResult.action === 'mark_expired') {
+                      existing.status = 'cold';
+                    }
+                  } catch { /* 裁决失败按默认处理 */ }
+                });
               }
             }
+          };
+
+          checkConflict(eventCandidates, runtime.eventCards);
+          checkConflict(entityPatches, runtime.entityCards);
+
+          if (conflictTasks.length > 0) {
+            await Promise.all(conflictTasks.map(t => t()));
+            // 清理被 reject 的元素
+            if (eventCandidates) parsed.eventCandidates = eventCandidates.filter(Boolean);
+            if (entityPatches) parsed.entityPatches = entityPatches.filter(Boolean);
           }
         }
 

@@ -17,7 +17,7 @@ export interface PipelineCallbacks {
 /** 纯本地操作的阶段 ID（不调用 API，无需限流等待） */
 const LOCAL_ONLY_STAGES = new Set(['memory_retrieve_finalize', 'memory_compile']);
 
-/** 可重试的阶段（需要调用 API 的阶段，本地阶段不会失败无需重试） */
+/** 可重试的阶段（需要调用 API 的阶段，本地阶段无需重试） */
 export const RETRYABLE_STAGES = new Set<PipelineTaskId>([
   'main', 'memory_write', 'memory_summary', 'memory_vector',
   'memory_query_rewrite', 'memory_retrieve_plan', 'memory_multi_round',
