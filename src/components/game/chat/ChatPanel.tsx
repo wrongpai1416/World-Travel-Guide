@@ -21,13 +21,11 @@ interface Props {
   worldSystem?: WorldSystemData | null;
   /** 骰子掷骰结果回调 */
   onDiceRoll?: (roll: DiceRoll) => void;
-  /** 重试管线回调 */
-  onRetryPipeline?: () => void;
   /** 单步重试回调 */
   onRetrySingleStage?: (taskId: PipelineTaskId) => void;
 }
 
-export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus, worldSystem, onDiceRoll, onRetryPipeline, onRetrySingleStage }: Props) {
+export default function ChatPanel({ messages, isGenerating, onSend, onCancel, onDelete, onEdit, onResend, onResendFromHere, pipelineStatus, worldSystem, onDiceRoll, onRetrySingleStage }: Props) {
   const [showMonitor, setShowMonitor] = useState(false);
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -130,7 +128,6 @@ export default function ChatPanel({ messages, isGenerating, onSend, onCancel, on
         <PipelineMonitorModal
           status={pipelineStatus ?? null}
           onClose={() => setShowMonitor(false)}
-          onRetryPipeline={onRetryPipeline}
           onRetrySingleStage={onRetrySingleStage}
           isGenerating={isGenerating}
         />

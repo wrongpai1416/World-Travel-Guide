@@ -553,7 +553,6 @@ export default function GameScreen() {
             pipelineStatus={engine.pipelineStatus}
             worldSystem={worldSystem}
             onDiceRoll={handleDiceRoll}
-            onRetryPipeline={engine.retryPipeline}
             onRetrySingleStage={engine.retrySingleStage}
           />
         </div>

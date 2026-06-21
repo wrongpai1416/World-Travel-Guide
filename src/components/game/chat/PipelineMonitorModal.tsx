@@ -12,12 +12,11 @@ import { X, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 interface Props {
   status: PipelineStatusType | null;
   onClose: () => void;
-  onRetryPipeline?: () => void;
   onRetrySingleStage?: (taskId: PipelineTaskId) => void;
   isGenerating?: boolean;
 }
 
-export default function PipelineMonitorModal({ status, onClose, onRetryPipeline, onRetrySingleStage, isGenerating }: Props) {
+export default function PipelineMonitorModal({ status, onClose, onRetrySingleStage, isGenerating }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   if (!status) return null;
@@ -148,7 +147,7 @@ export default function PipelineMonitorModal({ status, onClose, onRetryPipeline,
                       </div>
                     )}
                   </div>
-                  {stage.status === 'error' && RETRYABLE_STAGES.has(id) && onRetrySingleStage && (
+                  {(stage.status === 'success' || stage.status === 'error') && RETRYABLE_STAGES.has(id) && onRetrySingleStage && (
                     <button
                       onClick={() => { onRetrySingleStage(id); }}
                       disabled={isGenerating}
@@ -164,22 +163,10 @@ export default function PipelineMonitorModal({ status, onClose, onRetryPipeline,
           })}
         </div>
 
-        {/* 总耗时 + 重试 */}
+        {/* 总耗时 */}
         <div style={styles.footer}>
           <span>总耗时</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatMs(elapsed)}</span>
-            {errorCount > 0 && allDone && onRetryPipeline && (
-              <button
-                onClick={() => { onRetryPipeline(); onClose(); }}
-                disabled={isGenerating}
-                style={styles.retryBtn}
-              >
-                <RefreshCw size={13} />
-                重试管线
-              </button>
-            )}
-          </div>
+          <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatMs(elapsed)}</span>
         </div>
       </div>
 
