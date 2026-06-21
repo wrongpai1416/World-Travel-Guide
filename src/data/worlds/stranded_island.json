@@ -1,0 +1,115 @@
+[
+  {
+    "id": "stranded_island",
+    "name": "荒岛求生",
+    "description": "飞机失事后，你和幸存者们被困在一座无人岛上。淡水、食物、庇护所——每一项都是生存的关键。",
+    "entryId": null,
+    "icon": "Palmtree",
+    "coverColor": "#059669",
+    "tags": [
+      "生存",
+      "荒岛",
+      "资源管理",
+      "探索"
+    ],
+    "difficulty": "medium",
+    "setting": {
+      "overview": "从昏迷中醒来时，你发现自己躺在一片陌生的沙滩上。远处是坠毁的飞机残骸，周围是零散的行李箱和碎片。海浪拍打着礁石，椰林在风中摇曳，一切看起来很美——但你知道，这座岛上没有淡水净化器，没有手机信号，没有救援的迹象。\n\n岛的内陆是茂密的热带雨林，据说有野猪、毒蛇和不知名的浆果。海岸线延伸到视线尽头，东边有一座若隐若现的火山。沙滩上散落着几个幸存者，有人在哭泣，有人在翻找物资，还有人已经开始了行动。\n\n你需要在救援到来之前（如果会来的话），建立起可持续的生存系统：寻找淡水、搭建庇护所、狩猎采集、制作工具。每一天都是与自然的博弈，每一个决定都可能关乎生死。",
+      "timePeriod": "现代",
+      "location": "太平洋某座无名热带岛屿",
+      "atmosphere": "原始、危险、充满未知、美丽的致命陷阱"
+    },
+    "rules": {
+      "powerSystem": "无超自然力量，完全基于现实生存技能与体能",
+      "socialStructure": "幸存者临时群体，缺乏领导核心，可能出现合作或冲突",
+      "specialRules": [
+        "脱水危机：连续两天不喝水将导致严重脱水，体力大幅下降",
+        "热带风暴：每隔数天可能遭遇暴风雨，未加固的庇护所会被摧毁",
+        "野兽出没：夜间外出有遭遇野猪或毒蛇的风险"
+      ]
+    },
+    "economy": {
+      "currency": {
+        "name": "物资",
+        "symbol": "📦",
+        "description": "岛上没有货币，一切以物资和劳动交换。"
+      },
+      "priceLevel": "无市场价格，物资价值取决于稀缺程度。淡水永远是最珍贵的。"
+    },
+    "timeSystem": {
+      "calendar": "生存天数",
+      "startTime": "第一天，清晨",
+      "timeSpeed": "与现实同步，但每日结算资源消耗"
+    },
+    "factions": [
+      {
+        "name": "务实派",
+        "description": "主张立即行动，优先解决淡水和食物问题，对救援持谨慎态度。",
+        "alignment": "友善"
+      },
+      {
+        "name": "等待派",
+        "description": "相信救援很快会来，不愿意冒险探索内陆，倾向于守在海滩。",
+        "alignment": "中立"
+      },
+      {
+        "name": "激进派",
+        "description": "开始抢夺物资，试图建立自己的势力范围，对其他人充满敌意。",
+        "alignment": "敌对"
+      }
+    ],
+    "presetNPCs": [
+      {
+        "name": "林医生",
+        "role": "幸存者中的医生",
+        "description": "冷静理性的外科医生，是维持团队医疗和秩序的关键人物。",
+        "personality": "沉稳、专业、偶尔冷酷"
+      },
+      {
+        "name": "老陈",
+        "role": "退伍老兵",
+        "description": "有丰富的野外生存经验，擅长搭建庇护所和设置陷阱。",
+        "personality": "沉默寡言、行动派、可靠"
+      },
+      {
+        "name": "小雨",
+        "role": "大学生",
+        "description": "年轻的生物学学生，对岛上的动植物有专业了解。",
+        "personality": "乐观、好奇、有点天真"
+      }
+    ],
+    "highlights": [
+      "真实的荒岛生存体验",
+      "资源采集、制作、消耗的完整循环",
+      "幸存者之间的人际博弈",
+      "探索岛屿发现的秘密",
+      "等待救援还是自救的艰难抉择"
+    ],
+
+    "modules": [
+      {
+        "moduleId": "survival",
+        "name": "生存资源",
+        "description": "荒岛生存的核心资源系统",
+        "enabled": true,
+        "moduleConfig": {
+          "resources": [
+            { "id": "water", "name": "淡水", "symbol": "💧", "amount": 3, "max": 10, "scarce": true, "description": "生存必需品，每天消耗1单位。可通过收集雨水、寻找泉眼或制作简易净水器获取。" },
+            { "id": "food", "name": "食物", "symbol": "🍖", "amount": 2, "max": 10, "scarce": true, "description": "维持体力的关键，每天消耗1单位。可通过狩猎、采集浆果、捕鱼获取。" },
+            { "id": "wood", "name": "木材", "symbol": "🪵", "amount": 0, "max": 20, "scarce": false, "description": "建造庇护所和制作工具的基础材料。从树木砍伐获取。" },
+            { "id": "stone", "name": "石头", "symbol": "🪨", "amount": 0, "max": 20, "scarce": false, "description": "制作工具和建造的材料。从地面和河床收集。" },
+            { "id": "herb", "name": "草药", "symbol": "🌿", "amount": 0, "max": 10, "scarce": false, "description": "治疗伤病的天然药物。在森林中采集。" }
+          ],
+          "rules": {
+            "cycleName": "一天",
+            "consumePerCycle": "每天消耗1淡水+1食物",
+            "criticalThreshold": 2
+          },
+          "description": "荒岛生存的核心是资源管理。淡水和食物是最关键的生存资源，每天都会消耗。木材、石头和草药则用于建造和治疗。"
+        }
+      }
+    ],
+
+    "createdAt": "2026-06-21T00:00:00.000Z"
+  }
+]

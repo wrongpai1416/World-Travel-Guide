@@ -143,6 +143,17 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     markdownOnly: true,
     promptOnly: false,
   },
+  // --- 天赋觉醒内联卡片 ---
+  {
+    id: 'builtin_display_talent_gain',
+    scriptName: '天赋觉醒',
+    findRegex: '\\[TALENT_GAIN\\]\\s*\\{([^}]+)\\}\\s*\\[/TALENT_GAIN\\]',
+    replaceString: '<div class="talent-gain-placeholder" data-talent=\'{$1}\'></div>',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
 ];
 
 // --- API 上下文用正则脚本（promptOnly: true）---

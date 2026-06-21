@@ -69,7 +69,7 @@
         "name": "数值属性",
         "description": "",
         "enabled": true,
-        "data": {
+        "moduleConfig": {
           "attrA": {
             "name": "生命值",
             "current": 80,
@@ -133,7 +133,7 @@
         "name": "生存等级",
         "description": "通过探索废土、击杀变异体、完成任务获取生存经验，逐步提升废土生存能力。",
         "enabled": true,
-        "data": {
+        "moduleConfig": {
           "mode": "tiered",
           "tiers": [
             { "name": "凡人", "description": "未觉醒异能的普通幸存者，靠拾荒和体力在废土上艰难求生。", "xpRequired": 0, "statBonuses": { "attrAMax": 100, "attrBMax": 100, "dim1Max": 100, "dim2Max": 100, "dim3Max": 100, "dim4Max": 100, "dim5Max": 100, "dim6Max": 100 } },

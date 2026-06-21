@@ -220,6 +220,29 @@
       }
     ],
 
+    "modules": [
+      {
+        "moduleId": "stat",
+        "name": "数值属性",
+        "description": "魅都的核心数值系统",
+        "enabled": true,
+        "moduleConfig": {
+          "attrA": { "name": "体力", "current": 100, "max": 100 },
+          "attrB": { "name": "精力", "current": 100, "max": 100 },
+          "dim1": { "name": "魅力", "value": 50, "range": [0, 100] },
+          "dim2": { "name": "智力", "value": 50, "range": [0, 100] },
+          "dim3": { "name": "财富", "value": 50, "range": [0, 100] },
+          "dim4": { "name": "人脉", "value": 50, "range": [0, 100] },
+          "dim5": { "name": "运气", "value": 50, "range": [0, 100] },
+          "dim6": { "name": "洞察", "value": 50, "range": [0, 100] },
+          "special": [
+            { "id": "charm", "name": "魅力值", "value": 0, "range": [0, 100], "description": "外在形象与吸引力，影响社交和暧昧互动" },
+            { "id": "influence", "name": "社交影响力", "value": 0, "range": [0, 100], "description": "在圈内的话语权，影响可调动的资源与人脉" }
+          ]
+        }
+      }
+    ],
+
     "worldBookEntries": [
       {
         "uid": 2001,

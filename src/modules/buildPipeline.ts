@@ -11,19 +11,21 @@
 
 import type { BuildContext, StatConfig, StatState, ProgressionConfig, SurvivalConfig, BusinessConfig } from './buildContext';
 import type { WorldBookEntryDef } from '../data/worlds-schema';
-import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema } from './schema';
+import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from './schema';
 import {
   buildStatThemePrompt,
   buildStatGenPrompt,
   buildProgressionGenPrompt,
   buildSurvivalGenPrompt,
   buildBusinessGenPrompt,
+  buildTalentGenPrompt,
   STAT_UPDATE_RULES,
   PROGRESSION_UPDATE_RULES,
   SURVIVAL_UPDATE_RULES,
   BUSINESS_UPDATE_RULES,
   DICE_RULES_PROMPT,
   DICE_UPDATE_RULES,
+  TALENT_RULES_PROMPT,
   TALENT_UPDATE_RULES,
 } from './prompts';
 import { waitForRateLimit } from '../api/rateLimiter';
@@ -166,6 +168,26 @@ export async function executeBuildPipeline(
       if (ctx.businessData) {
         ctx.businessConfig = extractBusinessConfig(ctx.businessData);
       }
+    } catch { /* 解析失败则不设置 */ }
+  }
+
+  // 2e. 生成天赋体系
+  if (hasModule('talent')) {
+    await waitForRateLimit();
+    onProgress?.('阶段2', '生成天赋体系...');
+    const talentTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
+    const talentTone = ctx.theme?.tone || '中等';
+    const talentEra = ctx.theme?.era || '现代';
+    const talentPrompt = buildTalentGenPrompt({
+      theme: talentTheme,
+      tone: talentTone,
+      era: talentEra,
+      existingCategories: [],
+      count: 5,
+    });
+    const talentRaw = await callAI([{ role: 'user', content: talentPrompt }]);
+    try {
+      ctx.talentData = JSON.parse(extractJSON(talentRaw)) as TalentModuleSchema;
     } catch { /* 解析失败则不设置 */ }
   }
 
@@ -375,6 +397,11 @@ function synthesizeResult(ctx: BuildContext): Record<string, unknown> {
     result.经营资产 = ctx.businessData;
   }
 
+  // 天赋体系：包装成 { config } 格式
+  if (ctx.talentData) {
+    result.天赋体系 = { config: ctx.talentData };
+  }
+
   // 世界书条目
   if (ctx.worldBookEntries && ctx.worldBookEntries.length > 0) {
     result.worldBookEntries = ctx.worldBookEntries;
@@ -498,10 +525,10 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
   if (ctx.selectedModules.includes('talent')) {
     entries.push({
       uid: -5008,
-      comment: '[模块] 天赋体系',
-      content: TALENT_UPDATE_RULES,
+      comment: '[模块] 天赋体系 - 规则',
+      content: `${TALENT_RULES_PROMPT}\n\n${TALENT_UPDATE_RULES}`,
       constant: false,
-      key: ['天赋', '技能', '觉醒', '能力', '神通', '功法', '武技', '魔法', '异能'],
+      key: ['天赋', '技能', '觉醒', '能力', '神通', '功法', '武技', '魔法', '异能', '血脉', '体质', '灵根', '资质'],
       order: 57,
       position: 'after_char',
     });

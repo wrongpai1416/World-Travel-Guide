@@ -3,6 +3,7 @@
 //  用于世界创建时选择要启用的系统模块
 // ============================================================
 
+import { useMemo } from 'react';
 import {
   BarChart3, TrendingUp, Leaf, Briefcase, Dice6, Star,
   type LucideIcon,
@@ -19,7 +20,7 @@ export interface ModuleOption {
   /** 是否禁用（开发中） */
   disabled?: boolean;
   /** AI生成时的指令片段 */
-  aiInstruction: string;
+  aiInstruction?: string;
 }
 
 /** 可选模块列表 */
@@ -57,9 +58,9 @@ export const MODULE_OPTIONS: ModuleOption[] = [
   {
     id: 'talent',
     name: '天赋体系',
-    description: '天赋大类与具体天赋，与成长体系绑定',
+    description: '天赋大类与具体天赋，角色固有特质与觉醒机制',
     icon: Star,
-    disabled: true,
+    aiInstruction: '生成天赋体系，包含天赋大类和具体天赋，品质分为普通/精良/稀有/史诗/传说五档，天赋效果为纯文本描述',
   },
 ];
 
@@ -74,7 +75,23 @@ interface ModuleSelectorProps {
   disabledByConflict?: Set<string>;
 }
 
+/** 模块依赖关系：选了 key 模块时，value 模块会被自动启用 */
+const MODULE_DEPENDENCIES: Record<string, string[]> = {
+  'progression': ['stat'],  // 成长体系依赖数值属性
+};
+
 export default function ModuleSelector({ selected, onToggle, compact, disabledByConflict }: ModuleSelectorProps) {
+  // 计算被依赖自动启用的模块集合
+  const autoEnabledByDependency = useMemo(() => {
+    const autoEnabled = new Set<string>();
+    for (const [source, deps] of Object.entries(MODULE_DEPENDENCIES)) {
+      if (selected.has(source)) {
+        deps.forEach(dep => autoEnabled.add(dep));
+      }
+    }
+    return autoEnabled;
+  }, [selected]);
+
   return (
     <div style={{ marginTop: compact ? 8 : 12 }}>
       {!compact && (
@@ -88,7 +105,8 @@ export default function ModuleSelector({ selected, onToggle, compact, disabledBy
         gap: 8,
       }}>
         {MODULE_OPTIONS.map(mod => {
-          const active = selected.has(mod.id);
+          const active = selected.has(mod.id) || autoEnabledByDependency.has(mod.id);
+          const isAutoEnabled = autoEnabledByDependency.has(mod.id);
           const Icon = mod.icon;
           const disabled = mod.disabled || (disabledByConflict?.has(mod.id) ?? false);
           return (
@@ -99,7 +117,7 @@ export default function ModuleSelector({ selected, onToggle, compact, disabledBy
                 padding: '8px 12px', borderRadius: 8,
                 border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
                 background: active ? 'var(--accent-dim)' : 'transparent',
-                cursor: disabled ? 'not-allowed' : mod.required ? 'default' : 'pointer',
+                cursor: disabled || isAutoEnabled ? 'not-allowed' : mod.required ? 'default' : 'pointer',
                 opacity: disabled ? 0.4 : mod.required ? 0.8 : 1,
                 transition: 'all 0.15s',
               }}
@@ -107,8 +125,8 @@ export default function ModuleSelector({ selected, onToggle, compact, disabledBy
               <input
                 type="checkbox"
                 checked={active}
-                disabled={mod.required || disabled}
-                onChange={() => !mod.required && !disabled && onToggle(mod.id)}
+                disabled={mod.required || disabled || isAutoEnabled}
+                onChange={() => !mod.required && !disabled && !isAutoEnabled && onToggle(mod.id)}
                 style={{ display: 'none' }}
               />
               <Icon
@@ -132,6 +150,11 @@ export default function ModuleSelector({ selected, onToggle, compact, disabledBy
                   {!mod.disabled && disabledByConflict?.has(mod.id) && (
                     <span style={{ fontSize: 'var(--font-size-xs)', color: '#f59e0b', marginLeft: 4 }}>
                       互斥
+                    </span>
+                  )}
+                  {isAutoEnabled && (
+                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)', marginLeft: 4 }}>
+                      自动启用
                     </span>
                   )}
                 </div>

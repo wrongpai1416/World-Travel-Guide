@@ -64,9 +64,10 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
     return () => window.removeEventListener('message', handler);
   }, [renderedContent?.type]);
 
-  // ─── 内联骰子卡片 Portal 挂载 ────────────────────────
+  // ─── 内联卡片 Portal 挂载 ────────────────────────
   const messageHtmlRef = useRef<HTMLDivElement>(null);
   const diceRootsRef = useRef<Root[]>([]);
+  const talentRootsRef = useRef<Root[]>([]);
 
   useEffect(() => {
     // 清理旧的 React roots
@@ -111,6 +112,56 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
       diceRootsRef.current = [];
     };
   }, [renderedContent, worldSystem, onDiceRoll, isUser, message.streaming]);
+
+  // ─── 内联天赋觉醒卡片 Portal 挂载 ────────────────────────
+  useEffect(() => {
+    // 清理旧的 React roots
+    talentRootsRef.current.forEach(root => {
+      try { root.unmount(); } catch { /* ignore */ }
+    });
+    talentRootsRef.current = [];
+
+    if (!messageHtmlRef.current || isUser || !worldSystem?.天赋体系 || message.streaming) return;
+
+    const placeholders = messageHtmlRef.current.querySelectorAll('.talent-gain-placeholder');
+    if (placeholders.length === 0) return;
+
+    // 动态导入 React 组件（避免循环依赖）
+    const mountTalentCards = async () => {
+      const { default: InlineTalentCardComponent } = await import('./InlineTalentCard');
+
+      placeholders.forEach(el => {
+        const talentDataStr = el.getAttribute('data-talent') || '{}';
+        try {
+          const talentData = JSON.parse(talentDataStr);
+          const container = document.createElement('div');
+          el.replaceWith(container);
+          const root = createRoot(container);
+          root.render(
+            <InlineTalentCardComponent
+              id={talentData.id || ''}
+              name={talentData.name || '未知天赋'}
+              rarity={talentData.rarity || '普通'}
+              description={talentData.description || ''}
+              effects={talentData.effects || []}
+            />
+          );
+          talentRootsRef.current.push(root);
+        } catch (e) {
+          console.warn('[天赋觉醒] 解析天赋数据失败:', e);
+        }
+      });
+    };
+
+    mountTalentCards();
+
+    return () => {
+      talentRootsRef.current.forEach(root => {
+        try { root.unmount(); } catch { /* ignore */ }
+      });
+      talentRootsRef.current = [];
+    };
+  }, [renderedContent, worldSystem, isUser, message.streaming]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

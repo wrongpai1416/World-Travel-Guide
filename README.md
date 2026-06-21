@@ -14,19 +14,18 @@
 
 ### <img src="https://unpkg.com/lucide-static@latest/icons/theater.svg" width="16" height="16" /> 多世界观支持
 
-内置 7 个精心设计的世界观，覆盖科幻、末日、武侠、校园、宫廷、幻想、都市题材。支持用户自建世界和 JSON 导入。
+内置 6 个精心设计的世界观，覆盖校园、都市、武侠、末日、荒岛、边境贸易题材。支持用户自建世界和 JSON 导入。
 
-| 世界 | 题材 | 难度 | 简介 |
-|------|------|:----:|------|
-| <img src="https://unpkg.com/lucide-static@latest/icons/circuit-board.svg" width="14" height="14" /> 赛博朋克 | 科幻 | 中等 | 霓虹掩映下的罪恶、资本与极致享乐之城 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/flame.svg" width="14" height="14" /> 末日废土 | 末日 | 困难 | 核战后的荒芜世界，异能与辐射怪物共存 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/swords.svg" width="14" height="14" /> 武侠世界 | 武侠 | 困难 | 剑气纵横的架空武林，恩怨情仇交织的江湖 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/graduation-cap.svg" width="14" height="14" /> 日式校园 | 校园 | 简单 | 充满青春、社团与青涩恋爱的日式高中生活 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/crown.svg" width="14" height="14" /> 云汉皇朝·深宫 | 宫廷 | 中等 | 红墙黄瓦下，权谋与爱恨交织的华丽囚笼 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/gem.svg" width="14" height="14" /> 绯晶之乡 | JRPG | 中等 | 少年与少女们拯救世界的幻想史诗 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/building-2.svg" width="14" height="14" /> 欲望魔都 | 都市 | 中等 | 欲望交织的繁华不夜城 |
+| 世界 | 题材 | 难度 | 模块 | 简介 |
+|------|------|:----:|:----:|------|
+| <img src="https://unpkg.com/lucide-static@latest/icons/flower-2.svg" width="14" height="14" /> 日式校园 | 校园 | 简单 | 无 | 充满青春、社团与青涩恋爱的日式高中生活 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/heart.svg" width="14" height="14" /> 欲望魔都 | 都市 | 中等 | 数值 | 欲望交织的繁华不夜城 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/swords.svg" width="14" height="14" /> 武侠世界 | 武侠 | 困难 | 数值+成长 | 剑气纵横的架空武林，恩怨情仇交织的江湖 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/skull.svg" width="14" height="14" /> 末日废土 | 末日 | 困难 | 全部 | 核战后的荒芜世界，异能与辐射怪物共存 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/palmtree.svg" width="14" height="14" /> 荒岛求生 | 生存 | 中等 | 生存 | 飞机失事后在无人岛上的生存挑战 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/store.svg" width="14" height="14" /> 边境贸易 | 经营 | 中等 | 经营 | 90年代中俄边境的贸易淘金时代 |
 
-每个世界定义包含：世界观设定、规则体系、经济系统、时间系统、阵营势力、预设 NPC、结构化属性模块、世界书条目。详见 [WorldDef Schema](src/data/worlds-schema.ts) 和 [worlds/](src/data/worlds/) 目录。
+每个世界定义包含：世界观设定、规则体系、经济系统、时间系统、阵营势力、预设 NPC、模块配置、世界书条目。详见 [WorldDef Schema](src/data/worlds-schema.ts) 和 [worlds/](src/data/worlds/) 目录。
 
 ### <img src="https://unpkg.com/lucide-static@latest/icons/cpu.svg" width="16" height="16" /> 11 阶段 AI 管线
 
@@ -98,13 +97,14 @@ GameState
 
 | 模块 | ID | 说明 |
 |------|----|------|
-| <img src="https://unpkg.com/lucide-static@latest/icons/swords.svg" width="12" height="12" /> 数值属性 | `stat` | 力量/敏捷/体质/智力/感知/魅力 + 自定义属性，带范围钳位 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/trending-up.svg" width="12" height="12" /> 成长体系 | `progression` | 层级制/技能点/声望/军衔，可配置层级名称和 XP 曲线 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/coins.svg" width="12" height="12" /> 资源管理 | `resource` | 自定义货币和资源物品，带稀缺性标记 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/dices.svg" width="12" height="12" /> 骰子检定 | `dice` | d20/d6 等骰子系统，支持属性加值和难度等级 |
-| <img src="https://unpkg.com/lucide-static@latest/icons/star.svg" width="12" height="12" /> 天赋体系 | `talent` | 分类天赋树，支持解锁条件和效果描述 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/bar-chart-3.svg" width="12" height="12" /> 数值属性 | `stat` | 生命/能量 + 六维属性 + 特色属性，带范围钳位 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/trending-up.svg" width="12" height="12" /> 成长体系 | `progression` | 段位制或等级制，可配置段位名称和 XP 曲线（依赖数值属性） |
+| <img src="https://unpkg.com/lucide-static@latest/icons/leaf.svg" width="12" height="12" /> 生存资源 | `survival` | 荒岛求生/末日生存类，资源采集、制作、消耗（与数值/成长/天赋互斥） |
+| <img src="https://unpkg.com/lucide-static@latest/icons/briefcase.svg" width="12" height="12" /> 经营资产 | `business` | 网吧/房东/商店模拟器类，资产、收支、利润 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/dice-6.svg" width="12" height="12" /> 骰子检定 | `dice` | d20+修正 vs DC，随机性判定机制，自然融入叙事 |
+| <img src="https://unpkg.com/lucide-static@latest/icons/star.svg" width="12" height="12" /> 天赋体系 | `talent` | 天赋大类与具体天赋，角色固有特质与觉醒机制，自然融入叙事 |
 
-模块在世界定义中声明，创建角色时初始化数值，游戏中 AI 自动更新。
+模块在世界创建时勾选，AI 自动生成对应数据，游戏中自然融入叙事。天赋和骰子模块通过内联卡片增强交互体验。
 
 ### <img src="https://unpkg.com/lucide-static@latest/icons/hard-drive.svg" width="16" height="16" /> 完整存档管理
 
@@ -185,51 +185,87 @@ bun run build
 ```
 src/
 ├── api/                    # API 层
-│   ├── client.ts           # 多 Provider API 客户端
-│   ├── rateLimiter.ts      # 限流器
-│   └── types.ts            # API 类型
+│   ├── client.ts           # 多 Provider API 客户端（OpenAI/DeepSeek/Google）
+│   ├── rateLimiter.ts      # 限流器（防止 429 错误）
+│   └── types.ts            # API 类型定义
 ├── components/             # UI 组件
-│   ├── start/              # 开始界面（主菜单/向导/存档）
+│   ├── start/              # 开始界面
+│   │   ├── MainMenuView.tsx    # 主菜单
+│   │   ├── ModuleSelector.tsx  # 模块选择器（世界创建时勾选）
+│   │   └── WorldEditorForm.tsx # 世界编辑器
 │   ├── game/               # 游戏界面
-│   │   ├── chat/           # 聊天面板/消息渲染/管线监控
-│   │   └── panels/         # 侧边面板（角色/NPC/变量）
+│   │   ├── chat/           # 聊天面板
+│   │   │   ├── MessageBubble.tsx    # 消息渲染（含内联卡片挂载）
+│   │   │   ├── InlineDiceCard.tsx   # 骰子检定内联卡片
+│   │   │   ├── InlineTalentCard.tsx # 天赋觉醒内联卡片
+│   │   │   └── PipelineMonitorModal.tsx # 管线监控弹窗
+│   │   └── panels/         # 侧边面板
+│   │       └── modules/    # 模块卡片（StatsCard/ProgressionCard 等）
 │   ├── settings/           # 设置界面
+│   │   ├── memory/         # 记忆系统设置面板
+│   │   └── ApiSettingsTab.tsx # API 设置
 │   └── shared/             # 共享组件
+├── config/                 # 配置常量
+│   └── storageKeys.ts      # localStorage 键名
 ├── context/                # React Context
-│   ├── GameContext.tsx      # 游戏上下文（导航+引擎+存档）
+│   ├── GameContext.tsx      # 游戏上下文
 │   └── UISettingsContext.tsx# UI 设置上下文
 ├── data/                   # 数据定义
-│   ├── worlds/             # 7 个内置世界 JSON
+│   ├── worlds/             # 内置世界 JSON
 │   ├── worlds-schema.ts    # WorldDef 类型定义
-│   ├── worldLoader.ts      # 世界加载器
-│   └── builtinPresets.ts   # 内置提示词预设（16 条）
+│   ├── builtinPresets.ts   # 内置提示词预设 + 正则脚本
+│   └── modules.ts          # 模块渲染类型映射
 ├── engine/                 # 游戏引擎
-│   ├── useGameEngine.ts    # 核心引擎 hook
-│   ├── pipelineExecutor.ts # 管线执行器
+│   ├── useGameEngine.ts    # 核心引擎 hook（记忆管线 + 正文生成）
+│   ├── gameEngineCore.ts   # 引擎核心逻辑（管线任务组装）
+│   ├── pipelineExecutor.ts # 管线执行器（同层并行/层间串行）
+│   ├── pipelineTypes.ts    # 管线类型定义和执行顺序
 │   ├── variableManager.ts  # 变量管理器
+│   ├── variableExtraction.ts # 变量提取
 │   ├── promptAssembler.ts  # 提示词组装器
+│   ├── responseExtractor.ts # 响应解析器
 │   ├── macroEngine.ts      # 宏引擎
 │   └── eventBus.ts         # 事件总线
 ├── hooks/                  # 自定义 Hooks
 │   ├── useAiFill.ts        # AI 角色自动填充
-│   ├── useCharacterHistory.ts # AI 背景故事生成
-│   └── useWizard.ts        # 向导流程管理
+│   └── useIsMobile.ts      # 移动端检测
 ├── memory/                 # 记忆系统
 │   ├── memoryStore.ts      # Zustand Store
-│   ├── memoryPipeline.ts   # 9 阶段记忆管线
+│   ├── memoryPipeline.ts   # 9 阶段记忆管线（写入/摘要/向量/检索/编译）
+│   ├── memoryPrompts.ts    # 记忆系统 Prompt 模板
+│   ├── narrativeParsers.ts # 叙事记忆解析器
+│   ├── narrativeGraph.ts   # 叙事图谱数据构建
+│   ├── vectorUtils.ts      # 向量工具函数
 │   └── types.ts            # 记忆类型定义
-├── modules/                # 游戏模块（属性/成长/资源/骰子/天赋）
-├── schema/                 # 类型定义
+├── modules/                # 游戏模块系统
+│   ├── schema.ts           # 模块 Schema 定义（属性/成长/生存/经营/骰子/天赋）
+│   ├── runtime.ts          # 模块运行时工具
+│   ├── buildPipeline.ts    # 世界创建管线（主题提取→生成→世界书→合成）
+│   ├── buildContext.ts     # 管线上下文类型
+│   ├── prompts/            # 模块 Prompt 模板
+│   │   ├── stat.ts         # 数值属性 Prompt
+│   │   ├── progression.ts  # 成长体系 Prompt
+│   │   ├── survival.ts     # 生存资源 Prompt
+│   │   ├── business.ts     # 经营资产 Prompt
+│   │   ├── dice.ts         # 骰子检定规则
+│   │   └── talent.ts       # 天赋体系 Prompt
+│   └── index.ts            # 模块导出
+├── schema/                 # 全局类型定义
 │   └── variables.ts        # GameState 结构
 ├── storage/                # 持久化层
 │   └── db.ts               # IndexedDB 存档管理
 ├── stores/                 # Zustand Stores
 │   ├── configStore.ts      # 配置管理
 │   └── saveStore.ts        # 存档管理
+├── types/                  # 通用类型
 ├── utils/                  # 工具函数
 │   ├── markdown.ts         # Markdown 渲染
+│   ├── regexScripts.ts     # 正则脚本执行器
+│   ├── text-colorization.ts # 文本着色
 │   ├── npcHelpers.ts       # NPC 管理工具
+│   ├── moduleToWorldBook.ts # 模块转世界书工具
 │   └── prompts/            # 提示词模板
+│       └── editor-prompts.ts # 编辑器 Prompt
 └── worldbook/              # 世界书引擎
     ├── index.ts            # 世界书管理器
     ├── worldInfoEngine.ts  # SillyTavern 兼容扫描引擎
@@ -241,36 +277,40 @@ src/
 ## <img src="https://unpkg.com/lucide-static@latest/icons/layers.svg" width="20" height="20" /> 架构概览
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    UI 层                             │
-│  start/  │  game/ (chat/panels)  │  settings/       │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                  状态层                              │
-│  GameContext  │  configStore  │  saveStore           │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                  引擎层                              │
-│  useGameEngine │ PipelineExecutor │ VariableManager  │
-│  PromptAssembler │ MacroEngine │ EventBus            │
-└───────┬──────────────┬──────────────┬───────────────┘
-        │              │              │
-┌───────▼──────┐ ┌─────▼──────┐ ┌────▼────────┐
-│ memory/*     │ │ worldbook/*│ │ modules/*   │
-│ 9阶段记忆管线 │ │ 世界书引擎  │ │ 模块系统     │
-└──────────────┘ └────────────┘ └─────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                  数据层                              │
-│  worldLoader │ variables.ts │ db.ts (IndexedDB)      │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                  API 层                              │
-│  client.ts (OpenAI/DeepSeek/Google) │ rateLimiter    │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        UI 层                                 │
+│  start/ (MainMenu/ModuleSelector/WorldEditor)                │
+│  game/ (chat/MessageBubble + InlineCards)  │  panels/modules │
+│  settings/ (Api/Memory/Variable)                             │
+└────────────────────────────────┬─────────────────────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────┐
+│                      状态层                                   │
+│  GameContext  │  configStore  │  saveStore  │  memoryStore    │
+└────────────────────────────────┬─────────────────────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────┐
+│                      引擎层                                   │
+│  useGameEngine │ PipelineExecutor │ VariableManager           │
+│  PromptAssembler │ MacroEngine │ EventBus │ ResponseExtractor │
+└────────┬───────────────┬───────────────┬────────────────────┘
+         │               │               │
+┌────────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐
+│ memory/*       │ │ worldbook/*│ │ modules/*    │
+│ 9阶段记忆管线   │ │ 世界书引擎  │ │ 模块系统      │
+│ (写入/摘要/向量 │ │ (SillyTavern│ │ (6个可选模块) │
+│  /检索/编译)    │ │  兼容扫描)  │ │              │
+└────────────────┘ └────────────┘ └──────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────┐
+│                      数据层                                   │
+│  worldLoader │ variables.ts │ db.ts (IndexedDB)               │
+└────────────────────────────────┬─────────────────────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────┐
+│                      API 层                                   │
+│  client.ts (OpenAI/DeepSeek/Google) │ rateLimiter             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 > 详细的架构文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -298,14 +338,22 @@ AI 生成回复
   → 创建快照附加到消息（支持回滚）
 ```
 
-### 记忆系统管线
+### 管线执行模型
 
+**主管线**（每次对话）：
 ```
-写入 → 摘要 → 向量提取 → 查询重写 → 检索规划
-→ 多轮补充 → 精排 → 检索定稿 → 上下文编译
+正文生成 → [记忆写入 + 摘要保存 + 向量提取]（并行）→ 查询改写 → 检索规划
+→ 多轮补充 → 精排 → 检索收尾 → 上下文编译 → 变量提取
 ```
 
-每阶段独立 API 调用，默认串行执行（可通过配置开启并行）。
+- 写入阶段并行执行，提升约 60-70% 性能
+- 检索阶段串行执行（有依赖关系）
+- 内置限流器防止 API 429 错误
+
+**世界创建管线**：
+```
+主题提取 → [属性 + 成长 + 生存 + 经营 + 天赋]（顺序生成）→ 世界书条目 → 合成验证
+```
 
 ---
 

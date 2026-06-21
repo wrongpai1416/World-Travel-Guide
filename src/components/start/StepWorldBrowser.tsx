@@ -407,9 +407,47 @@ function SystemsTab({ world }: { world: WorldDef }) {
   const tiers: Array<{ name: string; description?: string }> = progData?.tiers || [];
   const progDesc = progData ? (progData.mode === 'tiered' ? '段位制' : '等级制') : '';
 
-  const survData = (survMod?.moduleConfig || survMod?.data) as any;
+  const survData = survMod?.moduleConfig as any;
   const resources = survData?.resources || [];
   const resDesc = survData?.description;
+
+  // 新格式：modules 是字符串数组时，只显示模块列表
+  const modulesRaw = world.modules as any[] | undefined;
+  const isStringArray = Array.isArray(modulesRaw) && modulesRaw.length > 0 && typeof modulesRaw[0] === 'string';
+  const enabledModules = isStringArray ? (modulesRaw as string[]) : [];
+  const MODULE_NAMES: Record<string, string> = {
+    stat: '数值属性', progression: '成长体系', survival: '生存资源',
+    business: '经营资产', dice: '骰子检定', talent: '天赋体系',
+  };
+
+  // 如果是新格式且没有详细数据，显示模块列表
+  if (isStringArray && !statData && !progData && !survData) {
+    return (
+      <div className="tab-section">
+        {enabledModules.length > 0 ? (
+          <div className="detail-block">
+            <div className="detail-block-title"><Layers size={15} />启用的模块</div>
+            <div className="detail-block-body">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {enabledModules.map(mod => (
+                  <span key={mod} className="detail-pill">{MODULE_NAMES[mod] || mod}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="detail-block">
+            <div className="detail-block-title"><Layers size={15} />系统模块</div>
+            <div className="detail-block-body">
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>
+                该世界为纯叙事模式，无数值系统模块。
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="tab-section">

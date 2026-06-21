@@ -70,7 +70,7 @@
         "name": "数值属性",
         "description": "",
         "enabled": true,
-        "data": {
+        "moduleConfig": {
           "attrA": {
             "name": "气血",
             "current": 160,
@@ -134,7 +134,7 @@
         "name": "武学境界",
         "description": "武学境界是江湖中衡量实力的核心标准，突破每一层都需要机缘、悟性与苦修兼备。",
         "enabled": true,
-        "data": {
+        "moduleConfig": {
           "mode": "tiered",
           "tiers": [
             { "name": "不入流", "description": "只会花拳绣腿的市井之徒，尚未踏入武学门槛。", "xpRequired": 0, "statBonuses": { "attrAMax": 100, "attrBMax": 100, "dim1Max": 100, "dim2Max": 100, "dim3Max": 100, "dim4Max": 100, "dim5Max": 100, "dim6Max": 100 } },

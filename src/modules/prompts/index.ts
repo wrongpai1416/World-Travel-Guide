@@ -4,4 +4,4 @@ export { buildProgressionGenPrompt, PROGRESSION_UPDATE_RULES } from './progressi
 export { buildSurvivalGenPrompt, SURVIVAL_UPDATE_RULES, buildRecipeGenPrompt } from './survival';
 export { buildBusinessGenPrompt, BUSINESS_UPDATE_RULES } from './business';
 export { DICE_RULES_PROMPT, DICE_UPDATE_RULES } from './dice';
-export { buildTalentGenPrompt, TALENT_UPDATE_RULES } from './talent';
+export { buildTalentGenPrompt, TALENT_RULES_PROMPT, TALENT_UPDATE_RULES } from './talent';

@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.6.1
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.7.0
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)，支持多世界观、多阶段管线、编译式记忆系统。
 
@@ -261,22 +261,22 @@ deleteSingleMessage(id) / resendFromMessage(id)
 ## 管线执行顺序
 
 ```
-执行顺序（默认全部串行，避免 429 限流）:
+执行顺序（写入阶段并行，检索阶段串行）:
 
 1. main                        → AI 生成正文
-2. memory_write                → 提取叙事对象（场景/线索/关系/事件/实体）
-3. memory_summary              → 生成结构化摘要（玩家/角色/物品记忆）
-4. memory_vector               → 提取长期向量事实
-5. memory_query_rewrite        → 分析输入，提取检索关键词
-6. memory_retrieve_plan        → AI 规划哪些记忆需要注入
-7. memory_multi_round          → 多轮补充检索
-8. memory_rerank               → AI 打分重排序
-9. memory_retrieve_finalize    → 本地匹配 + 去重 + 排序
-10. memory_compile             → 组装记忆上下文到系统提示词
-11. variable                   → 独立 API 调用提取变量更新
+2. [memory_write               → 提取叙事对象（场景/线索/关系/事件/实体）]
+   [memory_summary             → 生成结构化摘要（玩家/角色/物品记忆）]    ← 并行执行
+   [memory_vector              → 提取长期向量事实]
+3. memory_query_rewrite        → 分析输入，提取检索关键词
+4. memory_retrieve_plan        → AI 规划哪些记忆需要注入
+5. memory_multi_round          → 多轮补充检索
+6. memory_rerank               → AI 打分重排序
+7. memory_retrieve_finalize    → 本地匹配 + 去重 + 排序
+8. memory_compile              → 组装记忆上下文到系统提示词
+9. variable                    → 独立 API 调用提取变量更新
 ```
 
-管线执行器 (`PipelineExecutor`) 支持同层并行、层间串行。执行顺序通过 `PipelineConfig.executionOrder` (二维数组) 配置，可从 localStorage 加载自定义顺序。
+管线执行器 (`PipelineExecutor`) 支持同层并行、层间串行。执行顺序通过 `PipelineConfig.executionOrder` (二维数组) 配置。写入阶段（步骤2）并行执行，提升约 60-70% 性能。内置限流器防止 API 429 错误。
 
 ---
 
