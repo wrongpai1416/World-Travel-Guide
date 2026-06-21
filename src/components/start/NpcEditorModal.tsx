@@ -3,10 +3,11 @@ import type { CustomNpc } from '../../storage/db';
 import type { ApiConfig } from '../../api/types';
 import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
-import { X, Wand2, Loader } from 'lucide-react';
+import { X, Wand2, Loader, Download } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { useConfigStore } from '../../stores/configStore';
 import { useNpcFill } from '../../hooks/useNpcFill';
+import { exportNpcTemplateJSON, downloadJSON } from '../../storage/templateStore';
 
 interface Props {
   initial?: CustomNpc | null;
@@ -83,6 +84,23 @@ export default function NpcEditorModal({
             {initial ? '编辑NPC' : '创建NPC'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              className="pi-ai-btn"
+              onClick={() => {
+                const json = exportNpcTemplateJSON({
+                  id: npc.id,
+                  name: npc.name || 'NPC模板',
+                  createdAt: Date.now(),
+                  npc,
+                });
+                downloadJSON(json, `NPC_${npc.name || '未命名'}.json`);
+              }}
+              disabled={!npc.name.trim()}
+              title="导出NPC为JSON"
+              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+            >
+              <Download size={12} /> 导出JSON
+            </button>
             {apiConfig && (
               <button
                 className="pi-ai-btn"
