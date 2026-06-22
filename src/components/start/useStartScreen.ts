@@ -325,9 +325,10 @@ export function useStartScreen() {
       const text = await file.text();
       const data = JSON.parse(text);
       await importSaveToStore(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[导入] 失败:', err);
-      await showAlert(`导入失败: ${err.message}`, { title: '导入失败', danger: true });
+      await showAlert(`导入失败: ${errMsg}`, { title: '导入失败', danger: true });
     }
   };
 
@@ -340,9 +341,10 @@ export function useStartScreen() {
       a.download = `world-wanderer-save-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[导出] 失败:', err);
-      await showAlert(`导出失败: ${err.message}`, { title: '导出失败', danger: true });
+      await showAlert(`导出失败: ${errMsg}`, { title: '导出失败', danger: true });
     }
   };
 

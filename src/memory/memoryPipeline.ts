@@ -256,6 +256,8 @@ export async function executeMemoryQueryRewrite(memStore: MemoryStore, ctx: Memo
     console.warn('[查询改写] 失败:', message);
     ctx._retrievalKeywords = [];
     ctx._semanticQuery = ctx.inputText;
+    ctx._degradedStages = ctx._degradedStages || [];
+    ctx._degradedStages.push('memory_query_rewrite');
   } finally {
     memStore.setLoading(false);
   }
@@ -300,6 +302,8 @@ export async function executeMemoryRetrievePlan(memStore: MemoryStore, ctx: Memo
     console.warn('[检索规划] 失败:', message);
     ctx._plannerResult = undefined;
     ctx._finalSelectedTitles = [];
+    ctx._degradedStages = ctx._degradedStages || [];
+    ctx._degradedStages.push('memory_retrieve_plan');
   } finally {
     memStore.setLoading(false);
   }
@@ -355,6 +359,8 @@ export async function executeMemoryMultiRound(memStore: MemoryStore, ctx: Memory
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '多轮补充失败';
     console.warn('[多轮补充] 失败:', message);
+    ctx._degradedStages = ctx._degradedStages || [];
+    ctx._degradedStages.push('memory_multi_round');
   } finally {
     memStore.setLoading(false);
   }
@@ -408,6 +414,8 @@ export async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipe
       finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
     );
     ctx._selectedEntries = titleSelected;
+    ctx._degradedStages = ctx._degradedStages || [];
+    ctx._degradedStages.push('memory_rerank');
   } finally {
     memStore.setLoading(false);
   }

@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 // ============================================================
@@ -50,7 +51,7 @@ function ensureMermaidInit() {
   if (mermaidInitialized) return;
   mermaid.initialize({
     startOnLoad: false,
-    securityLevel: 'loose',
+    securityLevel: 'strict',
     theme: 'base',
     deterministicIds: false,
     fontFamily: '"Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
@@ -233,7 +234,19 @@ export function MermaidGraphPanel({
         const { svg } = await mermaid.render(id, graphDefinition);
 
         if (!cancelled) {
-          setRenderedSvg(svg || '');
+          // 净化 SVG 防止 XSS（移除事件处理器和脚本）
+          const cleanSvg = DOMPurify.sanitize(svg || '', {
+            USE_PROFILES: { svg: true, svgFilters: true },
+            ADD_TAGS: ['style'],
+            ADD_ATTR: ['xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'text-anchor',
+              'font-size', 'font-family', 'font-weight', 'transform', 'x', 'y', 'dx', 'dy',
+              'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'points', 'x1', 'y1',
+              'x2', 'y2', 'pathLength', 'marker-end', 'marker-start', 'orient', 'refX', 'refY',
+              'markerWidth', 'markerHeight', 'patternUnits', 'gradientUnits', 'spreadMethod',
+              'offset', 'stop-color', 'stop-opacity', 'opacity', 'clip-path', 'dominant-baseline',
+              'alignment-baseline', 'style', 'class', 'data-id', 'data-source'],
+          });
+          setRenderedSvg(cleanSvg);
 
           // 等待 DOM 更新后处理 SVG
           await new Promise(resolve => requestAnimationFrame(resolve));

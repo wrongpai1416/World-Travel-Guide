@@ -71,8 +71,9 @@ export async function detectOptimalRateLimit(
       await testApiCall();
       lastSuccessInterval = interval;
       onProgress?.(`✓ ${interval}ms 成功`);
-    } catch (err: any) {
-      const is429 = err?.message?.includes('429') || err?.message?.includes('rate limit');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const is429 = errMsg.includes('429') || errMsg.includes('rate limit');
       if (is429) {
         onProgress?.(`✗ ${interval}ms 触发限流，停止测试`);
         break;

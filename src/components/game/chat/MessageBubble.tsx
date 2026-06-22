@@ -369,7 +369,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                 ref={iframeRef}
                 className="message-renderer-iframe"
                 srcDoc={createIframeSrcDoc(renderedContent.content)}
-                sandbox="allow-same-origin allow-scripts"
+                sandbox="allow-scripts"
                 loading="lazy"
                 style={{
                   width: '100%',

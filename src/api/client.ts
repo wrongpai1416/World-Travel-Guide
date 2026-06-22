@@ -2,11 +2,18 @@ import type { ApiConfig, Message, RequestOptions, StreamOptions, CompletionResul
 import { nativeFetch } from '../utils/nativeFetch';
 import { STORAGE_KEYS } from '../config/storageKeys';
 
-// 获取代理 URL
+// 获取代理 URL（校验协议安全性）
 function getProxyUrl(): string | null {
   try {
-    const url = localStorage.getItem(STORAGE_KEYS.PROXY_URL);
-    return url?.trim() || null;
+    const url = localStorage.getItem(STORAGE_KEYS.PROXY_URL)?.trim();
+    if (!url) return null;
+    // 只允许 http/https 协议，防止 javascript: / file: 等危险协议
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      console.warn('[API] 代理 URL 协议不安全，已忽略:', parsed.protocol);
+      return null;
+    }
+    return url;
   } catch {
     return null;
   }
@@ -277,9 +284,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 10
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (err: any) {
-      const status = err?.message?.match(/API (\d+)/)?.[1];
-      const retryable = ['408', '429', '500', '502', '503', '504'].includes(status);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const status = errMsg.match(/API (\d+)/)?.[1];
+      const retryable = ['408', '429', '500', '502', '503', '504'].includes(status ?? '');
       if (attempt < maxRetries && retryable) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
         console.warn(`[API] 请求失败 (${status})，${attempt + 1}/${maxRetries} 次重试，等待 ${Math.round(delay)}ms...`);
@@ -313,8 +321,8 @@ async function requestWithFallback(
       return fallback;
     }
     return result;
-  } catch (err: any) {
-    const msg = err?.message || '';
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('400') && (msg.includes('stream') || msg.includes('Stream'))) {
       return requestCompletion(config, messages, options);
     }
@@ -388,11 +396,12 @@ export async function fetchModels(config: ApiConfig): Promise<string[]> {
     const json = await res.json();
     const models = json.data || json.models || [];
     return models.map((m: any) => m.id || m.name).filter(Boolean);
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('请求超时(30秒)，请检查网络连接或 API 地址是否正确');
     }
-    if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+    if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
       throw new Error('网络请求失败，请检查 API 地址是否正确');
     }
     throw err;
@@ -439,8 +448,8 @@ export async function testConnection(config: ApiConfig): Promise<{ success: bool
     }
 
     return { success: true, message: `连接成功 (${Date.now() - start}ms)`, elapsed: Date.now() - start };
-  } catch (err: any) {
-    const msg = err?.message || '';
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Network request failed')) {
       return { success: false, message: '网络请求失败，请检查 API 地址是否正确', elapsed: 0 };
     }

@@ -145,11 +145,12 @@ export class PipelineExecutor {
         attempts: 1,
       });
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : '正文生成失败';
       this.updateStage('main', {
         status: 'error',
         endTime: Date.now(),
-        error: err.message || '正文生成失败',
+        error: errMsg,
       });
       throw err;
     }
@@ -213,16 +214,17 @@ export class PipelineExecutor {
         status: 'success',
         endTime: Date.now(),
       });
-    } catch (err: any) {
-      const errMsg = err.message || `${STAGE_LABELS[taskId]}失败`;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : `${STAGE_LABELS[taskId]}失败`;
+      const isDegraded = errMsg.startsWith('[降级]');
       this.updateStage(taskId, {
-        status: 'error',
+        status: isDegraded ? 'warning' : 'error',
         endTime: Date.now(),
         error: errMsg,
       });
       // 写入调试日志（UI 可见）
       debugLogger?.(taskId, errMsg);
-      console.warn(`[管线] ${STAGE_LABELS[taskId]}失败:`, errMsg);
+      console.warn(`[管线] ${STAGE_LABELS[taskId]}${isDegraded ? '降级' : '失败'}:`, errMsg);
     }
   }
 
@@ -260,14 +262,15 @@ export class PipelineExecutor {
         endTime: Date.now(),
         attempts: 1,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : '变量提取失败';
       this.updateStage('variable', {
         status: 'error',
         endTime: Date.now(),
-        error: err.message || '变量提取失败',
+        error: errMsg,
         attempts: maxAttempts,
       });
-      console.warn('[管线] 变量提取失败:', err.message);
+      console.warn('[管线] 变量提取失败:', errMsg);
     }
   }
 
@@ -283,10 +286,12 @@ export class PipelineExecutor {
     try {
       await taskFn();
       this.updateStage(taskId, { status: 'success', endTime: Date.now() });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : `${STAGE_LABELS[taskId]}失败`;
+      const isDegraded = errMsg.startsWith('[降级]');
       this.updateStage(taskId, {
-        status: 'error', endTime: Date.now(),
-        error: err.message || `${STAGE_LABELS[taskId]}失败`,
+        status: isDegraded ? 'warning' : 'error', endTime: Date.now(),
+        error: errMsg,
       });
     }
   }

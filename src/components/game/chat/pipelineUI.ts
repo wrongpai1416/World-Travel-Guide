@@ -39,6 +39,7 @@ export const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   pending: { color: 'var(--text-muted)', label: '等待中' },
   running: { color: 'var(--accent)', label: '执行中...' },
   success: { color: '#4caf50', label: '已完成' },
+  warning: { color: '#ff9800', label: '降级' },
   error:   { color: '#f44336', label: '异常' },
   skipped: { color: 'var(--text-muted)', label: '已跳过' },
 };

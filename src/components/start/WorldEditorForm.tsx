@@ -397,9 +397,10 @@ export default function WorldEditorForm({
       }
 
       setEditorMode('manual');
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      setGenError(`生成失败: ${err.message}`);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setGenError(`生成失败: ${errMsg}`);
     } finally { setIsGeneratingWorld(false); aiAbortRef.current = null; }
   };
 
@@ -433,8 +434,8 @@ export default function WorldEditorForm({
           updateModuleDataByModuleId('talent', next);
         }
       }
-    } catch (err: any) {
-      console.warn('[天赋AI生成] 失败:', err.message);
+    } catch (err: unknown) {
+      console.warn('[天赋AI生成] 失败:', err instanceof Error ? err.message : String(err));
     } finally {
       setIsGeneratingTalent(false);
     }
@@ -479,8 +480,8 @@ export default function WorldEditorForm({
         const data = JSON.parse(fixed);
         updateModuleDataByModuleId(moduleId, data);
       }
-    } catch (err: any) {
-      console.warn(`[模块AI补全] ${moduleId} 失败:`, err.message);
+    } catch (err: unknown) {
+      console.warn(`[模块AI补全] ${moduleId} 失败:`, err instanceof Error ? err.message : String(err));
     } finally {
       setGeneratingModule(null);
     }

@@ -85,9 +85,9 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
       const list = await fetchModels(config);
       setModels(list);
       if (list.length > 0 && !config.model) set('model', list[0]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTestSuccess(false);
-      setTestResult(`获取模型失败: ${err.message}`);
+      setTestResult(`获取模型失败: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoadingModels(false);
   }, [config]);

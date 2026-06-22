@@ -34,6 +34,9 @@ import {
 } from './memoryConfig';
 import { STORAGE_KEYS } from '@/config/storageKeys';
 
+// ─── Loading 引用计数（防止并行任务提前关闭 loading 状态） ───
+let _loadingRefCount = 0;
+
 // ─── localStorage 持久化 ───
 
 const MEMORY_CONFIG_STORAGE_KEY = STORAGE_KEYS.MEMORY_CONFIG;
@@ -801,7 +804,16 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
   // ─── Loading 状态 ───
 
   setLoading: (loading, stage = '') => {
-    set({ isLoading: loading, loadingStage: stage });
+    if (loading) {
+      _loadingRefCount++;
+      set({ isLoading: true, loadingStage: stage });
+    } else {
+      _loadingRefCount = Math.max(0, _loadingRefCount - 1);
+      if (_loadingRefCount === 0) {
+        set({ isLoading: false, loadingStage: '' });
+      }
+      // 如果还有其他任务在运行，不关闭 loading
+    }
   },
 
   setError: (error) => {

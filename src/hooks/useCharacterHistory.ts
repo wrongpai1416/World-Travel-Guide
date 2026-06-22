@@ -184,8 +184,8 @@ ${stagePrompts}`;
       });
       const finalSegments = parseSegmentsFromText(result.text || rawText, personalInfo.age);
       setSegments(finalSegments);
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('[AI生成全部] 失败:', err);
     } finally {
       setIsGenerating(false);
@@ -254,8 +254,8 @@ ${contextBlock}${draftBlock}
         },
       });
       setSegments(prev => ({ ...prev, [segmentId]: result.text || accumulated }));
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error(`[AI生成 ${segmentId}] 失败:`, err);
     } finally {
       setIsGenerating(false);
