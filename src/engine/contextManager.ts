@@ -17,10 +17,10 @@ export function getMessageContent(msg: ChatMessage): string {
 export function sanitizeForContext(messages: ChatMessage[], currentRound: number): Message[] {
   const MAX_HISTORY = 20;
   const SUMMARY_DEPTH_THRESHOLD = 10;
-  // 优先使用活跃预设的 promptOnly 正则，否则用内置默认
+  // 内置 API 正则始终执行 + 预设正则叠加
   const activePreset = usePresetStore.getState().getActivePreset();
   const presetPromptScripts = (activePreset.regexScripts || []).filter(s => s.promptOnly && !s.disabled);
-  const promptScripts = presetPromptScripts.length > 0 ? presetPromptScripts : getBuiltinPromptScripts();
+  const promptScripts = [...getBuiltinPromptScripts(), ...presetPromptScripts];
 
   // 取最近N条消息
   const recentMessages = messages

@@ -38,10 +38,11 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
   // ─── 渲染管线 ────────────────────────────────────────
   const colorizationRules = useMemo(() => getEnabledTextColorizationRules(), []);
-  // 优先使用活跃预设的 display 正则，否则用内置默认
+  // 内置渲染正则始终执行 + 预设正则叠加（合并而非二选一）
+  const builtinDisplay = useMemo(() => getBuiltinDisplayScripts(), []);
   const activePreset = usePresetStore((s) => s.getActivePreset());
   const presetDisplayScripts = (activePreset?.regexScripts || []).filter(s => (s.markdownOnly || (!s.markdownOnly && !s.promptOnly)) && !s.disabled);
-  const displayScripts = useMemo(() => presetDisplayScripts.length > 0 ? presetDisplayScripts : getBuiltinDisplayScripts(), [presetDisplayScripts]);
+  const displayScripts = useMemo(() => [...builtinDisplay, ...presetDisplayScripts], [builtinDisplay, presetDisplayScripts]);
 
   const renderedContent = useMemo(() => {
     if (isUser) return null; // 用户消息不走渲染管线
