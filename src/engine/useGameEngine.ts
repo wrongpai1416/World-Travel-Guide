@@ -19,8 +19,9 @@ import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefault
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
-import { getBuiltinPreset, getClaudePreset, getEnhancementModules } from '../data/builtinPresets';
+import { getBuiltinPreset, getClaudePreset, getEnhancementModules, PROMPT_INLINE_IMAGE } from '../data/builtinPresets';
 import { usePresetStore } from '../stores/presetStore';
+import { useImageStore } from '../stores/imageStore';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
 import { assembleSystemPrompt, injectAtDepthEntries } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
@@ -501,9 +502,28 @@ ${perspectiveInstruction}
           } else {
             basePreset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
           }
-          const preset = pipelineConfig.enhancementEnabled
+          // 叠加增色模块
+          let preset = pipelineConfig.enhancementEnabled
             ? { ...basePreset, prompts: [...basePreset.prompts, ...getEnhancementModules()] }
             : basePreset;
+          // 叠加正文生图指令（独立于预设，当 inlineImageEnabled 时始终注入）
+          const inlineImageEnabled = useImageStore.getState().config.inlineImageEnabled;
+          if (inlineImageEnabled) {
+            const hasInlineImage = preset.prompts.some(p => p.identifier === 'inline_image_gen');
+            if (!hasInlineImage) {
+              preset = {
+                ...preset,
+                prompts: [...preset.prompts, {
+                  identifier: 'inline_image_gen',
+                  name: '正文生图标签',
+                  role: 'system' as const,
+                  content: PROMPT_INLINE_IMAGE,
+                  enabled: true,
+                  order: 2300,
+                }],
+              };
+            }
+          }
           const macroEngine = new MacroEngine();
           const systemPrompt = assembleSystemPrompt(preset, {
             varSnapshot,

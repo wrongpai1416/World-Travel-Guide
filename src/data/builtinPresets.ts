@@ -545,7 +545,10 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 [OPTION]{t: "检查周围环境", d: "仔细搜索附近是否有隐藏的宝箱"}
 [OPTION]{t: "休息恢复", d: "找个安全的地方休息恢复体力"}
 [OPTION_END]
+</OutputFormat>`;
 
+/** 正文生图标签指令 — 独立模块，不受预设切换影响 */
+export const PROMPT_INLINE_IMAGE = `<InlineImageGeneration>
 【正文生图标签】
 在正文内容中，遇到需要视觉呈现的关键场景时，使用生图标签为读者生成插图。
 格式：image###英文提示词###
@@ -564,7 +567,7 @@ image###masterpiece, best quality, 1girl, silver hair, blue eyes, knight armor, 
 image###link:com, masterpiece, dark dungeon interior, torch light, ancient stone walls, mysterious altar, eerie atmosphere, volumetric lighting###
 
 ⚠️ 注意：生图标签写在 <contenttext> 正文内容内部，不要写在行动选项中。
-</OutputFormat>`;
+</InlineImageGeneration>`;
 
 // ── 结构化条目数组 ──
 
