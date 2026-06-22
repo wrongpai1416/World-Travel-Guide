@@ -20,6 +20,7 @@ import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
 import { getBuiltinPreset, getClaudePreset, getEnhancementModules } from '../data/builtinPresets';
+import { usePresetStore } from '../stores/presetStore';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
 import { assembleSystemPrompt, injectAtDepthEntries } from './promptAssembler';
 import { MacroEngine } from './macroEngine';
@@ -491,7 +492,15 @@ ${perspectiveInstruction}
           const compiledMemoryContext = memStore.lastCompiledContext?.fullText || '';
 
           // 使用结构化预设 + 宏引擎组装系统提示
-          const basePreset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
+          // 优先使用用户自定义预设，否则用内置默认（支持 Claude 模式切换）
+          const { activePresetId, userPresets } = usePresetStore.getState();
+          let basePreset;
+          if (activePresetId) {
+            const found = userPresets.find(p => p.id === activePresetId);
+            basePreset = found || (pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default'));
+          } else {
+            basePreset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
+          }
           const preset = pipelineConfig.enhancementEnabled
             ? { ...basePreset, prompts: [...basePreset.prompts, ...getEnhancementModules()] }
             : basePreset;

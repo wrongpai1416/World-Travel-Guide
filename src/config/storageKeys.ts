@@ -23,6 +23,10 @@ export const STORAGE_KEYS = {
 
   // 代理设置
   PROXY_URL: 'world_travel_guide_proxy_url',
+
+  // 预设管理
+  PRESET_PACKS: 'world_travel_guide_preset_packs',
+  ACTIVE_PRESET_ID: 'world_travel_guide_active_preset_id',
 } as const
 
 export type StorageKey = keyof typeof STORAGE_KEYS

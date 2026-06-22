@@ -5,6 +5,7 @@ import type { ChatMessage } from './types';
 import type { Message } from '../api/types';
 import { processRegexScripts } from '../utils/regexScripts';
 import { getBuiltinPromptScripts } from '../data/builtinPresets';
+import { usePresetStore } from '../stores/presetStore';
 import { extractContentForPrompt } from './responseExtractor';
 
 /** 获取消息的原始文本 */
@@ -16,7 +17,10 @@ export function getMessageContent(msg: ChatMessage): string {
 export function sanitizeForContext(messages: ChatMessage[], currentRound: number): Message[] {
   const MAX_HISTORY = 20;
   const SUMMARY_DEPTH_THRESHOLD = 10;
-  const promptScripts = getBuiltinPromptScripts();
+  // 优先使用活跃预设的 promptOnly 正则，否则用内置默认
+  const activePreset = usePresetStore.getState().getActivePreset();
+  const presetPromptScripts = (activePreset.regexScripts || []).filter(s => s.promptOnly && !s.disabled);
+  const promptScripts = presetPromptScripts.length > 0 ? presetPromptScripts : getBuiltinPromptScripts();
 
   // 取最近N条消息
   const recentMessages = messages

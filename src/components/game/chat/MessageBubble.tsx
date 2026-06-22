@@ -10,6 +10,7 @@ import { parseContent, createIframeSrcDoc } from '../../../utils/markdown';
 import { getEnabledTextColorizationRules } from '../../../utils/text-colorization';
 import { processRegexScripts } from '../../../utils/regexScripts';
 import { getBuiltinDisplayScripts } from '../../../data/builtinPresets';
+import { usePresetStore } from '../../../stores/presetStore';
 import { useImageStore } from '../../../stores/imageStore';
 
 interface Props {
@@ -37,7 +38,10 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
 
   // ─── 渲染管线 ────────────────────────────────────────
   const colorizationRules = useMemo(() => getEnabledTextColorizationRules(), []);
-  const displayScripts = useMemo(() => getBuiltinDisplayScripts(), []);
+  // 优先使用活跃预设的 display 正则，否则用内置默认
+  const activePreset = usePresetStore((s) => s.getActivePreset());
+  const presetDisplayScripts = (activePreset?.regexScripts || []).filter(s => (s.markdownOnly || (!s.markdownOnly && !s.promptOnly)) && !s.disabled);
+  const displayScripts = useMemo(() => presetDisplayScripts.length > 0 ? presetDisplayScripts : getBuiltinDisplayScripts(), [presetDisplayScripts]);
 
   const renderedContent = useMemo(() => {
     if (isUser) return null; // 用户消息不走渲染管线
