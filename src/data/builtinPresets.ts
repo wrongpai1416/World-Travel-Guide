@@ -143,6 +143,17 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     markdownOnly: true,
     promptOnly: false,
   },
+  // --- 正文生图内联按钮 ---
+  {
+    id: 'builtin_display_inline_image',
+    scriptName: '正文生图',
+    findRegex: 'image###([\\s\\S]+?)###',
+    replaceString: '<div class="inline-image-gen-placeholder" data-prompt="$1"></div>',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
   // --- 天赋觉醒内联卡片 ---
   {
     id: 'builtin_display_talent_gain',

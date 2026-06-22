@@ -10,6 +10,7 @@ import { parseContent, createIframeSrcDoc } from '../../../utils/markdown';
 import { getEnabledTextColorizationRules } from '../../../utils/text-colorization';
 import { processRegexScripts } from '../../../utils/regexScripts';
 import { getBuiltinDisplayScripts } from '../../../data/builtinPresets';
+import { useImageStore } from '../../../stores/imageStore';
 
 interface Props {
   message: ChatMessage;
@@ -68,6 +69,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
   const messageHtmlRef = useRef<HTMLDivElement>(null);
   const diceRootsRef = useRef<Root[]>([]);
   const talentRootsRef = useRef<Root[]>([]);
+  const imageGenRootsRef = useRef<Root[]>([]);
 
   useEffect(() => {
     // 清理旧的 React roots
@@ -162,6 +164,44 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
       talentRootsRef.current = [];
     };
   }, [renderedContent, worldSystem, isUser, message.streaming]);
+
+  // ─── 内联生图按钮 Portal 挂载 ────────────────────────
+  const inlineImageEnabled = useImageStore((s) => s.config.inlineImageEnabled);
+
+  useEffect(() => {
+    imageGenRootsRef.current.forEach(root => {
+      try { root.unmount(); } catch { /* ignore */ }
+    });
+    imageGenRootsRef.current = [];
+
+    if (!messageHtmlRef.current || isUser || !inlineImageEnabled || message.streaming) return;
+
+    const placeholders = messageHtmlRef.current.querySelectorAll('.inline-image-gen-placeholder');
+    if (placeholders.length === 0) return;
+
+    const mountImageButtons = async () => {
+      const { default: InlineImageGenButtonComponent } = await import('./InlineImageGenButton');
+
+      placeholders.forEach(el => {
+        const promptText = el.getAttribute('data-prompt') || '';
+        if (!promptText.trim()) return;
+        const container = document.createElement('div');
+        el.replaceWith(container);
+        const root = createRoot(container);
+        root.render(<InlineImageGenButtonComponent prompt={promptText.trim()} />);
+        imageGenRootsRef.current.push(root);
+      });
+    };
+
+    mountImageButtons();
+
+    return () => {
+      imageGenRootsRef.current.forEach(root => {
+        try { root.unmount(); } catch { /* ignore */ }
+      });
+      imageGenRootsRef.current = [];
+    };
+  }, [renderedContent, inlineImageEnabled, isUser, message.streaming]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

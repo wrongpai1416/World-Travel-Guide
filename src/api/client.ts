@@ -1,5 +1,16 @@
 import type { ApiConfig, Message, RequestOptions, StreamOptions, CompletionResult } from './types';
 import { nativeFetch } from '../utils/nativeFetch';
+import { STORAGE_KEYS } from '../config/storageKeys';
+
+// 获取代理 URL
+function getProxyUrl(): string | null {
+  try {
+    const url = localStorage.getItem(STORAGE_KEYS.PROXY_URL);
+    return url?.trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 // URL拼接 - 支持多种provider
 export function buildEndpoint(config: ApiConfig): string {
@@ -180,12 +191,23 @@ export async function requestCompletion(
   const body = buildRequestBody(config, normalized, { ...options, stream: false });
   console.log(`🚀 [API] 发起请求 → ${endpoint} (${messages.length} 条消息)`);
 
-  const res = await nativeFetch(endpoint, {
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || endpoint;
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = endpoint;
+    console.log(`🔀 [API] 使用代理 → ${proxyUrl}`);
+  }
+
+  const res = await nativeFetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers: fetchHeaders,
     body: JSON.stringify(body),
     signal: options.signal,
   });
@@ -220,12 +242,23 @@ export async function requestCompletionStream(
   const normalized = normalizeMessages(config.provider, messages);
   const body = buildRequestBody(config, normalized, { ...options, stream: true });
 
-  const res = await fetch(endpoint, {
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || endpoint;
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = endpoint;
+    console.log(`🔀 [API] 流式请求使用代理 → ${proxyUrl}`);
+  }
+
+  const res = await fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers: fetchHeaders,
     body: JSON.stringify(body),
     signal: options.signal,
   });
@@ -331,12 +364,23 @@ export async function fetchModels(config: ApiConfig): Promise<string[]> {
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || url;
+  const fetchHeaders = { ...headers };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = url;
+    console.log(`🔀 [API] 获取模型列表使用代理 → ${proxyUrl}`);
+  }
+
   // 30秒超时，避免请求无响应时按钮永远转圈
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const res = await nativeFetch(url, { headers, signal: controller.signal });
+    const res = await nativeFetch(fetchUrl, { headers: fetchHeaders, signal: controller.signal });
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
       throw new Error(`获取模型列表失败: ${res.status} ${errText.slice(0, 200)}`);
@@ -369,12 +413,23 @@ export async function testConnection(config: ApiConfig): Promise<{ success: bool
       stream: false,
     };
 
-    const res = await nativeFetch(endpoint, {
+    // 检查是否使用代理
+    const proxyUrl = getProxyUrl();
+    const fetchUrl = proxyUrl || endpoint;
+    const fetchHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiKey}`,
+    };
+
+    // 如果使用代理，添加目标 URL 头
+    if (proxyUrl) {
+      fetchHeaders['X-Target-URL'] = endpoint;
+      console.log(`🔀 [API] 测试连接使用代理 → ${proxyUrl}`);
+    }
+
+    const res = await nativeFetch(fetchUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
+      headers: fetchHeaders,
       body: JSON.stringify(body),
     });
 
@@ -411,12 +466,23 @@ export async function fetchEmbedding(
     url = base.endsWith('/v1') ? `${base}/embeddings` : `${base}/v1/embeddings`;
   }
 
-  const res = await fetch(url, {
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || url;
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = url;
+    console.log(`🔀 [API] Embedding 请求使用代理 → ${proxyUrl}`);
+  }
+
+  const res = await fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers: fetchHeaders,
     body: JSON.stringify({
       model: config.model,
       input: text,
@@ -445,12 +511,23 @@ export async function fetchEmbeddingBatch(
     url = base.endsWith('/v1') ? `${base}/embeddings` : `${base}/v1/embeddings`;
   }
 
-  const res = await fetch(url, {
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || url;
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = url;
+    console.log(`🔀 [API] Embedding 批量请求使用代理 → ${proxyUrl}`);
+  }
+
+  const res = await fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers: fetchHeaders,
     body: JSON.stringify({
       model: config.model,
       input: texts,
@@ -501,12 +578,23 @@ export async function fetchRerank(
     url = base.endsWith('/v1') ? `${base}/rerank` : `${base}/v1/rerank`;
   }
 
-  const res = await fetch(url, {
+  // 检查是否使用代理
+  const proxyUrl = getProxyUrl();
+  const fetchUrl = proxyUrl || url;
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+
+  // 如果使用代理，添加目标 URL 头
+  if (proxyUrl) {
+    fetchHeaders['X-Target-URL'] = url;
+    console.log(`🔀 [API] Rerank 请求使用代理 → ${proxyUrl}`);
+  }
+
+  const res = await fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers: fetchHeaders,
     body: JSON.stringify({
       model: config.model,
       query,

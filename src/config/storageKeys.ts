@@ -20,6 +20,9 @@ export const STORAGE_KEYS = {
 
   // 生图配置
   IMAGE_CONFIG: 'world_travel_guide_image_config',
+
+  // 代理设置
+  PROXY_URL: 'world_travel_guide_proxy_url',
 } as const
 
 export type StorageKey = keyof typeof STORAGE_KEYS
