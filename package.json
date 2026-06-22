@@ -1,6 +1,6 @@
 {
   "name": "world-travel-guide",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "AI-Powered Interactive Fiction Engine — 多世界观、多阶段管线、编译式记忆系统",
   "type": "module",
   "private": true,
@@ -26,6 +26,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@tauri-apps/plugin-http": "^2.5.9",
     "dompurify": "^3.4.9",
     "highlight.js": "^11.11.1",
     "idb": "^8.0.3",

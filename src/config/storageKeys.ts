@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
 
   // 模板存储
   PLAYER_PRESETS: 'world_travel_guide_player_presets',
+  HISTORY_PRESETS: 'world_travel_guide_history_presets',
   CUSTOM_WORLDS: 'world_travel_guide_custom_worlds',
 
   // 存档系统

@@ -2,6 +2,7 @@
  * 人物模板存储层
  * - 主角预设 (PlayerPreset): localStorage key 'world_travel_guide_player_presets'
  * - NPC模板  (NpcTemplate): localStorage key 'world_travel_guide_npc_templates'
+ * - 人生经历预设 (HistoryPreset): localStorage key 'world_travel_guide_history_presets'
  */
 import { v4 as uuid } from 'uuid';
 import type { PlayerProfile, CustomNpc } from './db';
@@ -35,10 +36,19 @@ export interface NpcTemplate {
   npc: CustomNpc;
 }
 
+export interface HistoryPreset {
+  id: string;
+  name: string;
+  createdAt: number;
+  segments: Record<string, string>;  // { prologue, stage_0, stage_1, ... }
+  includeAgeStages: boolean;
+}
+
 // ─── localStorage keys ────────────────────────────────
 
 const PLAYER_KEY = STORAGE_KEYS.PLAYER_PRESETS;
 const NPC_KEY = 'world_travel_guide_npc_templates';
+const HISTORY_KEY = STORAGE_KEYS.HISTORY_PRESETS;
 
 // ─── 内部工具 ─────────────────────────────────────────
 
@@ -137,6 +147,31 @@ export function importNpcFromTemplate(template: NpcTemplate): CustomNpc {
   return { ...template.npc, id: uuid() };
 }
 
+// ─── 人生经历预设 CRUD ───────────────────────────────
+
+export function getHistoryPresets(): HistoryPreset[] {
+  return readJSON<HistoryPreset>(HISTORY_KEY);
+}
+
+export function saveHistoryPreset(name: string, segments: Record<string, string>, includeAgeStages: boolean): HistoryPreset {
+  const presets = getHistoryPresets();
+  const preset: HistoryPreset = {
+    id: uuid(),
+    name,
+    createdAt: Date.now(),
+    segments: { ...segments },
+    includeAgeStages,
+  };
+  presets.push(preset);
+  writeJSON(HISTORY_KEY, presets);
+  return preset;
+}
+
+export function deleteHistoryPreset(id: string) {
+  const presets = getHistoryPresets().filter(p => p.id !== id);
+  writeJSON(HISTORY_KEY, presets);
+}
+
 // ─── 导出 JSON（带 envelope）──────────────────────────
 
 interface ExportEnvelope<T> {
@@ -162,6 +197,16 @@ export function exportNpcTemplateJSON(template: NpcTemplate): string {
     version: '1.0',
     exportedAt: Date.now(),
     data: template,
+  };
+  return JSON.stringify(envelope, null, 2);
+}
+
+export function exportHistoryPresetJSON(preset: HistoryPreset): string {
+  const envelope: ExportEnvelope<HistoryPreset> = {
+    type: 'chuanyue-history-preset',
+    version: '1.0',
+    exportedAt: Date.now(),
+    data: preset,
   };
   return JSON.stringify(envelope, null, 2);
 }
@@ -303,6 +348,33 @@ export function parseNpcTemplateJSON(jsonStr: string): ValidateResult<NpcTemplat
   };
 
   return { ok: true, data: tpl };
+}
+
+/** 解析并校验人生经历预设 JSON */
+export function parseHistoryPresetJSON(jsonStr: string): ValidateResult<HistoryPreset> {
+  let raw: any;
+  try { raw = JSON.parse(jsonStr); } catch { return { ok: false, error: 'JSON 解析失败，请检查文件格式' }; }
+
+  // 兼容：裸数据或 envelope
+  const data = (raw.type === 'chuanyue-history-preset' && raw.data) ? raw.data : raw;
+
+  if (!isStr(data.name) || !data.name.trim()) return { ok: false, error: '缺少有效的 name 字段' };
+  if (!isObj(data.segments)) return { ok: false, error: 'segments 字段必须是对象' };
+
+  // 校验 segments 的每个值都是字符串
+  for (const [k, v] of Object.entries(data.segments)) {
+    if (!isStr(v)) return { ok: false, error: `segments["${k}"] 必须是字符串` };
+  }
+
+  const preset: HistoryPreset = {
+    id: uuid(),
+    name: String(data.name).trim(),
+    createdAt: Date.now(),
+    segments: data.segments as Record<string, string>,
+    includeAgeStages: data.includeAgeStages !== false,
+  };
+
+  return { ok: true, data: preset };
 }
 
 // ─── 下载工具 ─────────────────────────────────────────

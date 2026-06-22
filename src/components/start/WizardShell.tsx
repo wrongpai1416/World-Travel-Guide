@@ -3,6 +3,7 @@ import type { WorldDef } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
 import type { PlayerProfile } from '../../storage/db';
 import type { GameState } from '../../schema/variables';
+import type { HistoryPreset } from '../../storage/templateStore';
 import { Check, Sunrise } from 'lucide-react';
 import { getAgeStages } from '../../utils/ageStages';
 import WorldEditorForm from './WorldEditorForm';
@@ -43,6 +44,7 @@ interface WizardShellProps {
   // handlers
   onGenerateAll: (drafts?: Record<string, string>) => void;
   onRegenerateSegment: (id: string, draft?: string) => void;
+  onLoadPreset: (preset: HistoryPreset) => void;
   buildInitialState: () => GameState;
   onStartGame: () => void;
   // world editor
@@ -65,7 +67,7 @@ export default function WizardShell({
   segments, setSegments, isGenerating, regeneratingId,
   includeAgeStages, setIncludeAgeStages,
   hasApiConfig,
-  onGenerateAll, onRegenerateSegment, buildInitialState, onStartGame,
+  onGenerateAll, onRegenerateSegment, onLoadPreset, buildInitialState, onStartGame,
   worldEditorOpen, editingWorld, onSaveWorld, onDeleteWorld, onCancelWorldEditor, onOpenEditor,
   onImportWorld,
   apiConfig, settings,
@@ -158,6 +160,7 @@ export default function WizardShell({
                 includeAgeStages={includeAgeStages} setIncludeAgeStages={setIncludeAgeStages}
                 hasApiConfig={hasApiConfig}
                 onGenerateAll={onGenerateAll} onRegenerateSegment={onRegenerateSegment}
+                onLoadPreset={onLoadPreset}
                 onStartGame={() => setStep(4)}
                 onPrev={() => setStep(2)}
               />

@@ -5,7 +5,7 @@
  *   - 'player': 主角预设选择（从预设导入 / 导入JSON）
  */
 import { useState, useRef, useCallback } from 'react';
-import { Plus, Download, Upload, FileJson, Trash2, User, Users, Clock } from 'lucide-react';
+import { Plus, Download, Upload, FileJson, Trash2, User, Users, Clock, BookOpen } from 'lucide-react';
 import { useDialog } from './Dialog';
 import type { CustomNpc } from '../../storage/db';
 import type { PlayerProfile } from '../../storage/db';
@@ -13,7 +13,8 @@ import {
   getNpcTemplates, importNpcFromTemplate, parseNpcTemplateJSON,
   getPlayerPresets, parsePlayerPresetJSON, applyPresetToProfile,
   deleteNpcTemplate, deletePlayerPreset,
-  type NpcTemplate, type PlayerPreset,
+  getHistoryPresets, parseHistoryPresetJSON, deleteHistoryPreset,
+  type NpcTemplate, type PlayerPreset, type HistoryPreset,
 } from '../../storage/templateStore';
 
 // ─── NPC 模板选择模式 ─────────────────────────────────
@@ -34,19 +35,25 @@ interface PlayerPickerProps {
   onApplyPreset: (profile: PlayerProfile) => void;
 }
 
-type Props = NpcPickerProps | PlayerPickerProps;
+interface HistoryPickerProps {
+  mode: 'history';
+  onClose: () => void;
+  onApplyPreset: (preset: HistoryPreset) => void;
+}
+
+type Props = NpcPickerProps | PlayerPickerProps | HistoryPickerProps;
 
 export default function TemplatePickerDialog(props: Props) {
   const { mode, onClose } = props;
   const [view, setView] = useState<'main' | 'list'>('main');
   const [templates, setTemplates] = useState(() =>
-    mode === 'npc' ? getNpcTemplates() : getPlayerPresets()
+    mode === 'npc' ? getNpcTemplates() : mode === 'history' ? getHistoryPresets() : getPlayerPresets()
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { DialogUI, confirm: dlgConfirm, alert: dlgAlert } = useDialog();
 
   const refresh = useCallback(() => {
-    setTemplates(mode === 'npc' ? getNpcTemplates() : getPlayerPresets());
+    setTemplates(mode === 'npc' ? getNpcTemplates() : mode === 'history' ? getHistoryPresets() : getPlayerPresets());
   }, [mode]);
 
   // ─── 导入 JSON 文件 ───
@@ -60,6 +67,10 @@ export default function TemplatePickerDialog(props: Props) {
         if (!result.ok) { await dlgAlert(`导入失败：${result.error}`, { title: '导入错误' }); return; }
         const npc = importNpcFromTemplate(result.data);
         props.onImportTemplate(npc);
+      } else if (mode === 'history') {
+        const result = parseHistoryPresetJSON(text);
+        if (!result.ok) { await dlgAlert(`导入失败：${result.error}`, { title: '导入错误' }); return; }
+        props.onApplyPreset(result.data);
       } else {
         const result = parsePlayerPresetJSON(text);
         if (!result.ok) { await dlgAlert(`导入失败：${result.error}`, { title: '导入错误' }); return; }
@@ -75,10 +86,12 @@ export default function TemplatePickerDialog(props: Props) {
   }, [mode, props, onClose, dlgAlert]);
 
   // ─── 选择模板 ───
-  const handleSelectTemplate = useCallback((tpl: NpcTemplate | PlayerPreset) => {
+  const handleSelectTemplate = useCallback((tpl: NpcTemplate | PlayerPreset | HistoryPreset) => {
     if (mode === 'npc') {
       const npc = importNpcFromTemplate(tpl as NpcTemplate);
       props.onImportTemplate(npc);
+    } else if (mode === 'history') {
+      props.onApplyPreset(tpl as HistoryPreset);
     } else {
       const profile = applyPresetToProfile(tpl as PlayerPreset, props.currentProfile);
       props.onApplyPreset(profile);
@@ -91,11 +104,12 @@ export default function TemplatePickerDialog(props: Props) {
     e.stopPropagation();
     if (!await dlgConfirm('确定删除这个模板吗？', { title: '删除模板', danger: true, confirmText: '删除' })) return;
     if (mode === 'npc') deleteNpcTemplate(id);
+    else if (mode === 'history') deleteHistoryPreset(id);
     else deletePlayerPreset(id);
     refresh();
   }, [mode, refresh, dlgConfirm]);
 
-  const title = mode === 'npc' ? '创建NPC' : '导入主角预设';
+  const title = mode === 'npc' ? '创建NPC' : mode === 'history' ? '导入人生经历预设' : '导入主角预设';
   const hasTemplates = templates.length > 0;
 
   return (
@@ -119,7 +133,7 @@ export default function TemplatePickerDialog(props: Props) {
         {/* 头部 */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
           <h3 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
-            {view === 'main' ? title : (mode === 'npc' ? 'NPC 模板库' : '主角预设库')}
+            {view === 'main' ? title : (mode === 'npc' ? 'NPC 模板库' : mode === 'history' ? '人生经历预设库' : '主角预设库')}
           </h3>
           <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '6px', margin: '6px 0 0' }}>
             {view === 'main'
@@ -127,6 +141,7 @@ export default function TemplatePickerDialog(props: Props) {
               : '点击选择，右侧删除'
             }
           </p>
+
         </div>
 
         {/* 主体 */}
@@ -146,9 +161,9 @@ export default function TemplatePickerDialog(props: Props) {
               {/* 从模板/预设列表选择 */}
               {hasTemplates && (
                 <OptionCard
-                  icon={mode === 'npc' ? <Users size={18} /> : <User size={18} />}
-                  title={mode === 'npc' ? '从模板导入' : '从预设导入'}
-                  desc={`已保存 ${templates.length} 个${mode === 'npc' ? 'NPC模板' : '预设'}`}
+                  icon={mode === 'npc' ? <Users size={18} /> : mode === 'history' ? <BookOpen size={18} /> : <User size={18} />}
+                  title={mode === 'npc' ? '从模板导入' : mode === 'history' ? '从预设导入' : '从预设导入'}
+                  desc={`已保存 ${templates.length} 个${mode === 'npc' ? 'NPC模板' : mode === 'history' ? '经历预设' : '预设'}`}
                   onClick={() => setView('list')}
                 />
               )}
@@ -177,6 +192,8 @@ export default function TemplatePickerDialog(props: Props) {
               {templates.map(tpl => {
                 const label = mode === 'npc'
                   ? (tpl as NpcTemplate).npc.name || '未命名NPC'
+                  : mode === 'history'
+                  ? (tpl as HistoryPreset).name
                   : (tpl as PlayerPreset).name;
                 const sub = mode === 'npc'
                   ? [
@@ -184,6 +201,12 @@ export default function TemplatePickerDialog(props: Props) {
                       (tpl as NpcTemplate).npc.age && `${(tpl as NpcTemplate).npc.age}岁`,
                       (tpl as NpcTemplate).npc.relationshipType,
                     ].filter(Boolean).join(' · ')
+                  : mode === 'history'
+                  ? (() => {
+                      const hp = tpl as HistoryPreset;
+                      const count = Object.values(hp.segments).filter(v => v.trim()).length;
+                      return `${count} 个阶段已填写`;
+                    })()
                   : [
                       (tpl as PlayerPreset).gender,
                       (tpl as PlayerPreset).age && `${(tpl as PlayerPreset).age}岁`,
@@ -210,7 +233,7 @@ export default function TemplatePickerDialog(props: Props) {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: 'var(--accent)', flexShrink: 0,
                     }}>
-                      {mode === 'npc' ? <Users size={16} /> : <User size={16} />}
+                      {mode === 'npc' ? <Users size={16} /> : mode === 'history' ? <BookOpen size={16} /> : <User size={16} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)' }}>{tpl.name}</div>

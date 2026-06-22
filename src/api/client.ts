@@ -1,4 +1,5 @@
 import type { ApiConfig, Message, RequestOptions, StreamOptions, CompletionResult } from './types';
+import { nativeFetch } from '../utils/nativeFetch';
 
 // URL拼接 - 支持多种provider
 export function buildEndpoint(config: ApiConfig): string {
@@ -167,7 +168,7 @@ async function parseSSEStream(
   return { text: accumulated, reasoning: reasoningAccum };
 }
 
-// 非流式请求
+// 非流式请求（使用 nativeFetch 绕过 CORS）
 export async function requestCompletion(
   config: ApiConfig,
   messages: Message[],
@@ -179,7 +180,7 @@ export async function requestCompletion(
   const body = buildRequestBody(config, normalized, { ...options, stream: false });
   console.log(`🚀 [API] 发起请求 → ${endpoint} (${messages.length} 条消息)`);
 
-  const res = await fetch(endpoint, {
+  const res = await nativeFetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -311,7 +312,7 @@ export async function requestStreamWithRetry(
   });
 }
 
-// 获取模型列表
+// 获取模型列表（使用 nativeFetch 绕过 CORS）
 export async function fetchModels(config: ApiConfig): Promise<string[]> {
   const base = config.baseUrl.replace(/\/+$/, '');
   let url: string;
@@ -330,22 +331,63 @@ export async function fetchModels(config: ApiConfig): Promise<string[]> {
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`获取模型列表失败: ${res.status}`);
-  const json = await res.json();
-  const models = json.data || json.models || [];
-  return models.map((m: any) => m.id || m.name).filter(Boolean);
+  // 30秒超时，避免请求无响应时按钮永远转圈
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const res = await nativeFetch(url, { headers, signal: controller.signal });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`获取模型列表失败: ${res.status} ${errText.slice(0, 200)}`);
+    }
+    const json = await res.json();
+    const models = json.data || json.models || [];
+    return models.map((m: any) => m.id || m.name).filter(Boolean);
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('请求超时(30秒)，请检查网络连接或 API 地址是否正确');
+    }
+    if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+      throw new Error('网络请求失败，请检查 API 地址是否正确');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
-// 测试连接
+// 测试连接（使用 nativeFetch 绕过 CORS）
 export async function testConnection(config: ApiConfig): Promise<{ success: boolean; message: string; elapsed: number }> {
+  const start = Date.now();
   try {
-    const result = await requestCompletion(config, [{ role: 'user', content: 'Hi' }], { maxTokens: 5 });
-    return { success: true, message: `连接成功 (${result.elapsed}ms)`, elapsed: result.elapsed };
+    const endpoint = buildEndpoint(config);
+    const body = {
+      model: config.model,
+      messages: [{ role: 'user', content: 'Hi' }],
+      max_tokens: 5,
+      stream: false,
+    };
+
+    const res = await nativeFetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { success: false, message: `API ${res.status}: ${errText.slice(0, 200)}`, elapsed: Date.now() - start };
+    }
+
+    return { success: true, message: `连接成功 (${Date.now() - start}ms)`, elapsed: Date.now() - start };
   } catch (err: any) {
     const msg = err?.message || '';
     if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Network request failed')) {
-      return { success: false, message: '网络请求失败，可能是 CORS 跨域限制。部分中转站不允许浏览器直接调用，请确认该站点支持 CORS，或使用支持浏览器访问的 API 端点。', elapsed: 0 };
+      return { success: false, message: '网络请求失败，请检查 API 地址是否正确', elapsed: 0 };
     }
     return { success: false, message: msg, elapsed: 0 };
   }

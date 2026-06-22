@@ -3,6 +3,7 @@ import type { PlayerProfile } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import type { WorldDef } from '../data/worldLoader';
 import type { ApiConfig } from '../api/types';
+import type { HistoryPreset } from '../storage/templateStore';
 import { requestStreamWithRetry } from '../api/client';
 import { getAgeStages, getAllSegmentIds } from '../utils/ageStages';
 
@@ -263,6 +264,12 @@ ${contextBlock}${draftBlock}
     }
   };
 
+  // ─── 加载预设 ───
+  const loadPreset = useCallback((preset: HistoryPreset) => {
+    setSegments({ ...preset.segments });
+    setIncludeAgeStages(preset.includeAgeStages);
+  }, []);
+
   // ─── 拼接完整文本 ───
   const buildFullCharacterHistory = useCallback(() => {
     const ids = includeAgeStages
@@ -290,6 +297,7 @@ ${contextBlock}${draftBlock}
     includeAgeStages, setIncludeAgeStages,
     handleGenerateAll,
     handleRegenerateSegment,
+    loadPreset,
     buildFullCharacterHistory,
     cleanup,
     clearCacheAndCleanup,

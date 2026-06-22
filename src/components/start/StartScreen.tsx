@@ -53,6 +53,7 @@ export default function StartScreen() {
         includeAgeStages={h.includeAgeStages} setIncludeAgeStages={h.setIncludeAgeStages}
         hasApiConfig={!!h.apiConfig}
         onGenerateAll={h.handleGenerateAll} onRegenerateSegment={h.handleRegenerateSegment}
+        onLoadPreset={h.handleLoadPreset}
         buildInitialState={h.buildInitialState}
         onStartGame={h.handleStartGame}
         worldEditorOpen={h.worldEditorOpen} editingWorld={h.editingWorld}

@@ -374,6 +374,7 @@ export function useStartScreen() {
     includeAgeStages: charHistory.includeAgeStages, setIncludeAgeStages: charHistory.setIncludeAgeStages,
     handleGenerateAll: charHistory.handleGenerateAll,
     handleRegenerateSegment: charHistory.handleRegenerateSegment,
+    handleLoadPreset: charHistory.loadPreset,
     buildInitialState,
     // handlers
     handleStartGame, handleLoadSave, handleDeleteSave, handleForceDeleteSave,
