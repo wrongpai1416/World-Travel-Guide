@@ -65,6 +65,9 @@ export function useGameEngine(
   const initializedRef = useRef(false);
   // 全局初始快照（参考项目的 initialSnapshot，用于回滚兜底）
   const initialSnapshotRef = useRef<unknown>(null);
+  // 全局初始记忆快照（用于记忆系统回滚兜底）
+  type MemorySnapshot = ReturnType<ReturnType<typeof useMemoryStore.getState>['toJSON']>;
+  const initialMemorySnapshotRef = useRef<MemorySnapshot | null>(null);
   // 从 sessionStorage 恢复最后一轮管线状态
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(() => {
     try {
@@ -166,13 +169,18 @@ export function useGameEngine(
       varMgrRef.current.restoreSnapshot(initialSnapshotRef.current as any);
     }
 
-    // 2. 回滚记忆系统
+    // 2. 回滚记忆系统（带兜底：checkpoint 可能已被淘汰）
     const memStore = useMemoryStore.getState();
+    let memRestored = false;
     for (let i = truncateAt - 1; i >= 0; i--) {
       if (currentMessages[i].memoryCheckpointId) {
-        memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
-        break;
+        memRestored = memStore.restoreCheckpoint(currentMessages[i].memoryCheckpointId!);
+        if (memRestored) break;
       }
+    }
+    // 兜底：如果所有 checkpoint 都失效，恢复到初始记忆状态
+    if (!memRestored && initialMemorySnapshotRef.current) {
+      memStore.fromJSON(initialMemorySnapshotRef.current);
     }
     memStore.clearPipelineOutputs();
 
@@ -296,6 +304,8 @@ export function useGameEngine(
         vectorMemory: save.vectorMemory,
       });
     }
+    // 捕获记忆系统初始快照（用于回滚兜底）
+    initialMemorySnapshotRef.current = memStore.toJSON();
     // 恢复变量提取 API 配置
     if (save.variableConfig?.apiPresetId) {
       localStorage.setItem('world_travel_guide_variable_api_preset', save.variableConfig.apiPresetId);
@@ -853,6 +863,8 @@ ${perspectiveInstruction}
     const memStore = useMemoryStore.getState();
     memStore.resetMemoryRuntime();
     memStore.clearPipelineOutputs();
+    // 捕获记忆系统初始快照（用于回滚兜底）
+    initialMemorySnapshotRef.current = memStore.toJSON();
     // 初始化世界系统模块数据
     // 新格式：moduleConfig（配置，注入世界书）+ initialState（状态，初始化变量）
     // 旧格式：data（配置+状态混在一起，向后兼容）

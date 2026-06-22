@@ -644,7 +644,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
 
     set((s) => {
       if (!s.memoryRuntime) return s;
-      const MAX_CHECKPOINTS = 5;
+      const MAX_CHECKPOINTS = 10;
       const checkpoints = [...s.memoryRuntime.checkpoints, checkpoint].slice(-MAX_CHECKPOINTS);
       return { memoryRuntime: { ...prunedRuntime, checkpoints } };
     });
@@ -662,7 +662,8 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
     const restored = normalizeMemoryRuntime(checkpoint.snapshot);
     restored.checkpoints = state.memoryRuntime.checkpoints;
 
-    set({ memoryRuntime: restored, runtimeVersion: state.runtimeVersion + 1 });
+    // 清除向量记忆（checkpoint 不含 vectorMemory，保留会导致与 runtime 不一致）
+    set({ memoryRuntime: restored, vectorMemory: [], runtimeVersion: state.runtimeVersion + 1 });
     return true;
   },
 
