@@ -14,6 +14,7 @@ import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
 import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
 import { WORLDS } from '../data/worldLoader';
+import { STORAGE_KEYS } from '../config/storageKeys';
 import type { WorldDef } from '../data/worlds-schema';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
@@ -55,6 +56,8 @@ export function useGameEngine(
   const messagesRef = useRef<ChatMessage[]>([]);
   const sendMessageRef = useRef<((text: string) => Promise<void>) | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  // 防止双击/同步多次触发 sendMessage 的 ref 守卫
+  const generatingRef = useRef(false);
   const varMgrRef = useRef(initialVarMgr || new VariableManager());
   const cancelRef = useRef<AbortController | null>(null);
   const roundRef = useRef(0);
@@ -111,7 +114,7 @@ export function useGameEngine(
     const builtIn = WORLDS.find(w => w.id === worldId);
     if (builtIn) return builtIn;
     try {
-      const custom: WorldDef[] = JSON.parse(localStorage.getItem('chuanye_custom_worlds') || '[]');
+      const custom: WorldDef[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
       return custom.find((w: WorldDef) => w.id === worldId);
     } catch { return undefined; }
   }, []);
@@ -204,6 +207,7 @@ export function useGameEngine(
 
   // 删除消息：级联删除 + 回滚状态（用户消息连同后面的AI消息一起删）
   const deleteSingleMessage = useCallback((id: string) => {
+    if (generatingRef.current) return; // 生成中禁止删除，防止状态不一致
     const currentMessages = messagesRef.current;
     const idx = currentMessages.findIndex(m => m.id === id);
     if (idx === -1) return;
@@ -299,8 +303,9 @@ export function useGameEngine(
   }, []);
 
   const sendMessage = useCallback(async (userText: string) => {
-    if (!apiConfig || isGenerating || !userText.trim()) return;
+    if (!apiConfig || generatingRef.current || !userText.trim()) return;
 
+    generatingRef.current = true;
     setIsGenerating(true);
     roundRef.current++;
     const round = roundRef.current;
@@ -374,19 +379,27 @@ export function useGameEngine(
           } : undefined,
           // 查询改写
           queryRewrite: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
             await executeMemoryQueryRewrite(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
           },
           // 检索规划
           retrievePlan: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
             await executeMemoryRetrievePlan(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
           },
           // 多轮补充
           multiRound: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
             await executeMemoryMultiRound(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
           },
           // 精排
           rerank: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
             await executeMemoryRerank(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
           },
           // 检索收尾
           retrieveFinalize: async () => {
@@ -605,8 +618,9 @@ ${perspectiveInstruction}
 
       setPipelineStatus(pipelineResult.status);
 
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (err instanceof Error && err.name === 'AbortError') {
         // 不覆盖已生成的正文，只标记停止
         const existingRaw = getMessageContent(messagesRef.current.find(m => m.id === aiMsgId)!) || '';
         if (!existingRaw.trim()) {
@@ -618,11 +632,12 @@ ${perspectiveInstruction}
         // 不覆盖已流式输出的正文，只在文末追加错误提示
         const currentContent = getMessageContent(messagesRef.current.find(m => m.id === aiMsgId)!) || '';
         const errorSuffix = currentContent.trim()
-          ? `\n\n⚠️ [管线错误] ${err.message}`
-          : `[错误] ${err.message}`;
+          ? `\n\n⚠️ [管线错误] ${errMsg}`
+          : `[错误] ${errMsg}`;
         updateMessage(aiMsgId, { rawText: errorSuffix, streaming: false });
       }
     } finally {
+      generatingRef.current = false;
       setIsGenerating(false);
       cancelRef.current = null;
       eventBus.emit(EVENTS.GENERATION_ENDED, aiMsgId);
@@ -638,12 +653,13 @@ ${perspectiveInstruction}
   // ─── 重试管线（跳过正文生成，只重跑失败的记忆/变量阶段） ───
   const retryPipeline = useCallback(async () => {
     const ctx = lastPipelineCtxRef.current;
-    if (!apiConfig || isGenerating || !ctx) return;
+    if (!apiConfig || generatingRef.current || !ctx) return;
 
     // 找到对应的 AI 消息，确认正文还在
     const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
     if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) return;
 
+    generatingRef.current = true;
     setIsGenerating(true);
     const controller = new AbortController();
     cancelRef.current = controller;
@@ -683,10 +699,26 @@ ${perspectiveInstruction}
           write: async () => { await executeMemoryWrite(memStore, memCtx); },
           summary: async () => { await executeMemorySummary(memStore, memCtx); },
           vector: memConfig.vectorEnabled ? async () => { await executeMemoryVector(memStore, memCtx); } : undefined,
-          queryRewrite: async () => { await executeMemoryQueryRewrite(memStore, memCtx); },
-          retrievePlan: async () => { await executeMemoryRetrievePlan(memStore, memCtx); },
-          multiRound: async () => { await executeMemoryMultiRound(memStore, memCtx); },
-          rerank: async () => { await executeMemoryRerank(memStore, memCtx); },
+          queryRewrite: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
+            await executeMemoryQueryRewrite(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
+          },
+          retrievePlan: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
+            await executeMemoryRetrievePlan(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
+          },
+          multiRound: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
+            await executeMemoryMultiRound(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
+          },
+          rerank: async () => {
+            const before = memCtx._degradedStages?.length ?? 0;
+            await executeMemoryRerank(memStore, memCtx);
+            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
+          },
           retrieveFinalize: async () => { await executeMemoryRetrieveFinalize(memStore, memCtx); },
           compile: async () => { await executeMemoryCompile(memStore, memCtx); },
           debugLogger: (kind: string, message: string) => {
@@ -714,20 +746,21 @@ ${perspectiveInstruction}
 
       setMessages(prev => optimizeSnapshots(prev));
       setPipelineStatus(pipelineResult.status);
-    } catch (err: any) {
-      console.error('[重试管线] 失败:', err.message);
+    } catch (err: unknown) {
+      console.error('[重试管线] 失败:', err instanceof Error ? err.message : String(err));
     } finally {
+      generatingRef.current = false;
       setIsGenerating(false);
       cancelRef.current = null;
       try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
     }
-  }, [apiConfig, isGenerating]);
+  }, [apiConfig]);
 
   // ─── 单步重试（只重跑管线中的某一个失败阶段） ───
   const retrySingleStage = useCallback(async (taskId: PipelineTaskId) => {
     const ctx = lastPipelineCtxRef.current;
     const executor = lastExecutorRef.current;
-    if (isGenerating) return; // 正在生成中，按钮已 disabled，静默返回
+    if (generatingRef.current) return; // 正在生成中，按钮已 disabled，静默返回
     if (!apiConfig || !ctx || !executor) {
       const reason = !apiConfig ? 'API 配置缺失' : '管线上下文或执行器已丢失（可能页面刷新过）';
       console.warn('[单步重试] 无法重试：', reason);
@@ -752,10 +785,26 @@ ${perspectiveInstruction}
         memory_write: () => executeMemoryWrite(memStore, memCtx),
         memory_summary: () => executeMemorySummary(memStore, memCtx),
         memory_vector: () => executeMemoryVector(memStore, memCtx),
-        memory_query_rewrite: () => executeMemoryQueryRewrite(memStore, memCtx),
-        memory_retrieve_plan: () => executeMemoryRetrievePlan(memStore, memCtx),
-        memory_multi_round: () => executeMemoryMultiRound(memStore, memCtx),
-        memory_rerank: () => executeMemoryRerank(memStore, memCtx),
+        memory_query_rewrite: async () => {
+          const before = memCtx._degradedStages?.length ?? 0;
+          await executeMemoryQueryRewrite(memStore, memCtx);
+          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
+        },
+        memory_retrieve_plan: async () => {
+          const before = memCtx._degradedStages?.length ?? 0;
+          await executeMemoryRetrievePlan(memStore, memCtx);
+          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
+        },
+        memory_multi_round: async () => {
+          const before = memCtx._degradedStages?.length ?? 0;
+          await executeMemoryMultiRound(memStore, memCtx);
+          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
+        },
+        memory_rerank: async () => {
+          const before = memCtx._degradedStages?.length ?? 0;
+          await executeMemoryRerank(memStore, memCtx);
+          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
+        },
         memory_retrieve_finalize: () => executeMemoryRetrieveFinalize(memStore, memCtx),
         memory_compile: () => executeMemoryCompile(memStore, memCtx),
       };
@@ -778,21 +827,23 @@ ${perspectiveInstruction}
           snapshotTime: Date.now(),
           memoryCheckpointId: memCheckpoint?.id,
         });
-      } catch (snapErr: any) {
-        console.warn('[单步重试快照] 创建失败:', snapErr.message);
+      } catch (snapErr: unknown) {
+        console.warn('[单步重试快照] 创建失败:', snapErr instanceof Error ? snapErr.message : String(snapErr));
       }
 
       setPipelineStatus({ ...executor.getStatus(), stages: { ...executor.getStatus().stages } });
-    } catch (err: any) {
-      console.error('[单步重试] 失败:', err.message);
+    } catch (err: unknown) {
+      console.error('[单步重试] 失败:', err instanceof Error ? err.message : String(err));
     } finally {
+      generatingRef.current = false;
       setIsGenerating(false);
       try { onAutoSaveRef.current?.(); } catch (e) { console.warn('[auto-save] 回调失败:', e); }
     }
-  }, [apiConfig, isGenerating]);
+  }, [apiConfig]);
 
   const reset = useCallback((worldDef?: WorldDef) => {
     cancelRef.current?.abort();
+    generatingRef.current = false;
     setIsGenerating(false);
     setMessages([]);
     varMgrRef.current = new VariableManager();

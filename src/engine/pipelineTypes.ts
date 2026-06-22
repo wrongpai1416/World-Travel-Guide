@@ -17,7 +17,7 @@ export type PipelineTaskId =
   | 'variable';         // 变量提取（最后执行）
 
 /** 管线阶段状态 */
-export type PipelineStageStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped';
+export type PipelineStageStatus = 'pending' | 'running' | 'success' | 'warning' | 'error' | 'skipped';
 
 /** 管线阶段结果 */
 export interface PipelineStageResult {

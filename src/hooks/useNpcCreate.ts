@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { CustomNpc } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import type { WorldDef } from '../data/worldLoader';
@@ -147,15 +147,16 @@ export function useNpcCreate({
 
       return npc;
 
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         if (timedOut) {
           await showAlert('NPC 创建超时（45秒），请检查网络或 API 配置后重试', { title: '超时' });
         }
         return null;
       }
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[NPC创建] 失败:', err);
-      await showAlert(`NPC创建失败: ${err.message}`, { title: '创建失败' });
+      await showAlert(`NPC创建失败: ${errMsg}`, { title: '创建失败' });
       return null;
     } finally {
       setIsCreating(false);
@@ -165,6 +166,14 @@ export function useNpcCreate({
   };
 
   const cancelCreate = () => { abortRef.current?.abort(); };
+
+  // 卸载时清理：取消进行中的请求和定时器
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    };
+  }, []);
 
   return { isCreating, createElapsed, createNpc, cancelCreate };
 }

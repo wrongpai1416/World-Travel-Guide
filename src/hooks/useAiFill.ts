@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { PlayerProfile } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import type { WorldDef } from '../data/worldLoader';
@@ -147,15 +147,16 @@ export function useAiFill({
         moduleInitData,
       }));
 
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         if (timedOut) {
           await showAlert('AI 补全超时（60秒），请检查网络或 API 配置后重试', { title: '超时' });
         }
         return;
       }
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[AI补全] 失败:', err);
-      await showAlert(`AI补全失败: ${err.message}`, { title: '补全失败' });
+      await showAlert(`AI补全失败: ${errMsg}`, { title: '补全失败' });
     } finally {
       setIsFilling(false);
       abortRef.current = null;
@@ -165,6 +166,14 @@ export function useAiFill({
 
   const cancelFill = () => { abortRef.current?.abort(); };
   const cleanup = () => { abortRef.current?.abort(); };
+
+  // 卸载时清理：取消进行中的请求和定时器
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    };
+  }, []);
 
   return { isFilling, fillElapsed, handleAiFill, cancelFill, cleanup };
 }

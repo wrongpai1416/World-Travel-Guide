@@ -77,6 +77,8 @@ export interface MemoryPipelineContext {
   _allMemories?: MemoryEntry[];
   /** 命中详情 */
   _hitDetails?: Array<{ title: string; hitRate: number; matchedKeywords: string[] }>;
+  /** 降级阶段记录（标记哪些阶段执行失败后使用了降级策略） */
+  _degradedStages?: string[];
 }
 
 export interface MemorySystemHook {

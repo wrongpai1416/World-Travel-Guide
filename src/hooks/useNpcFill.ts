@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { CustomNpc } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import type { WorldDef } from '../data/worldLoader';
@@ -122,8 +122,8 @@ export function useNpcFill({
         itemsList: data.itemsList && typeof data.itemsList === 'object' ? data.itemsList : prev.itemsList,
       }));
 
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         if (timedOut) {
           console.warn('[NPC补全] 超时');
         }
@@ -138,6 +138,14 @@ export function useNpcFill({
   };
 
   const cancelFill = () => { abortRef.current?.abort(); };
+
+  // 卸载时清理：取消进行中的请求和定时器
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    };
+  }, []);
 
   return { isFilling, fillElapsed, handleAiFill, cancelFill };
 }

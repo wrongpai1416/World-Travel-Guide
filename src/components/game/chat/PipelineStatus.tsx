@@ -22,8 +22,9 @@ function StageNode({ taskId, stage, isLast }: {
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '4px 6px', borderRadius: 'var(--radius-md)',
-        border: `1.5px solid ${isActive ? meta.color : stage.status === 'success' ? `${meta.color}66` : 'var(--border)'}`,
+        border: `1.5px solid ${isActive ? meta.color : stage.status === 'success' ? `${meta.color}66` : stage.status === 'warning' ? '#ff980066' : 'var(--border)'}`,
         background: stage.status === 'success' ? `${meta.color}11`
+          : stage.status === 'warning' ? 'rgba(255,152,0,0.08)'
           : stage.status === 'error' ? 'rgba(244,67,54,0.08)'
           : isActive ? `${meta.color}11`
           : 'var(--bg-secondary)',
@@ -54,6 +55,7 @@ function StageNode({ taskId, stage, isLast }: {
         }}>
           {isActive ? '...'
             : stage.status === 'success' ? `✓${elapsed != null ? formatMs(elapsed) : ''}`
+            : stage.status === 'warning' ? '⚠'
             : stage.status === 'error' ? '✕'
             : stage.status === 'skipped' ? '-'
             : '○'}
@@ -85,6 +87,7 @@ export default function PipelineStatusPanel({ status }: { status: PipelineStatus
 
   const allDone = stages.every(s => s.stage.status !== 'pending' && s.stage.status !== 'running');
   const hasError = stages.some(s => s.stage.status === 'error');
+  const warningCount = stages.filter(s => s.stage.status === 'warning').length;
   const successCount = stages.filter(s => s.stage.status === 'success').length;
   const runningStage = stages.find(s => s.stage.status === 'running');
   const elapsed = status.endTime ? status.endTime - status.startTime : undefined;
@@ -167,6 +170,7 @@ export default function PipelineStatusPanel({ status }: { status: PipelineStatus
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-xs)' }}>
           {successCount > 0 && <span style={{ color: '#4caf50' }}>✓{successCount}</span>}
+          {warningCount > 0 && <span style={{ color: '#ff9800' }}>⚠{warningCount}</span>}
           {hasError && <span style={{ color: '#f44336' }}>✕</span>}
           {elapsed != null && <span style={{ color: 'var(--text-muted)' }}>{formatMs(elapsed)}</span>}
         </div>
@@ -207,6 +211,11 @@ export default function PipelineStatusPanel({ status }: { status: PipelineStatus
                     成功{elapsed != null ? ` ${formatMs(elapsed)}` : ''}
                     {stage.dataLength != null ? ` (${stage.dataLength}字)` : ''}
                     {stage.extra?.count != null ? ` · ${stage.extra.count}条` : ''}
+                  </span>
+                )}
+                {stage.status === 'warning' && (
+                  <span style={{ color: '#ff9800', fontSize: 'var(--font-size-sm)' }}>
+                    ⚠ 降级{stage.error ? `: ${stage.error.replace('[降级] ', '')}` : ''}
                   </span>
                 )}
                 {stage.status === 'error' && (
