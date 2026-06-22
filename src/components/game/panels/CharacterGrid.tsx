@@ -3,8 +3,9 @@ import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
   BarChart3, Tag, Briefcase, MapPin, Sparkles,
   Brain, Dna, Zap, Backpack, Shield,
-  FileText, Edit3, Trash2, Plus, Save,
+  FileText, Edit3, Trash2, Plus, Save, ImageIcon,
 } from 'lucide-react';
+import { useCharacterPortrait } from '../../../hooks/useCharacterPortrait';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from '../../shared/Avatar';
 import EmptyState from '../../shared/EmptyState';
@@ -149,7 +150,7 @@ function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () =
     >
       {/* 头像 + 名字 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-        <Avatar name={npc.姓名 || id} size="md" />
+        <Avatar name={npc.姓名 || id} size="md" imageSrc={(npc as any).portraitUrl || null} />
         <div style={{ flex: '1', minWidth: 0 }}>
           <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             {npc.重要NPC && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
@@ -641,9 +642,21 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
   const [tab, setTab] = useState<DetailTab>('overview');
   const [showDeeds, setShowDeeds] = useState(false);
   const { DialogUI, prompt: dlgPrompt, alert: dlgAlert } = useDialog();
+  const { generatePortrait } = useCharacterPortrait();
+
   const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
+  const [portraitUrl, setPortraitUrl] = useState<string | null>(ext.portraitUrl || null);
+  const [portraitStatus, setPortraitStatus] = useState('');
+
+  const handleGeneratePortrait = async () => {
+    const url = await generatePortrait(npc, setPortraitStatus);
+    if (url) {
+      setPortraitUrl(url);
+      ext.portraitUrl = url;
+    }
+  };
   const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知' };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
@@ -670,7 +683,22 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
       >
         {/* 头部 */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <Avatar name={npc.姓名 || npcId} size="lg" />
+          <div style={{ position: 'relative' }}>
+            <Avatar name={npc.姓名 || npcId} size="lg" imageSrc={portraitUrl} />
+            <button
+              onClick={handleGeneratePortrait}
+              title={portraitUrl ? '重新生成画像' : '生成画像'}
+              style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: '20px', height: '20px', borderRadius: '50%',
+                background: 'var(--accent)', border: '2px solid var(--bg-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', padding: 0,
+              }}
+            >
+              <ImageIcon size={10} color="#fff" />
+            </button>
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: '600', fontSize: 'var(--font-size-lg)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               {npc.重要NPC && <Star size={14} fill="var(--warning)" color="var(--warning)" />}
@@ -682,6 +710,11 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
               <span style={{ fontSize: 'var(--font-size-xs)', padding: '1px 7px', borderRadius: '10px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>{npc.性别}</span>
               <span style={{ fontSize: 'var(--font-size-xs)', padding: '1px 7px', borderRadius: '10px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>{npc.年龄}岁</span>
             </div>
+            {portraitStatus && (
+              <div style={{ fontSize: 'var(--font-size-xs)', color: portraitStatus.includes('成功') ? 'var(--success)' : portraitStatus.includes('失败') || portraitStatus.includes('错误') ? 'var(--danger)' : 'var(--accent)', marginTop: '2px' }}>
+                {portraitStatus}
+              </div>
+            )}
           </div>
           <button
             onClick={async () => {

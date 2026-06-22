@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface AvatarProps {
   name: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** 可选的头像图片 URL */
+  imageSrc?: string | null;
 }
 
 const SIZE_MAP = { sm: 28, md: 36, lg: 48 } as const;
@@ -28,16 +30,19 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-export default function Avatar({ name, size = 'md', className }: AvatarProps) {
+export default function Avatar({ name, size = 'md', className, imageSrc }: AvatarProps) {
   const px = SIZE_MAP[size];
+  const [imgFailed, setImgFailed] = useState(false);
+
   const initial = useMemo(() => {
     if (!name) return '?';
-    // 取第一个可见字符（跳过空格/标点）
     const first = name.trim()[0] || '?';
     return first;
   }, [name]);
 
   const gradient = useMemo(() => GRADIENTS[hashCode(name) % GRADIENTS.length], [name]);
+
+  const showImage = imageSrc && !imgFailed;
 
   return (
     <div
@@ -47,7 +52,7 @@ export default function Avatar({ name, size = 'md', className }: AvatarProps) {
         height: px,
         minWidth: px,
         borderRadius: '50%',
-        background: gradient,
+        background: showImage ? 'none' : gradient,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -57,9 +62,25 @@ export default function Avatar({ name, size = 'md', className }: AvatarProps) {
         letterSpacing: '0.05em',
         userSelect: 'none',
         flexShrink: 0,
+        overflow: 'hidden',
+        position: 'relative',
       }}
     >
-      {initial}
+      {showImage ? (
+        <img
+          src={imageSrc}
+          alt={name}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            borderRadius: '50%',
+          }}
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        initial
+      )}
     </div>
   );
 }
