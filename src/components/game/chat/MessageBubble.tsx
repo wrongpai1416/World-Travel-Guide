@@ -193,7 +193,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
         const container = document.createElement('div');
         el.replaceWith(container);
         const root = createRoot(container);
-        root.render(<InlineImageGenButtonComponent prompt={promptText.trim()} />);
+        root.render(<InlineImageGenButtonComponent prompt={promptText.trim()} msgId={message.id} />);
         imageGenRootsRef.current.push(root);
       });
     };
