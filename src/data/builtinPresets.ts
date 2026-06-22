@@ -545,6 +545,25 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 [OPTION]{t: "检查周围环境", d: "仔细搜索附近是否有隐藏的宝箱"}
 [OPTION]{t: "休息恢复", d: "找个安全的地方休息恢复体力"}
 [OPTION_END]
+
+【正文生图标签】
+在正文内容中，遇到需要视觉呈现的关键场景时，使用生图标签为读者生成插图。
+格式：image###英文提示词###
+- 提示词必须是英文，用于 AI 绘图模型理解
+- 提示词应包含场景的核心元素：人物外观、动作、环境、氛围、光影等
+- 适当时附加 link:NAI（NovelAI）、link:com（ComfyUI）或 link:other（其他引擎）来指定生图引擎，不附加则使用默认引擎
+
+适用场景（在正文合适位置自然插入，每轮最多1-2个）：
+- 到达新的重要地点（城市入口、地下城、战场等）
+- 重要角色首次登场或外貌发生显著变化
+- 戏剧性的关键瞬间（战斗高潮、重大发现、情感爆发等）
+- 需要视觉冲击力的场景描写
+
+提示词示例：
+image###masterpiece, best quality, 1girl, silver hair, blue eyes, knight armor, standing on cliff edge, dramatic lighting, fantasy landscape, wind blowing hair, sunset background###
+image###link:com, masterpiece, dark dungeon interior, torch light, ancient stone walls, mysterious altar, eerie atmosphere, volumetric lighting###
+
+⚠️ 注意：生图标签写在 <contenttext> 正文内容内部，不要写在行动选项中。
 </OutputFormat>`;
 
 // ── 结构化条目数组 ──
