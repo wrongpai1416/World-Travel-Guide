@@ -538,7 +538,6 @@ export function MermaidGraphPanel({
             data-mermaid-container
             dangerouslySetInnerHTML={{ __html: renderedSvg }}
             style={{
-              lineHeight: 0,
               width: graphSize.width > 0 ? graphSize.width : undefined,
               height: graphSize.height > 0 ? graphSize.height : undefined,
             }}
@@ -610,13 +609,21 @@ export function MermaidGraphPanel({
           image-rendering: optimizeQuality;
         }
 
-        /* 字体强制覆盖（照搬 yijiekkk） */
+        /* 字体强制覆盖 */
         [data-mermaid-container] .edgeLabel,
         [data-mermaid-container] .label,
         [data-mermaid-container] foreignObject,
         [data-mermaid-container] text,
         [data-mermaid-container] tspan {
           font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif !important;
+        }
+
+        /* foreignObject 内的文字行高修复 */
+        [data-mermaid-container] foreignObject p,
+        [data-mermaid-container] foreignObject span,
+        [data-mermaid-container] foreignObject div {
+          line-height: 1.4 !important;
+          margin: 0;
         }
 
         /* 可交互节点悬停效果（照搬 yijiekkk） */
