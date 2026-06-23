@@ -180,7 +180,7 @@ export default function ImageGenSettingsTab() {
         {config.engine === 'comfyui' && (
           <>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-              <Field label="ComfyUI API 地址">
+              <Field label="ComfyUI API 地址" hint="如跨域访问，ComfyUI 启动时需加 --cors 参数">
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     className="input-field"

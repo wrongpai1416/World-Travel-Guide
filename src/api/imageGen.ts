@@ -363,48 +363,68 @@ export async function generateComfyUIImage(prompt: string, config: Partial<Image
 
   return new Promise((resolve, reject) => {
     let attempts = 0;
+    let settled = false; // 防止重复 resolve/reject
     const poll = setInterval(async () => {
+      if (settled) return;
       try {
         attempts += 1;
         if (attempts > 300) {
           clearInterval(poll);
-          reject(new Error('生成超时'));
+          settled = true;
+          reject(new Error('生成超时（5分钟）'));
           return;
         }
 
         const historyRes = await fetch(`${apiUrl}/history/${prompt_id}`);
+        if (!historyRes.ok) {
+          console.warn(`[ComfyUI] history 请求失败 (${historyRes.status}), attempt ${attempts}`);
+          return; // 继续重试
+        }
+
         const history = await historyRes.json();
+        if (!history || !history[prompt_id]) return; // 还没完成
 
-        if (history[prompt_id]) {
-          clearInterval(poll);
-          const outputs = history[prompt_id].outputs;
+        clearInterval(poll);
+        settled = true;
 
-          for (const nodeId in outputs) {
-            if (outputs[nodeId].images && outputs[nodeId].images.length > 0) {
-              const image = outputs[nodeId].images[0];
-              const imgRes = await fetch(
-                `${apiUrl}/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder)}&type=${encodeURIComponent(image.type)}`,
-              );
-              const blob = await imgRes.blob();
-              resolve({
-                blob,
-                seed: execution.seed,
-                prompt: execution.positivePrompt,
-                negativePrompt: execution.negativePrompt,
-                width: execution.width,
-                height: execution.height,
-                model: execution.resultModelLabel,
-                sampler: execution.resultSamplerLabel,
-                steps: execution.steps,
-                scale: execution.cfgScale,
-              });
+        const outputs = history[prompt_id].outputs;
+        if (!outputs || typeof outputs !== 'object') {
+          reject(new Error('ComfyUI 返回的 outputs 为空'));
+          return;
+        }
+
+        for (const nodeId in outputs) {
+          const nodeOutput = outputs[nodeId];
+          if (nodeOutput?.images && nodeOutput.images.length > 0) {
+            const image = nodeOutput.images[0];
+            console.log(`[ComfyUI] 找到图片: ${image.filename}`);
+            const imgRes = await fetch(
+              `${apiUrl}/view?filename=${encodeURIComponent(image.filename)}&subfolder=${encodeURIComponent(image.subfolder)}&type=${encodeURIComponent(image.type)}`,
+            );
+            if (!imgRes.ok) {
+              reject(new Error(`图片下载失败 (${imgRes.status})`));
               return;
             }
+            const blob = await imgRes.blob();
+            resolve({
+              blob,
+              seed: execution.seed,
+              prompt: execution.positivePrompt,
+              negativePrompt: execution.negativePrompt,
+              width: execution.width,
+              height: execution.height,
+              model: execution.resultModelLabel,
+              sampler: execution.resultSamplerLabel,
+              steps: execution.steps,
+              scale: execution.cfgScale,
+            });
+            return;
           }
-          reject(new Error('未找到输出图片'));
         }
+        reject(new Error('ComfyUI 输出中未找到图片'));
       } catch (e) {
         clearInterval(poll);
+        settled = true;
         reject(e);
       }
     }, 1000);
