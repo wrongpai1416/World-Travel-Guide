@@ -1,4 +1,5 @@
 // 天赋体系卡片 — 天赋大类 + 品质标签
+import { memo } from 'react';
 import { Star } from 'lucide-react';
 import type { TalentModuleSchema } from '../../../../modules/schema';
 import { Collapsible } from '../../../shared/Collapsible';
@@ -10,7 +11,7 @@ interface TalentCardProps {
   title?: string;
 }
 
-export default function TalentCard({ data, title }: TalentCardProps) {
+export default memo(function TalentCard({ data, title }: TalentCardProps) {
   if (!data.categories.length) {
     return (
       <Collapsible icon={<Star size={15} />} title={title || '天赋体系'} defaultOpen={true}>
@@ -84,4 +85,4 @@ export default function TalentCard({ data, title }: TalentCardProps) {
       </div>
     </Collapsible>
   );
-}
+});

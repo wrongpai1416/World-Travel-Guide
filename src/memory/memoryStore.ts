@@ -614,7 +614,7 @@ export const useMemoryStore = create<MemoryStoreState & MemoryStoreActions>()((s
 
     // 1. 归档已解决的 threads（超过 N 轮未更新）
     const activeThreads = state.memoryRuntime.activeThreads.filter(t => {
-      if (t.status === 'resolved' && currentRound - (t.lastUpdatedRound || 0) > retention.archiveResolvedThreadsAfter) {
+      if (t.status === 'resolved' && currentRound - (t.sourceEndIndex || 0) > retention.archiveResolvedThreadsAfter) {
         return false; // 移除，后续可移到 archiveCards
       }
       return true;

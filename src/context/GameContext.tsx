@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import { useGameEngine } from '../engine/useGameEngine';
 import type { GameEngine } from '../engine/types';
 import type { GameSave, PlayerProfile } from '../storage/db';
@@ -226,8 +226,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     newGameStartedRef.current = true;
   }, []);
 
+  // 稳定 Provider value，防止每次渲染创建新引用导致消费者级联重渲染
+  const contextValue = useMemo(
+    () => ({ state, dispatch, navigate, goBack, engine, markNewGameStarted }),
+    [state, dispatch, navigate, goBack, engine, markNewGameStarted],
+  );
+
   return (
-    <GameContext.Provider value={{ state, dispatch, navigate, goBack, engine, markNewGameStarted }}>
+    <GameContext.Provider value={contextValue}>
       {children}
     </GameContext.Provider>
   );

@@ -15,13 +15,13 @@ function loadUserPresets(): PresetPack[] {
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+  } catch { console.warn('[PresetStore] 读取用户预设失败'); return []; }
 }
 
 function loadActivePresetId(): string | null {
   try {
     return localStorage.getItem(ACTIVE_KEY) || null;
-  } catch { return null; }
+  } catch { console.warn('[PresetStore] 读取激活预设 ID 失败'); return null; }
 }
 
 // ─── Store ───

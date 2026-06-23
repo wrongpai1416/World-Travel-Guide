@@ -1,5 +1,5 @@
 // 骰子检定卡片 — d20检定UI
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Dice6 } from 'lucide-react';
 import type { DiceModuleSchema, DiceRoll, StatModuleSchema } from '../../../../modules/schema';
 import { rollDice, getCheckableAttributes, calcModifier } from '../../../../modules/xpAlgorithm';
@@ -16,7 +16,7 @@ interface DiceCardProps {
   title?: string;
 }
 
-export default function DiceCard({ data, statData, onUpdate, title }: DiceCardProps) {
+export default memo(function DiceCard({ data, statData, onUpdate, title }: DiceCardProps) {
   const [selectedAttr, setSelectedAttr] = useState<string>('');
   const [dc, setDc] = useState(DICE_DEFAULTS.defaultDC);
   const [animating, setAnimating] = useState(false);
@@ -127,7 +127,7 @@ export default function DiceCard({ data, statData, onUpdate, title }: DiceCardPr
       </div>
     </Collapsible>
   );
-}
+});
 
 function DiceResult({ roll, compact }: { roll: DiceRoll; compact?: boolean }) {
   const resultColor = roll.isNatural20 ? '#22c55e' : roll.isNatural1 ? '#ef4444' : roll.success ? 'var(--accent)' : 'var(--text-muted)';

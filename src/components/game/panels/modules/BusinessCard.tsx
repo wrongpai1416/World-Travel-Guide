@@ -1,4 +1,5 @@
 // 经营资产概览卡片 — 右侧面板摘要，点击展开覆盖层
+import { memo } from 'react';
 import { Briefcase, DollarSign, TrendingUp, Building2, ChevronRight } from 'lucide-react';
 import type { BusinessModuleSchema } from '../../../../modules/schema';
 import { Collapsible } from '../../../shared/Collapsible';
@@ -20,7 +21,7 @@ function calcNetIncome(data: BusinessModuleSchema): number {
     }, 0);
 }
 
-export default function BusinessCard({ data, title, onOpenOverlay }: BusinessCardProps) {
+export default memo(function BusinessCard({ data, title, onOpenOverlay }: BusinessCardProps) {
   const netIncome = calcNetIncome(data);
   const activeAssets = data.assets?.filter(a => a.status === 'active').length ?? 0;
 
@@ -72,4 +73,4 @@ export default function BusinessCard({ data, title, onOpenOverlay }: BusinessCar
       </div>
     </Collapsible>
   );
-}
+});

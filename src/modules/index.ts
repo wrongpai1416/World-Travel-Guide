@@ -36,7 +36,7 @@ export {
 
 // XP 算法
 export {
-  calculateXpForTier,
+  calculateXpForLevel,
   calculateCumulativeXp,
   populateTierXp,
   getXpForNextTier,

@@ -1,5 +1,5 @@
 // 生存资源卡片
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Leaf, AlertTriangle, Hammer, Plus, Trash2, ChevronRight, Loader, Sparkles } from 'lucide-react';
 import type { SurvivalModuleSchema, SurvivalRecipe } from '../../../../modules/schema';
 import { Collapsible } from '../../../shared/Collapsible';
@@ -17,7 +17,7 @@ interface SurvivalCardProps {
   isGeneratingRecipe?: boolean;
 }
 
-export default function SurvivalCard({
+export default memo(function SurvivalCard({
   data, title, onGenerateRecipe, onCraft, onDeleteRecipe, isGeneratingRecipe,
 }: SurvivalCardProps) {
   const displayTitle = title || '生存资源';
@@ -276,4 +276,4 @@ export default function SurvivalCard({
       </div>
     </Collapsible>
   );
-}
+});

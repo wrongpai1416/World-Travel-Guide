@@ -158,7 +158,7 @@ export function readEntryKeyList(entry: WorldInfoEntry, primaryKey = 'key'): str
   };
   const aliases = aliasMap[primaryKey] || [primaryKey];
   for (const name of aliases) {
-    const value = (entry as Record<string, unknown>)[name];
+    const value = (entry as unknown as Record<string, unknown>)[name];
     if (Array.isArray(value)) {
       const arr = value.map((v) => String(v ?? '').trim()).filter(Boolean);
       if (arr.length > 0) return arr;
@@ -252,7 +252,7 @@ class WIScanner {
   /** 取条目专属扫描文本：优先用 entry.scanDepth，否则用全局深度。 */
   buildScanTextForEntry(entry: WorldInfoEntry, defaultDepth: number, globalScanData: string): string {
     const entryDepth = entry?.scanDepth;
-    const depth = entryDepth !== null && entryDepth !== undefined && entryDepth !== ''
+    const depth = entryDepth !== null && entryDepth !== undefined
       ? Math.max(0, Number(entryDepth) || 0)
       : defaultDepth;
     return this.buildScanText(depth, globalScanData);

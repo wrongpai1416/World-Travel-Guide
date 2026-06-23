@@ -74,6 +74,8 @@ interface PlayerProfile {
     数量: number;
     类型: string;
     品质: '普通' | '精良' | '稀有' | '史诗' | '传说';
+    有效期?: string;
+    特殊属性?: string;
     备注: string;
   }>;
 

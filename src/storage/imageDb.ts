@@ -26,36 +26,59 @@ function getDB(): Promise<IDBPDatabase> {
 
 export const imageDb = {
   async saveBlob(key: string, blob: Blob, mimeType?: string): Promise<string> {
-    const db = await getDB();
-    const data: ImageBlobRecord = {
-      key,
-      blob,
-      mimeType: mimeType || 'image/png',
-      size: blob.size,
-      createdAt: Date.now(),
-    };
-    await db.put(STORE_NAME, data);
-    return key;
+    try {
+      const db = await getDB();
+      const data: ImageBlobRecord = {
+        key,
+        blob,
+        mimeType: mimeType || 'image/png',
+        size: blob.size,
+        createdAt: Date.now(),
+      };
+      await db.put(STORE_NAME, data);
+      return key;
+    } catch (err) {
+      console.error('[imageDb] saveBlob 失败:', err);
+      throw err;
+    }
   },
 
   async getBlob(key: string): Promise<ImageBlobRecord | null> {
-    const db = await getDB();
-    const result = await db.get(STORE_NAME, key);
-    return result || null;
+    try {
+      const db = await getDB();
+      const result = await db.get(STORE_NAME, key);
+      return result || null;
+    } catch (err) {
+      console.error('[imageDb] getBlob 失败:', err);
+      return null;
+    }
   },
 
   async deleteBlob(key: string): Promise<void> {
-    const db = await getDB();
-    await db.delete(STORE_NAME, key);
+    try {
+      const db = await getDB();
+      await db.delete(STORE_NAME, key);
+    } catch (err) {
+      console.error('[imageDb] deleteBlob 失败:', err);
+    }
   },
 
   async getAllBlobs(): Promise<ImageBlobRecord[]> {
-    const db = await getDB();
-    return db.getAll(STORE_NAME);
+    try {
+      const db = await getDB();
+      return db.getAll(STORE_NAME);
+    } catch (err) {
+      console.error('[imageDb] getAllBlobs 失败:', err);
+      return [];
+    }
   },
 
   async clearAll(): Promise<void> {
-    const db = await getDB();
-    await db.clear(STORE_NAME);
+    try {
+      const db = await getDB();
+      await db.clear(STORE_NAME);
+    } catch (err) {
+      console.error('[imageDb] clearAll 失败:', err);
+    }
   },
 };

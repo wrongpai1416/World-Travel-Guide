@@ -15,14 +15,17 @@ import {
 
 type MemoryStore = ReturnType<typeof import('./memoryStore').useMemoryStore.getState>;
 
-/** 带超时的 Promise 包装 */
-function withTimeout<T>(promise: Promise<T>, ms: number, label = '操作'): Promise<T> {
+/** 带超时的 Promise 包装（支持 AbortController 取消底层请求） */
+function withTimeout<T>(promise: Promise<T>, ms: number, label = '操作', abortCtrl?: AbortController): Promise<T> {
+  const timeoutId = setTimeout(() => {
+    abortCtrl?.abort();
+  }, ms);
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error(`${label}超时(${ms / 1000}s)`)), ms)
     ),
-  ]);
+  ]).finally(() => clearTimeout(timeoutId));
 }
 
 /** 调用记忆系统 AI */
@@ -36,16 +39,18 @@ export async function callMemoryAI(
   // 限流保护
   await waitForRateLimit();
 
+  const abortCtrl = new AbortController();
   try {
     // 非流式调用，加大超时到 120 秒
     const result = await withTimeout(
       requestCompletion(
         { ...apiConfig, provider: 'openai' },
         [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-        { temperature },
+        { temperature, signal: abortCtrl.signal },
       ),
       timeoutMs,
       '记忆AI调用',
+      abortCtrl,
     );
     return result.text;
   } catch (err) {
@@ -88,6 +93,7 @@ export async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipel
           const checkConflict = <T extends { id?: string; title?: string; status?: string }>(
             incomingList: T[] | undefined,
             runtimeList: T[],
+            markExpired: (id: string) => void,
           ) => {
             if (!Array.isArray(incomingList)) return;
             for (let i = 0; i < incomingList.length; i++) {
@@ -106,7 +112,8 @@ export async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipel
                     if (judgeResult.action === 'reject_incoming') {
                       incomingList[i] = null as unknown as T;
                     } else if (judgeResult.action === 'mark_expired') {
-                      existing.status = 'cold';
+                      // 通过回调标记，不直接修改运行时对象（applyIngestToRuntime 统一处理）
+                      markExpired(existing.id ?? '');
                     }
                   } catch { /* 裁决失败按默认处理 */ }
                 });
@@ -114,14 +121,25 @@ export async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipel
             }
           };
 
-          checkConflict(eventCandidates, runtime.eventCards);
-          checkConflict(entityPatches, runtime.entityCards);
+          // 收集需要标记过期的 ID，applyIngestToRuntime 统一处理
+          const expiredIds = new Set<string>();
+          const markExpired = (id: string) => { if (id) expiredIds.add(id); };
+
+          checkConflict(eventCandidates, runtime.eventCards, markExpired);
+          checkConflict(entityPatches, runtime.entityCards, markExpired);
 
           if (conflictTasks.length > 0) {
             await Promise.all(conflictTasks.map(t => t()));
             // 清理被 reject 的元素
             if (eventCandidates) parsed.eventCandidates = eventCandidates.filter(Boolean);
             if (entityPatches) parsed.entityPatches = entityPatches.filter(Boolean);
+          }
+
+          // 统一应用标记过期的事件卡片（entityCard 没有 status 字段，跳过）
+          if (expiredIds.size > 0) {
+            for (const card of runtime.eventCards) {
+              if (expiredIds.has(card.id)) card.status = 'cold';
+            }
           }
         }
 

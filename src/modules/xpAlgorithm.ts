@@ -115,14 +115,11 @@ export function rollDice(attributeValue: number, dc: number): {
 export function getCheckableAttributes(
   statModule: import('./schema').StatModuleSchema
 ): Array<{ id: string; name: string; value: number }> {
-  const attrs = [
-    { id: 'dim1', name: statModule.dim1.name, value: statModule.dim1.value },
-    { id: 'dim2', name: statModule.dim2.name, value: statModule.dim2.value },
-    { id: 'dim3', name: statModule.dim3.name, value: statModule.dim3.value },
-    { id: 'dim4', name: statModule.dim4.name, value: statModule.dim4.value },
-    { id: 'dim5', name: statModule.dim5.name, value: statModule.dim5.value },
-    { id: 'dim6', name: statModule.dim6.name, value: statModule.dim6.value },
-  ];
+  const dims = [statModule.dim1, statModule.dim2, statModule.dim3, statModule.dim4, statModule.dim5, statModule.dim6];
+  const attrs: Array<{ id: string; name: string; value: number }> = [];
+  dims.forEach((d, i) => {
+    if (d) attrs.push({ id: `dim${i + 1}`, name: d.name, value: d.value });
+  });
   for (const sp of statModule.special) {
     attrs.push({ id: sp.id, name: sp.name, value: sp.value });
   }

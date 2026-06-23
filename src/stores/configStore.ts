@@ -186,7 +186,7 @@ function loadUISettings(): UISettings {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-  } catch {}
+  } catch { console.warn('[ConfigStore] 读取 UI 设置失败，使用默认值'); }
   return DEFAULT_SETTINGS;
 }
 
@@ -194,7 +194,7 @@ function loadApiConfig(): ApiConfig | null {
   try {
     const saved = localStorage.getItem(API_STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
-  } catch { return null; }
+  } catch { console.warn('[ConfigStore] 读取 API 配置失败'); return null; }
 }
 
 // ─── Store ───

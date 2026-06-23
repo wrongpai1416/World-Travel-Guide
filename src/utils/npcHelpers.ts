@@ -1,6 +1,6 @@
 // NPC 管理工具
 import type { GameState, NPCData } from '../schema/variables';
-import * as _ from 'lodash-es';
+import { cloneDeep } from 'lodash-es';
 
 // ─── 常量 ───────────────────────────────────────────
 
@@ -288,7 +288,7 @@ export function createPromptSafeNpcSnapshot(npc: NPCData | Record<string, unknow
   }
 
   // 在场/重点 NPC 完整快照
-  const snapshot = _.cloneDeep(npc) as any;
+  const snapshot = cloneDeep(npc) as any;
   snapshot.姓名 = rawName;
   if (snapshot.name !== undefined) snapshot.name = rawName;
   snapshot.人物分类 = category;

@@ -188,7 +188,7 @@ function EventListRenderer({ data }: { data: Record<string, unknown> }) {
             <div key={key} style={{ padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: '600', fontSize: 'var(--font-size-sm)' }}>{key}</span>
-                {v['significance'] && (
+                {String(v['significance'] || '') && (
                   <span style={{
                     fontSize: '10px', padding: '1px 6px', borderRadius: '8px',
                     background: v['significance'] === 'major' ? '#ef444420' : '#6b728020',
@@ -196,8 +196,8 @@ function EventListRenderer({ data }: { data: Record<string, unknown> }) {
                   }}>{v['significance'] === 'major' ? '重大' : '日常'}</span>
                 )}
               </div>
-              {v['状态'] && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)' }}>状态：{String(v['状态'])}</div>}
-              {v['影响'] && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{String(v['影响'])}</div>}
+              {String(v['状态'] || '') && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)' }}>状态：{String(v['状态'])}</div>}
+              {String(v['影响'] || '') && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{String(v['影响'])}</div>}
             </div>
           );
         }
@@ -215,7 +215,7 @@ function DiceRenderer({ data }: { data: Record<string, unknown> }) {
       <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
         {String(data['规则'] || '掷1d20 + 修正值 vs DC')}
       </div>
-      {data['最近结果'] && (
+      {String(data['最近结果'] || '') && (
         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
           最近：{String(data['最近结果'])}
         </div>
