@@ -105,7 +105,7 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     id: 'builtin_display_strip_meta',
     scriptName: '去除AI元数据标签',
     // 匹配所有已知闭合标签及其内容（thinking 已由折叠脚本处理，不再剥除）
-    findRegex: '<details>(?!\\s*<summary>💭)[\\s\\S]*?</details>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<integrity>[\\s\\S]*|This content is produced for educational[\\s\\S]*?creative exploration\\.|(?:^|\\n).*(?:时间|地点|人物|摘要).*(?:\\n|$)|<br\\s*/?>\\s*(?:###|时间|地点|人物|摘要|This content)|<br\\s*/?>\\s*(?:时间|地点|人物|摘要)|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
+    findRegex: '<details>(?!\\s*<summary>💭)[\\s\\S]*?</details>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image_think>[\\s\\S]*?</image_think>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<integrity>[\\s\\S]*|This content is produced for educational[\\s\\S]*?creative exploration\\.|(?:^|\\n).*(?:时间|地点|人物|摘要).*(?:\\n|$)|<br\\s*/?>\\s*(?:###|时间|地点|人物|摘要|This content)|<br\\s*/?>\\s*(?:时间|地点|人物|摘要)|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
     replaceString: '',
     placement: [2],
     disabled: false,
@@ -184,7 +184,7 @@ const PROMPT_SCRIPTS: RegexScript[] = [
   {
     id: 'builtin_prompt_strip_meta',
     scriptName: 'API-去除AI元数据标签',
-    findRegex: '<thinking>[\\s\\S]*?</thinking>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<details>\\s*<summary>[\\s\\S]*?</details>|<details>[\\s\\S]*?</details>|<summary>[\\s\\S]*?</summary>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
+    findRegex: '<thinking>[\\s\\S]*?</thinking>|<UpdateVariable>[\\s\\S]*?</UpdateVariable>|<(?:action_)?options>[\\s\\S]*?</(?:action_)?options>|<details>\\s*<summary>[\\s\\S]*?</details>|<details>[\\s\\S]*?</details>|<summary>[\\s\\S]*?</summary>|<integrity>[\\s\\S]*?</integrity>|<analysis_block>[\\s\\S]*?</analysis_block>|<image_think>[\\s\\S]*?</image_think>|<image[^>]*>[\\s\\S]*?</image>|<imgthink>[\\s\\S]*?</imgthink>|<StatusPlaceHolderImpl/>|<antArtifact>[\\s\\S]*?</antArtifact>',
     replaceString: '',
     placement: [2],
     disabled: false,
@@ -551,35 +551,73 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 export const PROMPT_INLINE_IMAGE = `<InlineImageGeneration>
 【强制规则 — 正文生图标签】
 
-每次回复的 <contenttext> 正文中，必须插入 1-2 个生图标签。标签格式严格为：
+每次回复的 <contenttext> 正文中，必须插入 1-3 个生图标签。标签格式严格为：
 
 image###英文提示词###
 
-【NovelAI / Stable Diffusion 标签规则】
-1. 使用逗号+空格分隔的英文 booru 风格标签，如 "1girl, long silver hair, golden eyes"
-2. 标签顺序很重要，越靠前权重越高。按以下顺序排列：
-   ① 质量标签（必含）：masterpiece, best quality, very aesthetic, absurdres, extremely detailed
-   ② 主体：人数(1girl/1boy) + solo + 构图(portrait/upper body/cowboy shot/full body) + 姿势 + 视线
-   ③ 外貌：头发(长度+颜色+发型) + 眼睛(颜色) + 面部特征 + 肤色(仅非普通肤色时标注)
-   ④ 服饰：颜色+材质+款式，如 "white flowing robe, gold embroidery"
-   ⑤ 动作/状态：当前行为，如 "standing, holding sword, looking at viewer"
-   ⑥ 环境/背景：场景描述，如 "dark dungeon interior, ancient stone walls"
-   ⑦ 光照/氛围（1-3个）：cinematic lighting / volumetric lighting / backlighting / bokeh
-3. 描述要具体：服饰拆分为颜色+材质+款式，不要笼统
-4. 非人特征用专属标签：elf ears, demon horns, animal ears, tail, wings
-5. 权重强调可用 weight::tag:: 语法（如 1.2::detailed eyes::），最多 1-2 处
-6. 总标签量约 40-100 词，避免重复
+━━ 配图决策（决定在哪里插入） ━━
 
-【场景图（无人物）示例】
-image###masterpiece, best quality, very aesthetic, absurdres, dark dungeon interior, ancient stone walls, mysterious altar, torch light, volumetric lighting, eerie atmosphere, fantasy, highly detailed###
+必配：角色首次登场 / 战斗高潮 / 关键剧情转折 / 重要场景切换
+推荐：情绪爆发 / 环境变化 / 重要互动 / 特殊氛围
+跳过：纯对话 / 纯心理描写 / 过渡段落
 
-【人物场景示例】
-image###masterpiece, best quality, very aesthetic, absurdres, 1girl, solo, upper body, looking at viewer, long silver hair, side braid, golden eyes, gentle smile, white knight armor, gold trim, standing on cliff edge, wind blowing hair, dramatic lighting, fantasy landscape, sunset background###
+每张图必须对应正文中一个具体的视觉场景，不要凭空捏造画面。
 
-【标签写在正文中的示例】
-<contenttext>她推开了古堡的大门。image###masterpiece, best quality, very aesthetic, absurdres, 1girl, solo, upper body, looking forward, long black hair, red eyes, pale skin, black dress, lace trim, standing at castle gate, torch light, volumetric lighting, gothic architecture### 灰尘在光柱中飞舞。</contenttext>
+━━ 生成流程（每张图必须执行） ━━
 
-可选：在提示词前加 link:com 指定 ComfyUI 引擎，如 image###link:com, masterpiece, best quality, ...###。
+第一步：在 <image_think> 中分析场景（写在 image 标签之前，会被自动剥离）：
+- 谁：哪个角色，什么外貌特征
+- 在哪：什么场景，什么环境
+- 穿什么/状态：服装、姿势、表情
+- 在干嘛：具体动作
+- 镜头意图：想传达什么情绪/氛围
+
+第二步：按槽位结构写提示词
+
+━━ 槽位结构（按顺序填充） ━━
+
+Scene 槽（场景）：
+[质量标签], [人数/分级], [镜头: 视角+景别+构图], [场景: 地点+环境+细节], [光影: 光源+氛围]
+
+Char 槽（角色，每人一个）：
+[角色名], [头发: 长度+颜色+发型], [眼睛: 颜色], [特征], [穿搭: 类型+颜色+材质+细节], [动作: 具体姿势+与场景关系], [表情: 视线+情绪], [微细节]
+
+━━ 标签规范 ━━
+
+1. 逗号+空格分隔的英文 booru 风格标签
+2. 质量标签必含：masterpiece, best quality, very aesthetic, absurdres
+3. 描述要具体：white robe → white flowing robe, gold embroidery, long sleeves
+4. 头发：长度+颜色+发型+装饰（long silver hair, side braid, hair flower）
+5. 眼睛：颜色+神情（golden eyes, gentle gaze）
+6. 服饰拆分：颜色+材质+款式+状态（black dress, lace trim, slightly torn）
+7. 非人特征：elf ears / demon horns / animal ears / tail / wings
+8. 权重强调：1.5::tag:: 或 0.6::tag::（最多 2-3 处）
+9. 标签量 60-150 词，避免重复
+
+━━ 镜头决策 ━━
+
+- 角色展示/独处：solo, upper body / portrait / cowboy shot
+- 面对面互动：face to face, looking at another
+- 环境/群像：wide shot, full body
+- 俯视/威压：from below, low angle
+- 脆弱/渺小：from above, high angle
+- 窥视感：from outside, through window
+- 氛围/情绪：dutch angle, depth of field, bokeh
+
+━━ 输出格式 ━━
+
+<image_think>谁/在哪/穿什么/在干嘛/镜头意图</image_think>
+image###Scene:[质量],[镜头],[场景],[光影]; Char1:[角色],[特征],[穿搭],[动作],[表情];###
+
+━━ 示例 ━━
+
+<image_think>银发金瞳少女骑士，穿白色盔甲，站在悬崖边，风吹动头发，夕阳背景。半身像，正面，戏剧性光线。</image_think>
+image###masterpiece, best quality, very aesthetic, absurdres, 1girl, solo, upper body, from front, looking at viewer, wind blowing hair, depth of field, fantasy landscape, cliff edge, sunset, golden hour, dramatic lighting, lens flare; long silver hair, side braid, golden eyes, gentle smile, white knight armor, gold trim, leather straps, flowing cape### 她站在悬崖边，夕阳将银发染成金色。
+
+<image_think>阴暗地牢内部，石墙上火把照亮，古老祭坛散发诡异光芒。全景，低角度，体积光。</image_think>
+image###masterpiece, best quality, very aesthetic, absurdres, no humans, from below, low angle, depth of field, indoors, dungeon, ancient stone walls, stone pillars, iron chains, mysterious altar, glowing runes, torch light, volumetric lighting, fog, eerie atmosphere, fantasy### 地牢深处，祭坛上的符文散发着幽蓝的光。
+
+可选：在提示词前加 link:com 指定 ComfyUI 引擎。
 </InlineImageGeneration>`;
 
 // ── 结构化条目数组 ──

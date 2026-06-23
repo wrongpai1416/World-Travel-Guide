@@ -29,9 +29,10 @@ function stripInnerTags(text: string): string {
     .replace(/<safe>[\s\S]*?<\/safe>/gi, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
     .replace(/<analysis_block>[\s\S]*?<\/analysis_block>/gi, '')
+    .replace(/<image_think[^>]*>[\s\S]*?<\/image_think>/gi, '')
     .replace(/<image[^>]*>[\s\S]*?<\/image>/gi, '')
     .replace(/<imgthink[^>]*>[\s\S]*?<\/imgthink>/gi, '')
-    .replace(/<\/?(?:UpdateVariable|variable|action_options|options|details|summary|Auto|safe|StatusPlaceHolderImpl|thinking|analysis_block|contenttext|image|imgthink|br|hr)[^>]*\/?>/gi, '');
+    .replace(/<\/?(?:UpdateVariable|variable|action_options|options|details|summary|Auto|safe|StatusPlaceHolderImpl|thinking|analysis_block|contenttext|image|image_think|imgthink|br|hr)[^>]*\/?>/gi, '');
 }
 
 /** 剥掉所有已知标签（兜底用） */
@@ -46,10 +47,11 @@ function stripAllTags(text: string): string {
     .replace(/<Auto>[\s\S]*?<\/Auto>/gi, '')
     .replace(/<safe>[\s\S]*?<\/safe>/gi, '')
     .replace(/<analysis_block>[\s\S]*?<\/analysis_block>/gi, '')
+    .replace(/<image_think[^>]*>[\s\S]*?<\/image_think>/gi, '')
     .replace(/<image[^>]*>[\s\S]*?<\/image>/gi, '')
     .replace(/<imgthink[^>]*>[\s\S]*?<\/imgthink>/gi, '')
     .replace(/<thinking>[\s\S]*?(?=<\/?(?:contenttext|action_?options|Update|variable|summary|Auto|safe)|$)/gi, '')
-    .replace(/<\/?(?:UpdateVariable|variable|action_options|options|details|summary|Auto|safe|StatusPlaceHolderImpl|thinking|analysis_block|contenttext|image|imgthink|br|hr)[^>]*\/?>/gi, '');
+    .replace(/<\/?(?:UpdateVariable|variable|action_options|options|details|summary|Auto|safe|StatusPlaceHolderImpl|thinking|analysis_block|contenttext|image|image_think|imgthink|br|hr)[^>]*\/?>/gi, '');
 }
 
 // ── 类型定义（供 pipelineExecutor / variableExtraction 使用） ──
