@@ -680,16 +680,19 @@ export class VariableManager {
     return s;
   }
 
-  // 从快照恢复变量状态（保留 portraitUrl 等缓存字段）
+  // 从快照恢复变量状态（保留 portraitBlobKey 等持久字段）
   restoreSnapshot(snapshot: GameState): void {
     if (!snapshot) return;
     const currentState = cloneDeep(this.state);
     this.state = cloneDeep(snapshot);
-    // 保留现有 portraitUrl，避免丢失缓存头像
+    // 保留 portraitBlobKey，确保画像能从 IndexedDB 恢复
     if (currentState.人物档案 && this.state.人物档案) {
       for (const [id, npc] of Object.entries(currentState.人物档案)) {
-        if ((npc as any).portraitUrl && this.state.人物档案[id]) {
-          (this.state.人物档案[id] as any).portraitUrl = (npc as any).portraitUrl;
+        const target = this.state.人物档案[id];
+        if (!target) continue;
+        // 优先用快照中的 blobKey，其次用当前内存中的
+        if (!(target as any).portraitBlobKey && (npc as any).portraitBlobKey) {
+          (target as any).portraitBlobKey = (npc as any).portraitBlobKey;
         }
       }
     }

@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   User, Users, ScrollText, Swords, BookOpen, Star, X,
   BarChart3, Tag, Briefcase, MapPin, Sparkles,
   Brain, Dna, Zap, Backpack, Shield,
   FileText, Edit3, Trash2, Plus, Save, ImageIcon,
+  Upload,
 } from 'lucide-react';
-import { useCharacterPortrait } from '../../../hooks/useCharacterPortrait';
+import { useCharacterPortrait, buildPortraitPrompt } from '../../../hooks/useCharacterPortrait';
+import { imageDb } from '../../../storage/imageDb';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from '../../shared/Avatar';
 import EmptyState from '../../shared/EmptyState';
@@ -129,7 +131,7 @@ function GaugeBar({ value, color }: { value: number; color: string }) {
 }
 
 // NPC 卡片
-function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () => void }) {
+function NPCCard({ id, npc, onClick, portraitSrc }: { id: string; npc: NPCData; onClick: () => void; portraitSrc?: string | null }) {
   const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知' };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const fav = favorClass(rd.好感度);
@@ -150,7 +152,7 @@ function NPCCard({ id, npc, onClick }: { id: string; npc: NPCData; onClick: () =
     >
       {/* 头像 + 名字 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-        <Avatar name={npc.姓名 || id} size="md" imageSrc={(npc as any).portraitUrl || null} />
+        <Avatar name={npc.姓名 || id} size="md" imageSrc={portraitSrc || null} />
         <div style={{ flex: '1', minWidth: 0 }}>
           <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             {npc.重要NPC && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
@@ -647,16 +649,59 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
   const chronicles = ((npc as any).人物事迹 as string[] | undefined) ?? [];
 
   const ext = npc as any;
-  const [portraitUrl, setPortraitUrl] = useState<string | null>(ext.portraitUrl || null);
+  const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [portraitStatus, setPortraitStatus] = useState('');
+  const [showPortraitZoom, setShowPortraitZoom] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 从 IndexedDB 恢复画像（按 portraitBlobKey 或 portrait-{npcId}）
+  useEffect(() => {
+    const blobKey = ext.portraitBlobKey || `portrait-${npcId}`;
+    let cancelled = false;
+    (async () => {
+      try {
+        const record = await imageDb.getBlob(blobKey);
+        if (!cancelled && record?.blob) {
+          const url = URL.createObjectURL(record.blob);
+          setPortraitUrl(url);
+        }
+      } catch { /* no portrait saved yet */ }
+    })();
+    return () => { cancelled = true; };
+  }, [ext.portraitBlobKey, npcId]);
+
+  // 生成画像（弹出提示词编辑器）
   const handleGeneratePortrait = async () => {
-    const url = await generatePortrait(npc, setPortraitStatus);
-    if (url) {
-      setPortraitUrl(url);
-      ext.portraitUrl = url;
+    const defaultPrompt = buildPortraitPrompt(npc);
+    const editedPrompt = await dlgPrompt('编辑画像提示词（英文 booru 标签）：', {
+      defaultValue: defaultPrompt,
+      title: '生成角色画像',
+    });
+    if (!editedPrompt?.trim()) return;
+
+    const result = await generatePortrait(npc, setPortraitStatus, editedPrompt.trim());
+    if (result) {
+      setPortraitUrl(result.url);
+      ext.portraitBlobKey = result.blobKey;
     }
   };
+
+  // 上传自定义头像
+  const handleUploadPortrait = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const blobKey = `portrait-${npcId}`;
+    try {
+      await imageDb.saveBlob(blobKey, file, file.type);
+      const url = URL.createObjectURL(file);
+      setPortraitUrl(url);
+      ext.portraitBlobKey = blobKey;
+    } catch (err) {
+      console.error('上传头像失败:', err);
+    }
+    // 重置 input 以便重复选择同一文件
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [npcId, ext]);
   const rd = npc.关系数据 ?? { 好感度: 0, 关系类型: '未知' };
   const sj = npc.社会身份 ?? { 职业: '', 社会地位: '' };
   const pi = npc.个人信息 ?? { 外貌: '', 表性格: '', 里性格: '', 当前想法: '', 当前穿着: '', 当前位置: '', 当前状态: '', 备注: '' };
@@ -684,7 +729,14 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
         {/* 头部 */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ position: 'relative' }}>
-            <Avatar name={npc.姓名 || npcId} size="lg" imageSrc={portraitUrl} />
+            <div
+              onClick={() => portraitUrl && setShowPortraitZoom(true)}
+              style={{ cursor: portraitUrl ? 'pointer' : 'default' }}
+              title={portraitUrl ? '点击放大' : ''}
+            >
+              <Avatar name={npc.姓名 || npcId} size="lg" imageSrc={portraitUrl} />
+            </div>
+            {/* 生成/重新生成按钮 */}
             <button
               onClick={handleGeneratePortrait}
               title={portraitUrl ? '重新生成画像' : '生成画像'}
@@ -698,6 +750,27 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
             >
               <ImageIcon size={10} color="#fff" />
             </button>
+            {/* 上传按钮 */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title="上传自定义头像"
+              style={{
+                position: 'absolute', top: -2, right: -2,
+                width: '20px', height: '20px', borderRadius: '50%',
+                background: 'var(--bg-tertiary)', border: '2px solid var(--bg-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', padding: 0,
+              }}
+            >
+              <Upload size={10} color="var(--text-secondary)" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleUploadPortrait}
+              style={{ display: 'none' }}
+            />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: '600', fontSize: 'var(--font-size-lg)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -933,6 +1006,29 @@ function NPCDetail({ npc, npcId, onClose, onUpdateChronicles, onMergeChronicles 
         />
       )}
 
+      {/* 头像放大弹窗 */}
+      {showPortraitZoom && portraitUrl && (
+        <div
+          onClick={() => setShowPortraitZoom(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.8)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <img
+            src={portraitUrl}
+            alt={npc.姓名 || '头像'}
+            style={{
+              maxWidth: '90vw', maxHeight: '90vh',
+              borderRadius: 'var(--radius-md)',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+      )}
+
       {DialogUI}
     </div>
   );
@@ -952,14 +1048,35 @@ function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: str
 export default function CharacterGrid({ gameState, onUpdateChronicles, onMergeChronicles }: Props) {
   const npcs = gameState.人物档案;
   const [selected, setSelected] = useState<{ id: string; data: NPCData } | null>(null);
+  const [portraitUrls, setPortraitUrls] = useState<Record<string, string>>({});
 
   const sorted = Object.entries(npcs).sort((a, b) => (b[1].关系数据?.好感度 ?? 0) - (a[1].关系数据?.好感度 ?? 0));
+
+  // 批量从 IndexedDB 加载头像
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const urls: Record<string, string> = {};
+      for (const [id, npc] of sorted) {
+        const ext = npc as any;
+        const blobKey = ext.portraitBlobKey || `portrait-${id}`;
+        try {
+          const record = await imageDb.getBlob(blobKey);
+          if (!cancelled && record?.blob) {
+            urls[id] = URL.createObjectURL(record.blob);
+          }
+        } catch { /* no portrait */ }
+      }
+      if (!cancelled) setPortraitUrls(urls);
+    })();
+    return () => { cancelled = true; };
+  }, [sorted.map(([id]) => id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ padding: '12px 16px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
         {sorted.map(([id, npc]) => (
-          <NPCCard key={id} id={id} npc={npc} onClick={() => setSelected({ id, data: npc })} />
+          <NPCCard key={id} id={id} npc={npc} portraitSrc={portraitUrls[id]} onClick={() => setSelected({ id, data: npc })} />
         ))}
       </div>
       {sorted.length === 0 && (

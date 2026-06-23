@@ -5,8 +5,8 @@ import { getGenerationConfigError } from '@/api/imageGen';
 import { useImageStore } from '@/stores/imageStore';
 import type { NPCData } from '@/schema/variables';
 
-/** 从 NPC 数据构建生图提示词 */
-function buildPortraitPrompt(npc: NPCData, template?: string): string {
+/** 从 NPC 数据构建生图提示词（导出供编辑器预览用） */
+export function buildPortraitPrompt(npc: NPCData, template?: string): string {
   // 如果有自定义模板，使用它
   if (template && template.trim()) {
     let result = template;
@@ -58,7 +58,8 @@ export function useCharacterPortrait() {
   const generatePortrait = useCallback(async (
     npc: NPCData,
     onProgress?: (status: string) => void,
-  ): Promise<string | null> => {
+    promptOverride?: string,
+  ): Promise<{ url: string; blobKey: string } | null> => {
     const configError = getGenerationConfigError(config);
     if (configError) {
       onProgress?.(`配置错误: ${configError}`);
@@ -68,7 +69,7 @@ export function useCharacterPortrait() {
     const npcName = npc.姓名 || '未知';
     onProgress?.(`正在为 ${npcName} 生成画像...`);
 
-    const prompt = buildPortraitPrompt(npc, imageConfig.characterPortraitPromptTemplate);
+    const prompt = promptOverride?.trim() || buildPortraitPrompt(npc, imageConfig.characterPortraitPromptTemplate);
 
     try {
       const result = await generateAndSave(
@@ -81,7 +82,7 @@ export function useCharacterPortrait() {
         const url = await getImageUrl(result);
         if (url) {
           onProgress?.('画像生成成功');
-          return url;
+          return { url, blobKey: result.imageBlobKey };
         }
       }
 

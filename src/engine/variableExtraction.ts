@@ -33,6 +33,7 @@ function sanitizeForExtraction(state: GameState): GameState {
       const cleaned = { ...npc };
       // 移除缓存字段
       delete (cleaned as any).portraitUrl;
+      delete (cleaned as any).portraitBlobKey;
       // 事迹只保留最近 10 条（完整事迹在主状态里，提取只需参考近期）
       if (Array.isArray(cleaned.人物事迹) && cleaned.人物事迹.length > 10) {
         cleaned.人物事迹 = cleaned.人物事迹.slice(-10);
