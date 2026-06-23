@@ -109,13 +109,21 @@ export function useImageGen() {
         try {
           const result = await generateConfiguredImage(prompt, effectiveConfig);
 
-          // 保存到 IndexedDB
-          await imageDb.saveBlob(taskId, result.blob, 'image/png');
+          const isPersistent = taskRecord.category !== 'story'; // 角色画像持久化，正文图不存
+
+          // 仅持久化分类（角色画像）保存到 IndexedDB
+          if (isPersistent) {
+            await imageDb.saveBlob(taskId, result.blob, 'image/png');
+          }
+
+          // 正文图用 blob URL（刷新后失效，不占存储）
+          const blobUrl = isPersistent ? '' : URL.createObjectURL(result.blob);
 
           // 更新任务记录
           updateTask(taskId, {
             status: 'completed',
-            imageBlobKey: taskId,
+            imageBlobKey: isPersistent ? taskId : null,
+            imageUrl: blobUrl,
             updatedAt: Date.now(),
             prompt: result.prompt || taskRecord.prompt,
             negativePrompt: result.negativePrompt || taskRecord.negativePrompt,
@@ -130,7 +138,7 @@ export function useImageGen() {
             },
           });
 
-          return { ...taskRecord, status: 'completed' as const, imageBlobKey: taskId };
+          return { ...taskRecord, status: 'completed' as const, imageBlobKey: isPersistent ? taskId : null, imageUrl: blobUrl };
         } catch (e) {
           updateTask(taskId, {
             status: 'failed',

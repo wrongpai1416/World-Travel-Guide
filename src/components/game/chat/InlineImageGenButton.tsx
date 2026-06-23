@@ -71,18 +71,16 @@ export default function InlineImageGenButton({ prompt, msgId }: Props) {
           }
         },
       );
-      console.log('[InlineImage] generateAndSave 返回:', result ? { id: result.id, status: result.status, imageBlobKey: result.imageBlobKey } : null);
+      console.log('[InlineImage] generateAndSave 返回:', result ? { id: result.id, status: result.status, imageBlobKey: result.imageBlobKey, hasImageUrl: !!result.imageUrl } : null);
 
-      if (result?.imageBlobKey) {
-        const url = await getImageUrl(result);
-        console.log('[InlineImage] getImageUrl 返回:', url ? url.substring(0, 60) : null);
-        if (url) {
-          updateState({ status: 'done', imageUrl: url, taskId: result.id });
-        } else {
-          updateState({ status: 'error', errorMsg: '获取图片地址失败' });
-        }
+      // 优先用 blob URL（正文图），其次从 IndexedDB 恢复（角色画像）
+      let url = result?.imageUrl || '';
+      if (!url && result?.imageBlobKey) {
+        url = await getImageUrl(result) || '';
+      }
+      if (url) {
+        updateState({ status: 'done', imageUrl: url, taskId: result!.id });
       } else {
-        console.warn('[InlineImage] result 无 imageBlobKey:', result);
         updateState({ status: 'error', errorMsg: '生成完成但未返回图片' });
       }
     } catch (e) {
