@@ -471,7 +471,7 @@ export class VariableManager {
                 working[op.index] = String(op.value);
               }
             } else if (type === 'merge' && Array.isArray(op.indexes) && op.value) {
-              const indexes = op.indexes.map((i: any) => Number(i)).filter(i => i >= 0 && i < working.length).sort((a, b) => a - b);
+              const indexes = op.indexes.map((i: unknown) => Number(i)).filter((i: number) => i >= 0 && i < working.length).sort((a: number, b: number) => a - b);
               if (indexes.length > 0) {
                 working[indexes[0]] = String(op.value);
                 // 从后往前删除被合并的条目
@@ -515,7 +515,7 @@ export class VariableManager {
         if (rest.世界 && typeof rest.世界 === 'object' && (rest.世界 as any).世界系统) {
           const { 世界: worldPatch, ...otherRest } = rest;
           const worldData = worldPatch as Record<string, unknown>;
-          const existingWorld = this.state.世界 as Record<string, unknown>;
+          const existingWorld = this.state.世界 as unknown as Record<string, unknown>;
 
           // 合并世界系统模块数据（按 id 匹配数组元素）
           if (existingWorld?.世界系统 && worldData.世界系统) {
@@ -545,7 +545,7 @@ export class VariableManager {
       if (patch.世界 && typeof patch.世界 === 'object' && (patch.世界 as any).世界系统) {
         const { 世界: worldPatch, ...otherPatch } = patch;
         const worldData = worldPatch as Record<string, unknown>;
-        const existingWorld = this.state.世界 as Record<string, unknown>;
+        const existingWorld = this.state.世界 as unknown as Record<string, unknown>;
 
         // 合并世界系统模块数据（按 id 匹配数组元素）
         if (existingWorld?.世界系统 && worldData.世界系统) {
