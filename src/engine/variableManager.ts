@@ -451,7 +451,6 @@ export class VariableManager {
         }
         // 人物事迹：支持精细操作（chronicleOperations）或追加模式
         const npcData = data as Record<string, unknown>;
-        const CHRONICLE_HARD_CAP = 30;
 
         // 优先处理 chronicleOperations（精细操作：add/replace/merge/remove）
         const chronicleOps = (npcData as any).chronicleOperations;
@@ -486,24 +485,19 @@ export class VariableManager {
             }
           }
 
-          // 去重 + 硬上限
+          // 去重（不截断，全量保留）
           const deduped = working.filter((item, i) => working.indexOf(item) === i);
-          (this.state.人物档案[npcId] as any).人物事迹 = deduped.length > CHRONICLE_HARD_CAP
-            ? deduped.slice(-CHRONICLE_HARD_CAP)
-            : deduped;
+          (this.state.人物档案[npcId] as any).人物事迹 = deduped;
         }
 
-        // 兼容模式：人物事迹数组追加（去重）
+        // 兼容模式：人物事迹数组追加（去重，不截断）
         const incomingChronicles = npcData.人物事迹;
         if (Array.isArray(incomingChronicles)) {
           delete npcData.人物事迹;
           const existing = (this.state.人物档案[npcId] as any).人物事迹;
           const existingArr = Array.isArray(existing) ? existing : [];
           const newEntries = incomingChronicles.filter(c => !existingArr.includes(c));
-          const merged = [...existingArr, ...newEntries];
-          (this.state.人物档案[npcId] as any).人物事迹 = merged.length > CHRONICLE_HARD_CAP
-            ? merged.slice(-CHRONICLE_HARD_CAP)
-            : merged;
+          (this.state.人物档案[npcId] as any).人物事迹 = [...existingArr, ...newEntries];
         }
         merge(this.state.人物档案[npcId], npcData);
       }
@@ -667,10 +661,7 @@ export class VariableManager {
         for (const f of longFields) {
           if (typeof n[f] === 'string' && n[f].length > 200) n[f] = n[f].slice(0, 200) + '…';
         }
-        // 限制事迹条数
-        if (Array.isArray(n.人物事迹) && n.人物事迹.length > 15) {
-          n.人物事迹 = n.人物事迹.slice(-15);
-        }
+        // 事迹全量保留（仅发给 AI 时截取近期，存档不截断）
         // 移除大型缓存字段
         delete n.portraitUrl;
         npcs[id] = n;
