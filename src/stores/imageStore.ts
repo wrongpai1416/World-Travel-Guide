@@ -12,7 +12,9 @@ function loadImageConfig(): ImageGenConfig {
   try {
     const saved = localStorage.getItem(CONFIG_KEY);
     if (saved) return { ...DEFAULT_IMAGE_CONFIG, ...JSON.parse(saved) };
-  } catch {}
+  } catch (e) {
+    console.warn('[imageStore] loadImageConfig 解析失败，使用默认值:', e);
+  }
   return { ...DEFAULT_IMAGE_CONFIG };
 }
 

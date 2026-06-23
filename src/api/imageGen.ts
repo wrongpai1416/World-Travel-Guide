@@ -1,6 +1,5 @@
 // 生图 API 调用层 — 三种引擎的 fetch 逻辑
 
-import JSZip from 'jszip';
 import type {
   ImageGenConfig,
   ImageGenResult,
@@ -659,7 +658,8 @@ export async function generateNovelAIImage(prompt: string, config: Partial<Image
     throw new Error(errMsg);
   }
 
-  // 响应是 ZIP 文件，需要解压
+  // 响应是 ZIP 文件，需要解压（动态导入 JSZip，~96KB）
+  const { default: JSZip } = await import('jszip');
   const arrayBuffer = await resp.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 

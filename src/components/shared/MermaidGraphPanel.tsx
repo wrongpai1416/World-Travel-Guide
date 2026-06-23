@@ -4,9 +4,17 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import mermaid from 'mermaid';
 import DOMPurify from 'dompurify';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+
+// ─── Mermaid 动态导入（~1.5MB，仅在需要渲染时加载） ───
+let _mermaidModule: typeof import('mermaid') | null = null;
+async function getMermaid() {
+  if (!_mermaidModule) {
+    _mermaidModule = await import('mermaid');
+  }
+  return _mermaidModule;
+}
 
 // ============================================================
 //  类型定义
@@ -47,9 +55,10 @@ const DRAG_THRESHOLD = 4;
 
 let mermaidInitialized = false;
 
-function ensureMermaidInit() {
+async function ensureMermaidInit() {
   if (mermaidInitialized) return;
-  mermaid.initialize({
+  const mermaid = await getMermaid();
+  mermaid.default.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
     theme: 'base',
@@ -229,9 +238,10 @@ export function MermaidGraphPanel({
       setIsRendering(true);
       setRenderError('');
       try {
-        ensureMermaidInit();
+        await ensureMermaidInit();
+        const mermaid = await getMermaid();
         const id = `mermaid-graph-${currentId}-${Date.now()}`;
-        const { svg } = await mermaid.render(id, graphDefinition);
+        const { svg } = await mermaid.default.render(id, graphDefinition);
 
         if (!cancelled) {
           // 净化 SVG 防止 XSS（移除事件处理器和脚本）

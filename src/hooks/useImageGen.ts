@@ -46,9 +46,24 @@ function enqueueTask<T>(taskFn: () => Promise<T>, onStatusChange?: (status: stri
   });
 }
 
-// ─── URL 缓存 ───
+// ─── URL 缓存（带 LRU 淘汰，防止 Object URL 无限增长） ───
 
+const IMAGE_URL_CACHE_MAX = 50;
 const imageUrlCache = new Map<string, string>();
+
+function evictOldCacheEntries() {
+  if (imageUrlCache.size <= IMAGE_URL_CACHE_MAX) return;
+  const toEvict = imageUrlCache.size - IMAGE_URL_CACHE_MAX;
+  const keys = imageUrlCache.keys();
+  for (let i = 0; i < toEvict; i++) {
+    const key = keys.next().value;
+    if (key) {
+      const url = imageUrlCache.get(key);
+      if (url) URL.revokeObjectURL(url);
+      imageUrlCache.delete(key);
+    }
+  }
+}
 
 // ─── Hook ───
 
@@ -140,6 +155,7 @@ export function useImageGen() {
       if (blobData && blobData.blob) {
         const objectUrl = URL.createObjectURL(blobData.blob);
         imageUrlCache.set(cacheKey, objectUrl);
+        evictOldCacheEntries();
         return objectUrl;
       }
     }

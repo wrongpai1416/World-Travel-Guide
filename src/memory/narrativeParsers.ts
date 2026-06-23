@@ -12,6 +12,31 @@ import type {
   SceneAnchor,
 } from './types';
 
+// ─── 平衡括号提取（支持嵌套，避免贪婪正则匹配过长内容） ───
+function extractBalancedJson(text: string, open: string, close: string): RegExpMatchArray | null {
+  const startIdx = text.indexOf(open);
+  if (startIdx === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = startIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === open) depth++;
+    else if (ch === close) {
+      depth--;
+      if (depth === 0) {
+        const match = text.substring(startIdx, i + 1);
+        return Object.assign([match], { index: startIdx, input: text }) as unknown as RegExpMatchArray;
+      }
+    }
+  }
+  return null;
+}
+
 // ─── JSON 安全解析 ───
 
 function parseJSONSafe(text: string): unknown | null {
@@ -40,8 +65,8 @@ export function parseNarrativePayload(rawContent: string): Record<string, unknow
     }
   }
 
-  // JSON 对象匹配
-  const objectMatch = String(rawContent || '').match(/\{[\s\S]*\}/);
+  // JSON 对象匹配（通过括号深度提取，支持嵌套）
+  const objectMatch = extractBalancedJson(String(rawContent || ''), '{', '}');
   if (objectMatch?.[0]) {
     const parsed = parseJSONSafe(objectMatch[0]);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -64,8 +89,8 @@ export function parseNarrativeArrayPayload(rawContent: string): unknown[] {
     if (Array.isArray(parsed)) return parsed;
   }
 
-  // 数组匹配
-  const arrayMatch = String(rawContent || '').match(/\[[\s\S]*\]/);
+  // 数组匹配（通过括号深度提取，支持嵌套）
+  const arrayMatch = extractBalancedJson(String(rawContent || ''), '[', ']');
   if (arrayMatch?.[0]) {
     const parsed = parseJSONSafe(arrayMatch[0]);
     if (Array.isArray(parsed)) return parsed;

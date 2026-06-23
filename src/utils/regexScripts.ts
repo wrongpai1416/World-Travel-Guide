@@ -119,7 +119,7 @@ export function processRegexScripts(
       }
     }
 
-    // 4. 编译正则并执行替换
+    // 4. 编译正则并执行替换（含 ReDoS 防护）
     try {
       let replacement = script.replaceString || '';
       // 处理转义字符
@@ -133,6 +133,12 @@ export function processRegexScripts(
       if (match) {
         pattern = match[1];
         flags = match[2] || 'g';
+      }
+
+      // ReDoS 防护：检测嵌套量词（如 (a+)+、(a*)*）
+      if (/\([^)]*[+*][^)]*\)[+*?]/.test(pattern)) {
+        console.warn(`[RegexScript] 跳过高风险正则 "${script.scriptName}": 检测到嵌套量词`);
+        continue;
       }
 
       // 确保 g 标志，清理非法字符

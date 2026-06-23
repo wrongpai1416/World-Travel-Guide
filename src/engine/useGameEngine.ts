@@ -101,7 +101,7 @@ export function useGameEngine(
   // 管线状态持久化到 sessionStorage
   useEffect(() => {
     if (pipelineStatus) {
-      try { sessionStorage.setItem('dev_pipeline_status', JSON.stringify(pipelineStatus)); } catch {}
+      try { sessionStorage.setItem('dev_pipeline_status', JSON.stringify(pipelineStatus)); } catch { /* sessionStorage 不可用时静默 */ }
     }
   }, [pipelineStatus]);
 

@@ -106,7 +106,9 @@ export async function executeMemoryWrite(memStore: MemoryStore, ctx: MemoryPipel
                     if (judgeResult.action === 'reject_incoming') {
                       incomingList[i] = null as unknown as T;
                     } else if (judgeResult.action === 'mark_expired') {
-                      existing.status = 'cold';
+                      // 创建副本再修改，避免直接污染运行时对象
+                      const idx = runtimeList.indexOf(existing);
+                      if (idx !== -1) runtimeList[idx] = { ...existing, status: 'cold' };
                     }
                   } catch { /* 裁决失败按默认处理 */ }
                 });
@@ -352,7 +354,8 @@ export async function executeMemoryMultiRound(memStore: MemoryStore, ctx: Memory
         if (!ctx._finalSelectedTitles) ctx._finalSelectedTitles = [];
         ctx._finalSelectedTitles.push(...multiTitles);
         previousResults += '\n' + multiResult.items.map(item => `${item.title}: ${item.reason || ''}`).join('\n');
-      } catch {
+      } catch (roundErr) {
+        console.warn('[多轮补充] 单轮失败，提前终止:', roundErr instanceof Error ? roundErr.message : roundErr);
         break;
       }
     }

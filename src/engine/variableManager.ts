@@ -3,7 +3,7 @@ import type { GameState } from '../schema/variables';
 import { createDefaultGameState } from '../schema/variables';
 import type { ApiConfig } from '../api/types';
 import { requestCompletion } from '../api/client';
-import * as _ from 'lodash-es';
+import { cloneDeep, get, set, merge, unset } from 'lodash-es';
 import {
   resolveNpcId,
   warnIgnoredNpcPatchUpdate,
@@ -27,17 +27,17 @@ export class VariableManager {
   private state: GameState;
 
   constructor(initial?: GameState) {
-    this.state = initial ? _.cloneDeep(initial) : createDefaultGameState();
+    this.state = initial ? cloneDeep(initial) : createDefaultGameState();
     this.normalizeState();
   }
 
   getState(): GameState {
     this.normalizeState();
-    return _.cloneDeep(this.state);
+    return cloneDeep(this.state);
   }
 
   setState(state: GameState) {
-    this.state = _.cloneDeep(state);
+    this.state = cloneDeep(state);
     this.normalizeState();
   }
 
@@ -51,19 +51,21 @@ export class VariableManager {
 
   // 获取嵌套变量值
   getVar(path: string, defaultValue?: unknown): unknown {
-    return _.get(this.state, path, defaultValue);
+    return get(this.state, path, defaultValue);
   }
 
-  // 设置嵌套变量值（对象深度合并，避免部分更新丢失字段）
-  setVar(path: string, value: unknown) {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      const existing = _.get(this.state, path);
+  // 设置嵌套变量值
+  // forceReplace=false 时对象深度合并（避免部分更新丢失字段）
+  // forceReplace=true 时直接替换（允许删除旧键）
+  setVar(path: string, value: unknown, forceReplace = false) {
+    if (!forceReplace && value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      const existing = get(this.state, path);
       if (existing !== null && typeof existing === 'object' && !Array.isArray(existing)) {
-        _.set(this.state, path, _.merge({}, existing, value));
+        set(this.state, path, merge({}, existing, value));
         return;
       }
     }
-    _.set(this.state, path, value);
+    set(this.state, path, value);
   }
 
   // 规范化状态：确保NPC分类、事迹、结构默认值 + 笔记本容量限制 + 模块数值校验
@@ -224,10 +226,10 @@ export class VariableManager {
       switch (patch.op) {
         case 'replace':
         case 'add':
-          _.set(this.state, resolvedPath, patch.value);
+          set(this.state, resolvedPath, patch.value);
           break;
         case 'remove':
-          _.unset(this.state, resolvedPath);
+          unset(this.state, resolvedPath);
           break;
       }
     }
@@ -271,7 +273,7 @@ export class VariableManager {
   }
 
   /**
-   * 按 id 合并数组（解决 lodash _.merge 按索引合并的问题）
+   * 按 id 合并数组（解决 lodash merge 按索引合并的问题）
    * 用于 数值属性.special、生存资源.items 等需要按 id 匹配的数组字段
    */
   private mergeArrayById(existing: unknown[], incoming: unknown[], idField = 'id'): unknown[] {
@@ -289,7 +291,7 @@ export class VariableManager {
 
       if (existingIndex >= 0) {
         // 找到匹配的元素，深度合并
-        result[existingIndex] = _.merge({}, result[existingIndex], incomingItem);
+        result[existingIndex] = merge({}, result[existingIndex], incomingItem);
       } else {
         // 没找到，追加新元素
         result.push(incomingItem);
@@ -303,9 +305,11 @@ export class VariableManager {
    * 解决 数值属性.special、生存资源.items 等数组字段按 id 合并的问题
    */
   private mergeWorldSystem(existing: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+    // 深拷贝 incoming 防止修改原始参数（delete 操作会污染调用方数据）
+    const incomingCopy = cloneDeep(incoming);
     const result = { ...existing };
 
-    for (const [moduleKey, moduleValue] of Object.entries(incoming)) {
+    for (const [moduleKey, moduleValue] of Object.entries(incomingCopy)) {
       if (!moduleValue || typeof moduleValue !== 'object' || Array.isArray(moduleValue)) {
         result[moduleKey] = moduleValue;
         continue;
@@ -332,7 +336,7 @@ export class VariableManager {
         }
 
         // 其他字段正常合并
-        result[moduleKey] = _.merge({}, merged, incomingModule);
+        result[moduleKey] = merge({}, merged, incomingModule);
         continue;
       }
 
@@ -352,7 +356,7 @@ export class VariableManager {
         }
 
         // 其他字段正常合并
-        result[moduleKey] = _.merge({}, merged, incomingModule);
+        result[moduleKey] = merge({}, merged, incomingModule);
         continue;
       }
 
@@ -371,7 +375,7 @@ export class VariableManager {
         }
 
         // 其他字段正常合并
-        result[moduleKey] = _.merge({}, merged, incomingModule);
+        result[moduleKey] = merge({}, merged, incomingModule);
         continue;
       }
 
@@ -400,7 +404,7 @@ export class VariableManager {
                   'id'
                 );
               }
-              mergedCategories[existingCatIndex] = _.merge({}, mergedCategories[existingCatIndex], incomingCat);
+              mergedCategories[existingCatIndex] = merge({}, mergedCategories[existingCatIndex], incomingCat);
             } else {
               mergedCategories.push(incomingCat);
             }
@@ -409,12 +413,12 @@ export class VariableManager {
           delete incomingModule.categories;
         }
 
-        result[moduleKey] = _.merge({}, merged, incomingModule);
+        result[moduleKey] = merge({}, merged, incomingModule);
         continue;
       }
 
       // 其他模块正常合并
-      result[moduleKey] = _.merge({}, existingModule, moduleValue);
+      result[moduleKey] = merge({}, existingModule, moduleValue);
     }
 
     return result;
@@ -501,7 +505,7 @@ export class VariableManager {
             ? merged.slice(-CHRONICLE_HARD_CAP)
             : merged;
         }
-        _.merge(this.state.人物档案[npcId], npcData);
+        merge(this.state.人物档案[npcId], npcData);
       }
 
       // 从 patch 中移除已单独处理的 人物档案
@@ -524,15 +528,15 @@ export class VariableManager {
 
           // 其他世界字段正常合并
           if (Object.keys(worldData).length > 0) {
-            _.merge(this.state.世界, worldData);
+            merge(this.state.世界, worldData);
           }
 
           // 其他非世界字段正常合并
           if (Object.keys(otherRest).length > 0) {
-            _.merge(this.state, otherRest);
+            merge(this.state, otherRest);
           }
         } else {
-          _.merge(this.state, rest);
+          merge(this.state, rest);
         }
       }
     } else {
@@ -554,15 +558,15 @@ export class VariableManager {
 
         // 其他世界字段正常合并
         if (Object.keys(worldData).length > 0) {
-          _.merge(this.state.世界, worldData);
+          merge(this.state.世界, worldData);
         }
 
         // 其他非世界字段正常合并
         if (Object.keys(otherPatch).length > 0) {
-          _.merge(this.state, otherPatch);
+          merge(this.state, otherPatch);
         }
       } else {
-        _.merge(this.state, patch);
+        merge(this.state, patch);
       }
     }
 
@@ -571,7 +575,7 @@ export class VariableManager {
 
   // 创建供系统提示使用的安全快照
   createSafeSnapshotForPrompt(): GameState {
-    const snapshot = _.cloneDeep(this.state);
+    const snapshot = cloneDeep(this.state);
     // 对每个 NPC 创建安全快照
     const safeNpcs: Record<string, unknown> = {};
     for (const [id, npc] of Object.entries(snapshot.人物档案)) {
@@ -646,7 +650,7 @@ export class VariableManager {
     try {
       return JSON.parse(JSON.stringify(slim));
     } catch {
-      return _.cloneDeep(slim);
+      return cloneDeep(slim);
     }
   }
 
@@ -679,8 +683,8 @@ export class VariableManager {
   // 从快照恢复变量状态（保留 portraitUrl 等缓存字段）
   restoreSnapshot(snapshot: GameState): void {
     if (!snapshot) return;
-    const currentState = _.cloneDeep(this.state);
-    this.state = _.cloneDeep(snapshot);
+    const currentState = cloneDeep(this.state);
+    this.state = cloneDeep(snapshot);
     // 保留现有 portraitUrl，避免丢失缓存头像
     if (currentState.人物档案 && this.state.人物档案) {
       for (const [id, npc] of Object.entries(currentState.人物档案)) {
@@ -697,7 +701,7 @@ export class VariableManager {
     try {
       const parsed = JSON.parse(json);
       if (typeof parsed === 'object' && parsed !== null) {
-        this.state = _.cloneDeep(parsed);
+        this.state = cloneDeep(parsed);
         this.normalizeState();
         return true;
       }
