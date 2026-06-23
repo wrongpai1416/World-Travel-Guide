@@ -127,6 +127,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const memStore = useMemoryStore.getState();
       const memData = memStore.toJSON();
 
+      // 自建世界：带上完整世界定义（确保导出可移植）
+      let customWorld: Record<string, unknown> | undefined;
+      try {
+        const customs: Record<string, unknown>[] = JSON.parse(localStorage.getItem('world_travel_guide_custom_worlds') || '[]');
+        customWorld = customs.find((w: any) => w?.id === s.selectedWorld) || undefined;
+      } catch { /* ignore */ }
+
       return {
         id: saveId,
         name: useSaveStore.getState().currentSaveName || s.personalInfo?.name || '未命名存档',
@@ -142,6 +149,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         variableConfig: {
           apiPresetId: localStorage.getItem('world_travel_guide_variable_api_preset') || undefined,
         },
+        customWorld,
       };
     });
   }, []);

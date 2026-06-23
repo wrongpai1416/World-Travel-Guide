@@ -104,6 +104,8 @@ interface GameSave {
   vectorMemory?: unknown[];
   /** 变量提取 API 配置（per-save） */
   variableConfig?: { apiPresetId?: string };
+  /** 自建世界完整定义（仅自建世界时保存，确保导出可移植） */
+  customWorld?: Record<string, unknown>;
 }
 
 /** 轻量元数据（写入 global store，运行时缓存用于列表展示） */
@@ -337,6 +339,7 @@ export async function exportSave(saveId: string): Promise<Blob> {
       characterHistory: save.characterHistory,
       memoryRuntime: save.memoryRuntime ? slimMemoryRuntimeForSave(save.memoryRuntime) : undefined,
       memoryConfig: save.memoryConfig,
+      customWorld: save.customWorld,
     },
   };
 
@@ -393,7 +396,19 @@ export async function importSaveFromData(rawData: any): Promise<SaveMeta> {
     memoryConfig: save.memoryConfig || undefined,
     vectorMemory: Array.isArray(save.vectorMemory) ? save.vectorMemory : undefined,
     variableConfig: save.variableConfig || undefined,
+    customWorld: save.customWorld || undefined,
   };
+
+  // 如果导入的存档包含自建世界，注册到 localStorage 以便 findWorldDef 能找到
+  if (saveData.customWorld && saveData.worldId) {
+    try {
+      const existing: Record<string, unknown>[] = JSON.parse(localStorage.getItem('world_travel_guide_custom_worlds') || '[]');
+      if (!existing.some((w: any) => w?.id === saveData.worldId)) {
+        existing.push(saveData.customWorld);
+        localStorage.setItem('world_travel_guide_custom_worlds', JSON.stringify(existing));
+      }
+    } catch { /* localStorage 不可用时静默失败 */ }
+  }
 
   await saveGame(saveData);
 
