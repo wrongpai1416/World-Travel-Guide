@@ -78,7 +78,7 @@ export function useStartScreen() {
         if (!mod.enabled) continue;
 
         const mapKey: Record<string, string> = {
-          stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
+          stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系', progression: '成长体系',
         };
         const key = mapKey[mod.moduleId];
         if (!key) continue;
@@ -147,6 +147,29 @@ export function useStartScreen() {
           };
           if (defaults[mod.moduleId]) {
             worldSystem[key] = defaults[mod.moduleId]!();
+          }
+          // ★ stat 模块只有 moduleConfig 时，从配置构建世界系统数据
+          if (mod.moduleId === 'stat' && mod.moduleConfig) {
+            const cfg = mod.moduleConfig as any;
+            const dim = (idx: number) => ({
+              name: cfg[`dim${idx}`]?.name || `属性${idx}`,
+              value: cfg[`dim${idx}`]?.value ?? 50,
+              range: cfg[`dim${idx}`]?.range || [0, 100],
+            });
+            const specialArr = Array.isArray(cfg.special) ? cfg.special : [];
+            worldSystem[key] = {
+              attrA: { name: cfg.attrA?.name || '生命', current: cfg.attrA?.current ?? 80, max: cfg.attrA?.max ?? 100 },
+              attrB: { name: cfg.attrB?.name || '能量', current: cfg.attrB?.current ?? 60, max: cfg.attrB?.max ?? 100 },
+              dim1: dim(1), dim2: dim(2), dim3: dim(3),
+              dim4: dim(4), dim5: dim(5), dim6: dim(6),
+              special: specialArr,
+            };
+          }
+          // ★ progression 模块只有 moduleConfig 时，从配置初始化玩家状态
+          if (mod.moduleId === 'progression' && mod.moduleConfig) {
+            const cfg = mod.moduleConfig as any;
+            gs.玩家.当前段位索引 = cfg.currentTierIndex ?? 0;
+            gs.玩家.当前经验值 = cfg.currentXP ?? 0;
           }
         }
       }
