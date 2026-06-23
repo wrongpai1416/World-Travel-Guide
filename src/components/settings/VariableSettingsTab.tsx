@@ -60,12 +60,9 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
     const [varModel, setVarModel] = useState<string>(() => {
       try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_model`) || ''; } catch { return ''; }
     });
-    const [claudeMode, setClaudeMode] = useState<boolean>(() => {
-      try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { return false; }
-    });
 
     useImperativeHandle(ref, () => ({
-      getValues: () => ({ variableEnabled, auxPresetId, varDelay, varRetries, varModel, claudeMode }),
+      getValues: () => ({ variableEnabled, auxPresetId, varDelay, varRetries, varModel }),
     }));
 
     // ─── 快照管理状态 ───
@@ -160,15 +157,6 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
         <Section icon={<BarChart3 size={15} />} title="变量系统">
           <SettingRow label="启用变量系统" desc="AI 回复后自动提取并更新游戏变量">
             <Toggle value={variableEnabled} onChange={setVariableEnabled} />
-          </SettingRow>
-        </Section>
-
-        <Section icon={<Bot size={15} />} title="模型适配">
-          <SettingRow label="Claude 模式" desc="使用针对 Claude 安全机制优化的预设（破限+NSFW）">
-            <Toggle value={claudeMode} onChange={(v) => {
-              setClaudeMode(v);
-              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`, String(v)); } catch {}
-            }} />
           </SettingRow>
         </Section>
 

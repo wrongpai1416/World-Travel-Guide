@@ -20,7 +20,7 @@ import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefault
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
 import type { ChatMessage, GameEngine } from './types';
-import { getBuiltinPreset, getClaudePreset, getEnhancementModules, PROMPT_INLINE_IMAGE } from '../data/builtinPresets';
+import { getBuiltinPreset, PROMPT_INLINE_IMAGE } from '../data/builtinPresets';
 import { usePresetStore } from '../stores/presetStore';
 import { useImageStore } from '../stores/imageStore';
 import { ROLE_COGNITION_FIREWALL_TITLE, ROLE_COGNITION_FIREWALL_CONTENT } from '../utils/roleCognitionFirewall';
@@ -516,19 +516,16 @@ ${perspectiveInstruction}
           const compiledMemoryContext = memStore.lastCompiledContext?.fullText || '';
 
           // 使用结构化预设 + 宏引擎组装系统提示
-          // 优先使用用户自定义预设，否则用内置默认（支持 Claude 模式切换）
+          // 优先使用用户自定义预设/已保存的内置预设，否则用内置默认
           const { activePresetId, userPresets } = usePresetStore.getState();
           let basePreset;
           if (activePresetId) {
             const found = userPresets.find(p => p.id === activePresetId);
-            basePreset = found || (pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default'));
+            basePreset = found || getBuiltinPreset(activePresetId);
           } else {
-            basePreset = pipelineConfig.claudeMode ? getClaudePreset() : getBuiltinPreset('default');
+            basePreset = getBuiltinPreset('default');
           }
-          // 叠加增色模块
-          let preset = pipelineConfig.enhancementEnabled
-            ? { ...basePreset, prompts: [...basePreset.prompts, ...getEnhancementModules()] }
-            : basePreset;
+          let preset = basePreset;
           // 叠加正文生图指令（独立于预设，当 inlineImageEnabled 时始终注入）
           const inlineImageEnabled = useImageStore.getState().config.inlineImageEnabled;
           if (inlineImageEnabled) {
@@ -542,13 +539,13 @@ ${perspectiveInstruction}
                   role: 'system' as const,
                   content: PROMPT_INLINE_IMAGE,
                   enabled: true,
-                  order: 2300,
+                  order: 1250,
                 }],
               };
             }
           }
           const macroEngine = new MacroEngine();
-          const systemPrompt = assembleSystemPrompt(preset, {
+          let systemPrompt = assembleSystemPrompt(preset, {
             varSnapshot,
             wbInjection,
             playerProfileBlock,
@@ -559,6 +556,11 @@ ${perspectiveInstruction}
             macroEngine,
             compiledMemoryContext,  // ← 注入记忆上下文
           });
+
+          // 正文生图：在系统提示末尾追加格式提醒（提高 Gemini 等模型的遵循率）
+          if (inlineImageEnabled) {
+            systemPrompt += '\n\n【提醒】在 <contenttext> 正文中插入 image###英文提示词### 生图标签（1-2个）。';
+          }
 
           const chatHistory = sanitizeForContext(messagesRef.current, round);
           // 注入 atDepth 世界书条目到聊天历史

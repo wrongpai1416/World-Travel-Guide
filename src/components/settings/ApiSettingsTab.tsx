@@ -44,12 +44,6 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
   const [loadingModels, setLoadingModels] = useState(false);
   const [presets, setPresets] = useState<ApiPreset[]>(loadPresets);
   const [presetName, setPresetName] = useState('');
-  const [claudeMode, setClaudeMode] = useState<boolean>(() => {
-    try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { return false; }
-  });
-  const [enhancementMode, setEnhancementMode] = useState<boolean>(() => {
-    try { return localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`) === 'true'; } catch { return false; }
-  });
   const [proxyUrl, setProxyUrl] = useState<string>(() => {
     try { return localStorage.getItem(STORAGE_KEYS.PROXY_URL) || ''; } catch { return ''; }
   });
@@ -502,41 +496,6 @@ const ApiSettingsTab = forwardRef<ApiSettingsRef, Props>(({ initialConfig, t, on
             </div>
           </div>
 
-        </div>
-      </div>
-
-      {/* ===== 模型适配 ===== */}
-      <div style={{ marginBottom: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <Bot size={16} />
-          <span style={{ fontWeight: '600', fontSize: 'var(--font-size-md)' }}>模型适配</span>
-        </div>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={rowStyle}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>Claude 模式</div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-                使用针对 Claude 安全机制优化的预设（破限 + NSFW）<br/>
-                <span style={{ color: 'var(--accent, #eab308)' }}>⚠ 仅支持 Claude 4.6 及以下，不支持 4.8</span>
-              </div>
-            </div>
-            <Toggle value={claudeMode} onChange={(v) => {
-              setClaudeMode(v);
-              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`, String(v)); } catch {}
-            }} />
-          </div>
-          <div style={rowStyle}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 'var(--font-size-md)', fontWeight: '500' }}>增色预设</div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
-                在基础预设之上叠加增色模块（部位特化、美型化、场景氛围）
-              </div>
-            </div>
-            <Toggle value={enhancementMode} onChange={(v) => {
-              setEnhancementMode(v);
-              try { localStorage.setItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`, String(v)); } catch {}
-            }} />
-          </div>
         </div>
       </div>
 

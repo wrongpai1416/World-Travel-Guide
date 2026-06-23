@@ -6,7 +6,7 @@ import {
   GripVertical, Eye, EyeOff,
 } from 'lucide-react';
 import { usePresetStore } from '@/stores/presetStore';
-import { getBuiltinPreset } from '@/data/builtinPresets';
+import { getBuiltinPresets, getBuiltinPreset } from '@/data/builtinPresets';
 import type { PresetPack, PresetPromptEntry } from '@/data/builtinPresets';
 import type { RegexScript } from '@/utils/regexScripts';
 import { exportPresetJSON, parsePresetJSON, downloadJSON, parseRegexScriptsJSON } from '@/utils/presetIO';
@@ -14,12 +14,12 @@ import { v4 as uuid } from 'uuid';
 import { Button, Toggle, Field } from './SettingsUIComponents';
 
 export default function PresetSettingsTab() {
-  const { userPresets, activePresetId, savePreset, deletePreset, setActivePreset, resetToDefault } = usePresetStore();
+  const { userPresets, activePresetId, builtinOverrides, savePreset, deletePreset, setActivePreset, resetToDefault, saveBuiltinOverride, restoreBuiltinDefaults } = usePresetStore();
   const [editingPreset, setEditingPreset] = useState<PresetPack | null>(null);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const builtinPreset = getBuiltinPreset('default');
+  const builtinPresets = getBuiltinPresets();
   const isActiveDefault = activePresetId === null;
 
   // ─── 预设导入 ───
@@ -75,18 +75,24 @@ export default function PresetSettingsTab() {
           </div>
         )}
 
-        {/* 内置默认 */}
-        <PresetCard
-          name="默认预设（内置）"
-          desc={builtinPreset.description || '世界漫游指南默认预设'}
-          promptCount={builtinPreset.prompts?.length || 0}
-          regexCount={builtinPreset.regexScripts?.length || 0}
-          active={isActiveDefault}
-          builtin
-          onSelect={() => { resetToDefault(); }}
-          onExport={() => handleExport(builtinPreset)}
-          onEdit={() => setEditingPreset(builtinPreset)}
-        />
+        {/* 内置预设 */}
+        {builtinPresets.map(bp => (
+          <PresetCard
+            key={bp.id}
+            name={`${bp.name}（内置）`}
+            desc={bp.description || ''}
+            promptCount={bp.prompts?.length || 0}
+            regexCount={bp.regexScripts?.length || 0}
+            active={bp.id === 'default' ? isActiveDefault : activePresetId === bp.id}
+            builtin
+            onSelect={() => {
+              if (bp.id === 'default') resetToDefault();
+              else setActivePreset(bp.id);
+            }}
+            onExport={() => handleExport(bp)}
+            onEdit={() => setEditingPreset(bp)}
+          />
+        ))}
 
         {/* 用户预设 */}
         {userPresets.map(pack => (
@@ -108,15 +114,58 @@ export default function PresetSettingsTab() {
   }
 
   // ─── 编辑覆盖层 ───
+  const isBuiltin = builtinPresets.some(bp => bp.id === editingPreset.id);
+
+  // 对内置预设，应用覆盖层后显示
+  const displayPreset = isBuiltin
+    ? {
+        ...editingPreset,
+        prompts: editingPreset.prompts.map(p => {
+          const override = builtinOverrides[editingPreset.id]?.[p.identifier];
+          return override !== undefined ? { ...p, enabled: override } : p;
+        }),
+      }
+    : editingPreset;
+
   return (
     <PresetEditorOverlay
-      preset={editingPreset}
-      builtin={editingPreset.id === builtinPreset.id}
+      preset={displayPreset}
+      builtin={isBuiltin}
       onClose={() => setEditingPreset(null)}
       onSave={(updated) => {
-        savePreset(updated);
-        setEditingPreset(updated);
+        if (isBuiltin) {
+          // 内置预设：只保存变化的条目覆盖
+          for (const p of updated.prompts) {
+            const original = editingPreset.prompts.find(op => op.identifier === p.identifier);
+            if (original && p.enabled !== original.enabled) {
+              saveBuiltinOverride(editingPreset.id, p.identifier, p.enabled);
+            }
+          }
+          // 更新显示状态
+          const newDisplay = {
+            ...editingPreset,
+            prompts: editingPreset.prompts.map(p => {
+              const override = builtinOverrides[editingPreset.id]?.[p.identifier];
+              const newEntry = updated.prompts.find(up => up.identifier === p.identifier);
+              if (newEntry) return { ...p, enabled: newEntry.enabled };
+              return override !== undefined ? { ...p, enabled: override } : p;
+            }),
+          };
+          setEditingPreset(newDisplay);
+          setActivePreset(editingPreset.id);
+        } else {
+          savePreset(updated);
+          setActivePreset(updated.id);
+          setEditingPreset(updated);
+        }
       }}
+      onRestoreDefaults={isBuiltin ? () => {
+        restoreBuiltinDefaults(editingPreset.id);
+        // 重新加载原始内置预设
+        const original = getBuiltinPreset(editingPreset.id);
+        setEditingPreset(original);
+        setActivePreset(editingPreset.id);
+      } : undefined}
     />
   );
 }
@@ -170,14 +219,26 @@ function PresetCard({ name, desc, promptCount, regexCount, active, builtin, onSe
 // 预设编辑覆盖层 — 条目 + 正则一体化
 // ═══════════════════════════════════════════════
 
-function PresetEditorOverlay({ preset, builtin, onClose, onSave }: {
+function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaults }: {
   preset: PresetPack; builtin: boolean;
   onClose: () => void; onSave: (p: PresetPack) => void;
+  onRestoreDefaults?: () => void;
 }) {
   const [tab, setTab] = useState<'prompts' | 'regex'>('prompts');
   const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
   const [expandedRegex, setExpandedRegex] = useState<number | null>(null);
   const regexFileRef = useRef<HTMLInputElement>(null);
+
+  // 恢复内置预设默认值
+  const handleRestoreDefaults = useCallback(() => {
+    if (!confirm('确定要恢复默认设置吗？所有条目将重置为初始状态。')) return;
+    if (onRestoreDefaults) {
+      onRestoreDefaults();
+    } else {
+      const original = getBuiltinPreset(preset.id);
+      onSave({ ...original, builtin: true });
+    }
+  }, [preset.id, onSave, onRestoreDefaults]);
 
   // ─── 条目操作 ───
   const togglePrompt = useCallback((identifier: string) => {
@@ -253,8 +314,13 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave }: {
         }}>
           <FileText size={18} />
           <span style={{ fontWeight: '600', fontSize: 'var(--font-size-lg)', flex: 1 }}>
-            {builtin ? '默认预设（只读）' : preset.name}
+            {preset.name}{builtin && '（内置）'}
           </span>
+          {builtin && (
+            <button onClick={handleRestoreDefaults} style={{ ...iconBtnStyle, fontSize: 'var(--font-size-xs)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }} title="恢复默认">
+              🔄 恢复默认
+            </button>
+          )}
           <button onClick={onClose} style={iconBtnStyle}><X size={18} /></button>
         </div>
 
@@ -318,7 +384,7 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave }: {
                     </span>
 
                     {/* 启用/禁用 */}
-                    <button onClick={(e) => { e.stopPropagation(); if (!builtin) togglePrompt(p.identifier); }} style={iconBtnStyle} disabled={builtin}>
+                    <button onClick={(e) => { e.stopPropagation(); togglePrompt(p.identifier); }} style={iconBtnStyle}>
                       {p.enabled ? <ToggleRight size={16} color="var(--accent)" /> : <ToggleLeft size={16} />}
                     </button>
                   </div>

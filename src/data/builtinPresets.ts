@@ -549,24 +549,21 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 
 /** 正文生图标签指令 — 独立模块，不受预设切换影响 */
 export const PROMPT_INLINE_IMAGE = `<InlineImageGeneration>
-【正文生图标签】
-在正文内容中，遇到需要视觉呈现的关键场景时，使用生图标签为读者生成插图。
-格式：image###英文提示词###
-- 提示词必须是英文，用于 AI 绘图模型理解
-- 提示词应包含场景的核心元素：人物外观、动作、环境、氛围、光影等
-- 适当时附加 link:NAI（NovelAI）、link:com（ComfyUI）或 link:other（其他引擎）来指定生图引擎，不附加则使用默认引擎
+【强制规则 — 正文生图标签】
 
-适用场景（在正文合适位置自然插入，每轮最多1-2个）：
-- 到达新的重要地点（城市入口、地下城、战场等）
-- 重要角色首次登场或外貌发生显著变化
-- 戏剧性的关键瞬间（战斗高潮、重大发现、情感爆发等）
-- 需要视觉冲击力的场景描写
+每次回复的 <contenttext> 正文中，必须插入 1-2 个生图标签。标签格式严格为：
 
-提示词示例：
-image###masterpiece, best quality, 1girl, silver hair, blue eyes, knight armor, standing on cliff edge, dramatic lighting, fantasy landscape, wind blowing hair, sunset background###
-image###link:com, masterpiece, dark dungeon interior, torch light, ancient stone walls, mysterious altar, eerie atmosphere, volumetric lighting###
+image###英文提示词###
 
-⚠️ 注意：生图标签写在 <contenttext> 正文内容内部，不要写在行动选项中。
+规则：
+1. 提示词必须是英文，包含：人物外观、动作、环境、氛围
+2. 标签写在 <contenttext> 内部，不要写在行动选项中
+3. 每轮最多 1-2 个，在关键场景处自然插入
+
+示例：
+<contenttext>她推开了古堡的大门。image###masterpiece, best quality, 1girl, silver hair, blue eyes, knight armor, standing at castle gate, dramatic lighting, fantasy### 灰尘在光柱中飞舞。</contenttext>
+
+可选：在提示词前加 link:com 指定 ComfyUI 引擎，如 image###link:com, prompt here###。
 </InlineImageGeneration>`;
 
 // ── 结构化条目数组 ──
@@ -717,46 +714,12 @@ Stage 5 · 余韵（Afterglow）
 - 适度使用喘息声与省略号增强临场感
 </NSFWContent>`;
 
-/** 获取 Claude 专用预设 — 替换 task 和 nsfw_content 模块 */
+/** @deprecated 使用 getBuiltinPreset('claude') 替代 */
 export function getClaudePreset(): BuiltinPreset {
-  const base = getBuiltinPreset('default');
-  const claudePrompts = base.prompts.map(p => {
-    if (p.identifier === 'task') {
-      return { ...p, content: PROMPT_CLAUDE_TASK };
-    }
-    if (p.identifier === 'nsfw_content') {
-      return { ...p, content: PROMPT_CLAUDE_NSFW };
-    }
-    return p;
-  });
-  return {
-    ...base,
-    id: 'claude',
-    name: 'Claude 专用预设',
-    description: '针对 Claude 模型安全机制优化的预设',
-    prompts: claudePrompts,
-    systemPrompt: claudePrompts
-      .filter(p => p.enabled)
-      .sort((a, b) => a.order - b.order)
-      .map(p => p.content)
-      .join('\n\n'),
-  };
+  return getBuiltinPreset('claude');
 }
 
-// ============ 内置预设注册 ============
-
-const BUILTIN_PRESETS: BuiltinPreset[] = [
-  {
-    id: 'default',
-    name: '默认预设',
-    description: '世界漫游指南默认预设 - 创作助手适配版',
-    systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    prompts: DEFAULT_PROMPTS,
-    regexScripts: [...DISPLAY_SCRIPTS, ...PROMPT_SCRIPTS],
-    builtin: true,
-    version: '2.0.0',
-  },
-];
+// ============ 内置预设注册（延后到增色模块定义之后） ============
 
 // ============ 增色模块（可选叠加层） ============
 
@@ -865,6 +828,48 @@ const ENHANCEMENT_MODULES: PresetPromptEntry[] = [
 export function getEnhancementModules(): PresetPromptEntry[] {
   return ENHANCEMENT_MODULES;
 }
+
+// ============ 内置预设注册 ============
+
+/** 增色模块条目（默认关闭，用户可在预设编辑器中一键开启） */
+const ENHANCEMENT_PROMPT_ENTRIES: PresetPromptEntry[] = [
+  { identifier: 'nsfw_closeup',     name: '部位特化',   role: 'system', content: PROMPT_ENHANCEMENT_CLOSEUP,          enabled: false, order: 1600, triggerMode: 'blue' },
+  { identifier: 'beautification',   name: '美型化',     role: 'system', content: PROMPT_ENHANCEMENT_BEAUTIFICATION,   enabled: false, order: 1800, triggerMode: 'blue' },
+  { identifier: 'scene_atmosphere', name: '场景氛围',   role: 'system', content: PROMPT_ENHANCEMENT_SCENE_ATMOSPHERE, enabled: false, order: 2100, triggerMode: 'blue' },
+];
+
+/** Claude 专用预设条目 — 替换 task 和 nsfw_content，增色模块默认关闭 */
+const CLAUDE_PROMPTS: PresetPromptEntry[] = [
+  ...DEFAULT_PROMPTS.map(p => {
+    if (p.identifier === 'task') return { ...p, content: PROMPT_CLAUDE_TASK };
+    if (p.identifier === 'nsfw_content') return { ...p, content: PROMPT_CLAUDE_NSFW };
+    return p;
+  }),
+  ...ENHANCEMENT_PROMPT_ENTRIES,
+];
+
+const BUILTIN_PRESETS: BuiltinPreset[] = [
+  {
+    id: 'default',
+    name: '默认预设',
+    description: '世界漫游指南默认预设 - 创作助手适配版',
+    systemPrompt: DEFAULT_SYSTEM_PROMPT,
+    prompts: [...DEFAULT_PROMPTS, ...ENHANCEMENT_PROMPT_ENTRIES],
+    regexScripts: [...DISPLAY_SCRIPTS, ...PROMPT_SCRIPTS],
+    builtin: true,
+    version: '2.0.0',
+  },
+  {
+    id: 'claude',
+    name: 'Claude 专用预设',
+    description: '针对 Claude 模型安全机制优化，内置增色模块开关',
+    systemPrompt: CLAUDE_PROMPTS.filter(p => p.enabled).sort((a, b) => a.order - b.order).map(p => p.content).join('\n\n'),
+    prompts: CLAUDE_PROMPTS,
+    regexScripts: [...DISPLAY_SCRIPTS, ...PROMPT_SCRIPTS],
+    builtin: true,
+    version: '2.0.0',
+  },
+];
 
 // ============ 公开接口 ============
 
