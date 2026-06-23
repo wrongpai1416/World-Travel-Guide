@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useConfigStore, type UISettings, type Theme, type FontFamily, type FontSize, type LineHeight, type Language } from '../stores/configStore';
 
 export type { Theme, FontFamily, FontSize, LineHeight, Language, UISettings };
@@ -23,8 +23,11 @@ export function UISettingsProvider({ children }: { children: ReactNode }) {
     useConfigStore.setState({ _initialized: true } as any);
   }
 
+  // 稳定 Provider value，防止每次渲染创建新引用
+  const contextValue = useMemo(() => ({ settings, update: updateSettings, t }), [settings, updateSettings, t]);
+
   return (
-    <UISettingsContext.Provider value={{ settings, update: updateSettings, t }}>
+    <UISettingsContext.Provider value={contextValue}>
       {children}
     </UISettingsContext.Provider>
   );

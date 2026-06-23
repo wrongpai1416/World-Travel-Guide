@@ -129,15 +129,15 @@ export function loadPipelineConfig(): PipelineConfig {
   let claudeMode = false;
   let enhancementEnabled = false;
 
-  try { variableEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_enabled`) !== 'false'; } catch {}
+  try { variableEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_enabled`) !== 'false'; } catch { console.warn('[PipelineConfig] 读取 variable_enabled 失败'); }
   try {
     const sec = Math.max(0, Math.min(10, parseFloat(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_delay`) || '1') || 1));
     variableDelayMs = sec * 1000;
-  } catch {}
-  try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch {}
-  try { memoryEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_memory_enabled`) !== 'false'; } catch {}
-  try { claudeMode = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch {}
-  try { enhancementEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`) === 'true'; } catch {}
+  } catch { console.warn('[PipelineConfig] 读取 variable_delay 失败'); }
+  try { variableMaxRetries = Math.max(0, Math.min(5, parseInt(localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_variable_retries`) || '3') || 3)); } catch { console.warn('[PipelineConfig] 读取 variable_retries 失败'); }
+  try { memoryEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_memory_enabled`) !== 'false'; } catch { console.warn('[PipelineConfig] 读取 memory_enabled 失败'); }
+  try { claudeMode = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_claude_mode`) === 'true'; } catch { console.warn('[PipelineConfig] 读取 claude_mode 失败'); }
+  try { enhancementEnabled = localStorage.getItem(`${STORAGE_KEYS.PIPELINE_CONFIG}_enhancement`) === 'true'; } catch { console.warn('[PipelineConfig] 读取 enhancement 失败'); }
 
   return {
     executionOrder: DEFAULT_EXECUTION_ORDER,

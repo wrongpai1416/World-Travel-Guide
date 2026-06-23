@@ -74,6 +74,8 @@ interface PlayerProfile {
     数量: number;
     类型: string;
     品质: '普通' | '精良' | '稀有' | '史诗' | '传说';
+    有效期?: string;
+    特殊属性?: string;
     备注: string;
   }>;
 
@@ -464,44 +466,6 @@ function getWorldNameById(worldId: string): string {
 
   // 都找不到，返回原始 ID
   return worldId;
-}
-
-// ─── 一次性迁移：旧 auto_save → 新多槽位模式 ──────────
-
-/** 检测并迁移旧的 auto_save 存档到新的元数据系统 */
-export async function migrateOldAutoSave(): Promise<void> {
-  const metas = await getAllSaveMeta();
-
-  // 检查是否有旧的 auto_save（无论元数据是否为空都要检查）
-  const oldSave = await loadGame('auto_save');
-  if (!oldSave) return;
-
-  if (metas.length > 0) {
-    // 已有新存档，直接删除旧 auto_save（防止删除所有存档后它又冒出来）
-    console.log('[DB] 已有新存档，清理旧 auto_save');
-    await deleteSave('auto_save');
-    return;
-  }
-
-  // 元数据为空 + 有旧 auto_save → 迁移
-  console.log('[DB] 迁移旧 auto_save 到新的多槽位存档系统');
-
-  // 将 auto_save 重新分配一个正式 ID
-  const newId = generateSaveId();
-  const migratedSave: GameSave = { ...oldSave, id: newId };
-  await saveGame(migratedSave);
-  await deleteSave('auto_save');
-
-  const meta: SaveMeta = {
-    id: newId,
-    name: oldSave.name || oldSave.personalInfo?.name || '旧存档',
-    timestamp: oldSave.timestamp,
-    preview: buildPreview(oldSave),
-  };
-  await saveAllSaveMeta([meta]);
-
-  // 更新 localStorage 中的活跃存档 ID
-  localStorage.setItem(ACTIVE_SAVE_KEY, newId);
 }
 
 export type { GameSave, PlayerProfile, CustomNpc, SaveMeta };

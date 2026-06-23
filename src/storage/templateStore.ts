@@ -86,7 +86,9 @@ export function savePlayerPreset(name: string, profile: PlayerProfile): PlayerPr
     specialIdentity: profile.specialIdentity,
     perspective: profile.perspective,
     initialSkills: profile.initialSkills,
-    initialItems: profile.initialItems,
+    initialItems: Object.fromEntries(
+      Object.entries(profile.initialItems).map(([k, v]) => [k, { ...v, 有效期: v.有效期 ?? '', 特殊属性: v.特殊属性 ?? '' }])
+    ),
   };
   presets.push(preset);
   writeJSON(PLAYER_KEY, presets);

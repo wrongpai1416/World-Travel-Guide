@@ -1,4 +1,5 @@
 // 六维属性 + 特色属性卡片（六维可选）
+import { memo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import type { StatModuleSchema } from '../../../../modules/schema';
 import { Collapsible } from '../../../shared/Collapsible';
@@ -11,7 +12,7 @@ interface SixDimCardProps {
 
 const DIM_KEYS = ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6'] as const;
 
-export default function SixDimCard({ data, title }: SixDimCardProps) {
+export default memo(function SixDimCard({ data, title }: SixDimCardProps) {
   const dims = DIM_KEYS.map(k => data[k]).filter((d): d is NonNullable<typeof d> => !!d);
   const hasDims = dims.length > 0;
   const specials = Array.isArray(data.special) ? data.special : [];
@@ -60,4 +61,4 @@ export default function SixDimCard({ data, title }: SixDimCardProps) {
       )}
     </Collapsible>
   );
-}
+});

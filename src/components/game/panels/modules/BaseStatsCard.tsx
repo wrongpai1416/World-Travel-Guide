@@ -1,4 +1,5 @@
 // 底层必选属性卡片 — 生命类 + 能量类进度条
+import { memo } from 'react';
 import { Heart, Zap } from 'lucide-react';
 import type { StatModuleSchema } from '../../../../modules/schema';
 import { Collapsible } from '../../../shared/Collapsible';
@@ -9,7 +10,7 @@ interface BaseStatsCardProps {
   title?: string;
 }
 
-export default function BaseStatsCard({ data, title }: BaseStatsCardProps) {
+export default memo(function BaseStatsCard({ data, title }: BaseStatsCardProps) {
   return (
     <Collapsible icon={<Heart size={15} />} title={title || (data.attrA.name + ' / ' + data.attrB.name)} defaultOpen={true}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -30,7 +31,7 @@ export default function BaseStatsCard({ data, title }: BaseStatsCardProps) {
       </div>
     </Collapsible>
   );
-}
+});
 
 function GaugeBar({ icon, label, value, max, color }: {
   icon: React.ReactNode;

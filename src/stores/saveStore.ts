@@ -12,7 +12,6 @@ import {
   buildPreview,
   exportSave as exportSaveFromDb,
   importSaveFromData,
-  migrateOldAutoSave,
   ACTIVE_SAVE_KEY,
 } from '@/storage/db';
 
@@ -24,7 +23,7 @@ interface SaveState {
   currentSaveId: string | null;
   currentSaveName: string;
 
-  // 初始化（加载元数据 + 迁移旧存档）
+  // 初始化（加载元数据）
   initialize: () => Promise<void>;
 
   // CRUD
@@ -58,7 +57,6 @@ export const useSaveStore = create<SaveState>((set, get) => ({
 
   initialize: async () => {
     try {
-      await migrateOldAutoSave();
       const metas = await getAllSaveMeta();
       set({ savesMeta: metas });
     } catch (err) {

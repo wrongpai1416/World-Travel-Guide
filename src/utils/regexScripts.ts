@@ -1,6 +1,21 @@
 // 正则脚本引擎 — 移植自异界转生录 prompt-utils.js
 // 负责用可配置的正则脚本对文本进行替换处理
 
+// ============ ReDoS 防护 ============
+
+/** 检查正则模式是否可能包含 ReDoS 风险（嵌套量词、回溯炸弹） */
+function hasReDoSRisk(pattern: string): boolean {
+  // 检测嵌套量词：(a+)+  (a*)+  (a+)*  (a*)*  (a{m,n}){p,q}
+  const NESTED_QUANTIFIERS = /(\+|\*|\{[^}]+\})\)?(\+|\*|\{[^}]+\})/;
+  if (NESTED_QUANTIFIERS.test(pattern)) return true;
+
+  // 检测过度回溯：连续的可选字符组 (a|a)*  (a|b)*a
+  const BACKTRACK_BOMB = /\([^)]*\|[^)]*\)[*+]\w*[*+]/;
+  if (BACKTRACK_BOMB.test(pattern)) return true;
+
+  return false;
+}
+
 // ============ 类型定义 ============
 
 /** 正则脚本（兼容 SillyTavern 格式） */
@@ -144,6 +159,12 @@ export function processRegexScripts(
       // 确保 g 标志，清理非法字符
       flags = flags.replace(/[^gimsuyv]/gi, '');
       if (!flags.includes('g')) flags += 'g';
+
+      // ReDoS 防护：检测危险模式
+      if (hasReDoSRisk(pattern)) {
+        console.warn(`[Regex] 跳过可能包含 ReDoS 风险的正则: ${script.scriptName}`);
+        continue;
+      }
 
       const re = new RegExp(pattern, flags);
       processedText = processedText.replace(re, replacement);

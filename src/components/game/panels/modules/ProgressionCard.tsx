@@ -1,4 +1,5 @@
 // 成长体系卡片 — 段位制/等级制统一渲染
+import { memo } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { ProgressionConfig, ProgressionState, ProgressionModuleSchema, StatBonuses } from '../../../../modules/schema';
 import { getXpForNextTier, getTierProgress, getLevelStatBonuses } from '../../../../modules/xpAlgorithm';
@@ -28,7 +29,7 @@ interface ProgressionCardProps {
   statNames?: StatNames;
 }
 
-export default function ProgressionCard({ config, state, title, data, statNames }: ProgressionCardProps) {
+export default memo(function ProgressionCard({ config, state, title, data, statNames }: ProgressionCardProps) {
   const defaultTitle = config.mode === 'tiered' ? '段位体系' : '等级体系';
   const displayTitle = title || defaultTitle;
 
@@ -164,4 +165,4 @@ export default function ProgressionCard({ config, state, title, data, statNames 
       </div>
     </Collapsible>
   );
-}
+});

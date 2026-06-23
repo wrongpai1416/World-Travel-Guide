@@ -295,7 +295,7 @@ export function buildCharacterWorldBookEntryDraft({
   method?: 'local' | 'api';
 } = {}): CharacterWorldBookEntryDraft {
   const safeSummary = normalizeCharacterWorldBookSummary(summary);
-  const toon = buildCharacterWorldBookToon(characterData, safeSummary);
+  const toon = buildCharacterWorldBookToon(characterData, safeSummary as unknown as Record<string, unknown>);
   const contentBody = sanitizeGeneratedWorldBookContent(generatedContent) || buildLocalCharacterWorldBookBody(safeSummary);
   const keywords = uniqueList([
     ...normalizeCharacterWorldBookKeywords(generatedKeywords),
@@ -380,7 +380,7 @@ function getNpcWorldBookResultObjectCandidates(result: unknown): Record<string, 
 
     [current.entry, current.result, current.data, current.output, current.response,
      current.payload, current.item, current.value, current.message,
-     current.choice, current.choices?.[0], current.entries, current.items,
+     current.choice, (current.choices as unknown[])?.[0], current.entries, current.items,
      current.results, current.candidates, current.records, current.list,
     ].forEach(item => {
       if (item !== undefined && item !== null) queue.push(item);
@@ -463,11 +463,11 @@ export function extractCharacterWorldBookName(entry: Record<string, unknown>): s
  * 因为变量系统已经包含了该 NPC 的实时数据。
  */
 export function shouldSuppressCharacterWorldBookEntry(
-  entry: Record<string, unknown>,
+  entry: import('./worldInfoEngine').WorldInfoEntry,
   surroundingNpcNames: string[] = [],
 ): boolean {
-  if (!isCharacterWorldBookEntry(entry)) return false;
-  const targetName = extractCharacterWorldBookName(entry);
+  if (!isCharacterWorldBookEntry(entry as unknown as Record<string, unknown>)) return false;
+  const targetName = extractCharacterWorldBookName(entry as unknown as Record<string, unknown>);
   if (!targetName) return false;
   return (Array.isArray(surroundingNpcNames) ? surroundingNpcNames : [])
     .map(item => String(item || '').trim())
