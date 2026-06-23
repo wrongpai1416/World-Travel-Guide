@@ -32,6 +32,8 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const editingRef = useRef(false);
+  editingRef.current = editing;
   const isUser = message.role === 'user';
   const { t } = useUISettings();
   const isMobile = useIsMobile(640);
@@ -208,10 +210,20 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
     };
   }, [renderedContent, inlineImageEnabled, isUser, message.streaming]);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY });
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  // 用原生事件处理右键菜单，绕过 React 合成事件的委托机制
+  useEffect(() => {
+    const el = bubbleRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      if (editingRef.current) return; // 编辑模式下不拦截，让原生菜单出来
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+    el.addEventListener('contextmenu', handler);
+    return () => el.removeEventListener('contextmenu', handler);
   }, []);
 
   const handleEdit = useCallback(() => {
@@ -219,6 +231,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
     const raw = message.rawText || '';
     setEditText(raw);
     setEditing(true);
+    setContextMenu(null); // 清除右键菜单，避免移动端干扰
     setTimeout(() => editRef.current?.focus(), 0);
   }, [message.rawText]);
 
@@ -282,6 +295,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
       justifyContent: isUser ? 'flex-end' : 'flex-start',
     }}>
       <div
+        ref={bubbleRef}
         style={{
           width: isUser ? undefined : (isMobile ? '92%' : '75%'),
           maxWidth: isUser ? (isMobile ? '95%' : '80%') : undefined,
@@ -296,7 +310,6 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
           fontSize: 'var(--body-font-size)',
           fontFamily: 'var(--font-family)',
         }}
-        onContextMenu={handleContextMenu}
       >
         {/* 思维链现在由正则脚本渲染为 <details> 折叠块 */}
 
@@ -323,6 +336,9 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                 resize: 'vertical',
                 outline: 'none',
                 whiteSpace: 'pre-wrap',
+                WebkitUserSelect: 'text',
+                userSelect: 'text',
+                touchAction: 'auto',
               }}
             />
             <div style={{
