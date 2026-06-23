@@ -51,7 +51,7 @@ function ensureMermaidInit() {
   if (mermaidInitialized) return;
   mermaid.initialize({
     startOnLoad: false,
-    securityLevel: 'strict',
+    securityLevel: 'loose',
     theme: 'base',
     deterministicIds: false,
     fontFamily: '"Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
@@ -234,17 +234,21 @@ export function MermaidGraphPanel({
         const { svg } = await mermaid.render(id, graphDefinition);
 
         if (!cancelled) {
-          // 净化 SVG 防止 XSS（移除事件处理器和脚本）
+          // 净化 SVG 防止 XSS（移除事件处理器和脚本，保留文本和图表元素）
           const cleanSvg = DOMPurify.sanitize(svg || '', {
             USE_PROFILES: { svg: true, svgFilters: true },
-            ADD_TAGS: ['style'],
+            ADD_TAGS: ['style', 'foreignObject', 'text', 'tspan', 'a', 'label'],
             ADD_ATTR: ['xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'text-anchor',
-              'font-size', 'font-family', 'font-weight', 'transform', 'x', 'y', 'dx', 'dy',
-              'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'points', 'x1', 'y1',
-              'x2', 'y2', 'pathLength', 'marker-end', 'marker-start', 'orient', 'refX', 'refY',
+              'font-size', 'font-family', 'font-weight', 'font-style', 'font-variant',
+              'text-decoration', 'textLength', 'lengthAdjust', 'baseline-shift',
+              'transform', 'x', 'y', 'dx', 'dy', 'rotate', 'xml:space',
+              'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'points',
+              'x1', 'y1', 'x2', 'y2', 'pathLength',
+              'marker-end', 'marker-start', 'orient', 'refX', 'refY',
               'markerWidth', 'markerHeight', 'patternUnits', 'gradientUnits', 'spreadMethod',
-              'offset', 'stop-color', 'stop-opacity', 'opacity', 'clip-path', 'dominant-baseline',
-              'alignment-baseline', 'style', 'class', 'data-id', 'data-source'],
+              'offset', 'stop-color', 'stop-opacity', 'opacity', 'clip-path',
+              'dominant-baseline', 'alignment-baseline', 'visibility', 'pointer-events',
+              'style', 'class', 'data-id', 'data-source', 'href', 'target'],
           });
           setRenderedSvg(cleanSvg);
 
