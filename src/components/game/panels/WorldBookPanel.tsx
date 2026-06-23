@@ -1,58 +1,50 @@
-// 世界书面板 — 展示当前世界的世界书条目
+// 世界书面板 — 展示当前预设的系统提示词条目
 import { useState, useMemo } from 'react';
 import {
   BookOpen, ChevronDown, ChevronRight, Search,
   Eye, EyeOff, MapPin, Layers, Lock,
 } from 'lucide-react';
-import type { WorldBookEntry } from '../../../worldbook/index';
-import { WORLDS, getWorldBookEntriesForWorld } from '../../../data/worldLoader';
-import type { WorldBookEntryDef } from '../../../data/worlds-schema';
+import { getBuiltinPreset, getEnhancementModules } from '../../../data/builtinPresets';
 
 interface Props {
   worldId: string;
-  worldBookEntries?: WorldBookEntry[];
 }
 
-// 将 WorldBookEntryDef 转为显示格式
-function entryDefToDisplay(e: WorldBookEntryDef, idx: number) {
-  return {
-    id: -(idx + 1),
-    comment: e.comment || `条目 ${idx + 1}`,
-    content: e.content || '',
-    constant: e.constant ?? false,
-    enabled: !(e.disable ?? false),
-    keys: e.key ?? [],
-    position: e.position === 'before_char' ? 'before_char' as const : 'after_char' as const,
-    order: e.order ?? 0,
-    depth: e.depth ?? 0,
-  };
-}
-
-export default function WorldBookPanel({ worldId, worldBookEntries }: Props) {
+export default function WorldBookPanel({ worldId }: Props) {
   const [search, setSearch] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showDisabled, setShowDisabled] = useState(true);
 
-  // 从世界定义获取条目
+  // 从内置预设获取系统提示词条目
   const entries = useMemo(() => {
-    // 优先用传入的运行时条目
-    if (worldBookEntries && worldBookEntries.length > 0) {
-      return worldBookEntries.map(e => ({
-        id: e.id,
-        comment: e.comment || `条目 ${e.id}`,
-        content: e.content || '',
-        constant: e.constant,
-        enabled: e.enabled,
-        keys: e.keys || [],
-        position: e.position,
-        order: e.insertionOrder ?? e.order ?? 0,
-        depth: e.depth ?? 0,
-      }));
-    }
-    // 否则从世界定义读取
-    const worldDefs = getWorldBookEntriesForWorld(worldId);
-    return worldDefs.map(entryDefToDisplay);
-  }, [worldId, worldBookEntries]);
+    const preset = getBuiltinPreset('default');
+    const presetEntries = preset.prompts
+      .filter((p: any) => p.enabled)
+      .sort((a: any, b: any) => a.order - b.order);
+
+    const enhancementModules = getEnhancementModules().filter((m: any) => m.enabled);
+    const allEntries = [...presetEntries, ...enhancementModules];
+
+    // 去重（按 identifier）
+    const seen = new Set<string>();
+    const unique = allEntries.filter((e: any) => {
+      if (seen.has(e.identifier)) return false;
+      seen.add(e.identifier);
+      return true;
+    });
+
+    return unique.map((e: any) => ({
+      id: e.identifier,
+      comment: e.name || e.identifier,
+      content: e.content || '',
+      constant: e.triggerMode === 'blue',
+      enabled: e.enabled,
+      keys: e.triggerKeywords || [],
+      position: 'after_char' as const,
+      order: e.order ?? 0,
+      depth: 0,
+    }));
+  }, [worldId]);
 
   // 搜索 + 过滤
   const filtered = useMemo(() => {
@@ -65,7 +57,7 @@ export default function WorldBookPanel({ worldId, worldBookEntries }: Props) {
       result = result.filter(e =>
         e.comment.toLowerCase().includes(q) ||
         e.content.toLowerCase().includes(q) ||
-        e.keys.some(k => k.toLowerCase().includes(q))
+        e.keys.some((k: string) => k.toLowerCase().includes(q))
       );
     }
     return result;
@@ -79,7 +71,7 @@ export default function WorldBookPanel({ worldId, worldBookEntries }: Props) {
     return { constant, triggered, other };
   }, [filtered]);
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -88,10 +80,7 @@ export default function WorldBookPanel({ worldId, worldBookEntries }: Props) {
     });
   };
 
-  const worldName = useMemo(() => {
-    const w = WORLDS.find(w => w.id === worldId);
-    return w?.name || worldId;
-  }, [worldId]);
+  const worldName = worldId;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -184,7 +173,7 @@ function EntryGroup({
   title: string;
   icon: React.ReactNode;
   entries: Array<{
-    id: number;
+    id: string;
     comment: string;
     content: string;
     constant: boolean;
@@ -194,8 +183,8 @@ function EntryGroup({
     order: number;
     depth: number;
   }>;
-  expandedIds: Set<number>;
-  onToggle: (id: number) => void;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
 }) {
   if (entries.length === 0) return null;
 
@@ -231,7 +220,7 @@ function EntryCard({
   entry, expanded, onToggle,
 }: {
   entry: {
-    id: number;
+    id: string;
     comment: string;
     content: string;
     constant: boolean;
