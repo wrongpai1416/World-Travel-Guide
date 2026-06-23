@@ -555,15 +555,31 @@ export const PROMPT_INLINE_IMAGE = `<InlineImageGeneration>
 
 image###英文提示词###
 
-规则：
-1. 提示词必须是英文，包含：人物外观、动作、环境、氛围
-2. 标签写在 <contenttext> 内部，不要写在行动选项中
-3. 每轮最多 1-2 个，在关键场景处自然插入
+【NovelAI / Stable Diffusion 标签规则】
+1. 使用逗号+空格分隔的英文 booru 风格标签，如 "1girl, long silver hair, golden eyes"
+2. 标签顺序很重要，越靠前权重越高。按以下顺序排列：
+   ① 质量标签（必含）：masterpiece, best quality, very aesthetic, absurdres, extremely detailed
+   ② 主体：人数(1girl/1boy) + solo + 构图(portrait/upper body/cowboy shot/full body) + 姿势 + 视线
+   ③ 外貌：头发(长度+颜色+发型) + 眼睛(颜色) + 面部特征 + 肤色(仅非普通肤色时标注)
+   ④ 服饰：颜色+材质+款式，如 "white flowing robe, gold embroidery"
+   ⑤ 动作/状态：当前行为，如 "standing, holding sword, looking at viewer"
+   ⑥ 环境/背景：场景描述，如 "dark dungeon interior, ancient stone walls"
+   ⑦ 光照/氛围（1-3个）：cinematic lighting / volumetric lighting / backlighting / bokeh
+3. 描述要具体：服饰拆分为颜色+材质+款式，不要笼统
+4. 非人特征用专属标签：elf ears, demon horns, animal ears, tail, wings
+5. 权重强调可用 weight::tag:: 语法（如 1.2::detailed eyes::），最多 1-2 处
+6. 总标签量约 40-100 词，避免重复
 
-示例：
-<contenttext>她推开了古堡的大门。image###masterpiece, best quality, 1girl, silver hair, blue eyes, knight armor, standing at castle gate, dramatic lighting, fantasy### 灰尘在光柱中飞舞。</contenttext>
+【场景图（无人物）示例】
+image###masterpiece, best quality, very aesthetic, absurdres, dark dungeon interior, ancient stone walls, mysterious altar, torch light, volumetric lighting, eerie atmosphere, fantasy, highly detailed###
 
-可选：在提示词前加 link:com 指定 ComfyUI 引擎，如 image###link:com, prompt here###。
+【人物场景示例】
+image###masterpiece, best quality, very aesthetic, absurdres, 1girl, solo, upper body, looking at viewer, long silver hair, side braid, golden eyes, gentle smile, white knight armor, gold trim, standing on cliff edge, wind blowing hair, dramatic lighting, fantasy landscape, sunset background###
+
+【标签写在正文中的示例】
+<contenttext>她推开了古堡的大门。image###masterpiece, best quality, very aesthetic, absurdres, 1girl, solo, upper body, looking forward, long black hair, red eyes, pale skin, black dress, lace trim, standing at castle gate, torch light, volumetric lighting, gothic architecture### 灰尘在光柱中飞舞。</contenttext>
+
+可选：在提示词前加 link:com 指定 ComfyUI 引擎，如 image###link:com, masterpiece, best quality, ...###。
 </InlineImageGeneration>`;
 
 // ── 结构化条目数组 ──
