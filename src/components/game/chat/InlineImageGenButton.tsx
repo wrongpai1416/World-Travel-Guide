@@ -110,10 +110,7 @@ export default function InlineImageGenButton({ prompt, msgId }: Props) {
           }}
           loading="lazy"
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', flex: 1 }}>
-            {prompt}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
           <button
             onClick={handleRetry}
             style={retryBtnStyle}
@@ -173,9 +170,6 @@ export default function InlineImageGenButton({ prompt, msgId }: Props) {
           {errorMsg}
         </div>
       )}
-      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-        {prompt}
-      </div>
     </div>
   );
 }

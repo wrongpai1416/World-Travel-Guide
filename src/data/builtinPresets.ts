@@ -148,7 +148,7 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     id: 'builtin_display_inline_image',
     scriptName: '正文生图',
     findRegex: 'image###([\\s\\S]+?)###',
-    replaceString: '<div class="inline-image-gen-placeholder" data-prompt="$1"></div>',
+    replaceString: '<span class="inline-image-gen-placeholder" data-prompt="$1"></span>',
     placement: [2],
     disabled: false,
     markdownOnly: true,
