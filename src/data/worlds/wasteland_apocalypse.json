@@ -105,7 +105,11 @@
         "order": 1,
         "position": "before_char",
         "entryType": "setting",
-        "meta": {}
+        "meta": {
+          "location": "余烬大地（原北美大陆废墟）",
+          "timePeriod": "新纪元207年",
+          "atmosphere": "绝望、荒凉、残酷、充满未知的危险与生机"
+        }
       },
       {
         "uid": 2,
@@ -116,7 +120,11 @@
         "order": 2,
         "position": "before_char",
         "entryType": "rules",
-        "meta": {}
+        "meta": {
+          "powerSystem": "辐射异能（肉体强化、元素操控、精神感知等，使用过度会导致基因崩溃）与废土科技（旧世界遗留科技与拼凑机械）",
+          "socialStructure": "弱肉强食的丛林法则。由大型军阀、避难所原住民、拾荒者联盟和掠夺者帮派构成的碎片化社会。",
+          "specialRules": ["辐射暴露：长时间暴露在无防护环境中会导致辐射病或基因崩溃", "异能失控：异能者情绪剧烈波动或过度透支时，有几率异化为失去理智的高阶辐射怪物"]
+        }
       },
       {
         "uid": 3,
@@ -127,7 +135,13 @@
         "order": 3,
         "position": "before_char",
         "entryType": "factions",
-        "meta": {}
+        "meta": {
+          "factions": [
+            { "name": "钢铁黎明", "description": "掌握部分旧世界军事科技的准军事组织，极度排斥异能者与变异生物。", "alignment": "中立" },
+            { "name": "变异者兄弟会", "description": "由高阶异能者建立的聚落，主张异能是人类进化的下一步。", "alignment": "友善" },
+            { "name": "血狼帮", "description": "残忍的掠夺者帮派，以劫掠拾荒者和小型聚落为生，崇尚暴力。", "alignment": "敌对" }
+          ]
+        }
       },
       {
         "uid": 4,
@@ -138,7 +152,13 @@
         "order": 4,
         "position": "before_char",
         "entryType": "npcs",
-        "meta": {}
+        "meta": {
+          "npcs": [
+            { "name": "老狗", "role": "资深拾荒者/向导", "description": "在废土上摸爬滚打了三十年的老拾荒者，熟悉余烬大地上每一条安全路线和每一个辐射陷阱的位置。", "personality": "沉默寡言、精明世故、嘴硬心软、极度不信任陌生人" },
+            { "name": "月见", "role": "变异者治疗师", "description": "一名觉醒了治愈系异能的变异者少女，皮肤上布满了发光的辐射纹路。她的血液能中和辐射，因此被多方势力觊觎。", "personality": "温柔善良、内心坚强、对非变异者抱有微妙的距离感、讨厌暴力" },
+            { "name": "铁牙·莫里森", "role": "血狼帮副首领", "description": "血狼帮中仅次于大首领的二号人物，左臂被替换成了从旧世界军事基地中搜刮来的动力义肢。", "personality": "残暴、嗜血、崇尚力量、讲求废土信用" }
+          ]
+        }
       },
       {
         "uid": 5,
@@ -149,7 +169,13 @@
         "order": 5,
         "position": "before_char",
         "entryType": "economy",
-        "meta": {}
+        "meta": {
+          "currency": { "name": "纯净水瓶盖", "symbol": "⛃", "description": "由旧世界知名饮料瓶盖组成，因其不可伪造且代表水资源价值而成为硬通货" },
+          "priceLevel": "生存必需品（净水、抗辐宁、食物）极其昂贵，旧世界的奢侈品（黄金、钻石）一文不值",
+          "calendar": "余烬历（以核爆之日为元年）",
+          "startTime": "余烬历207年秋",
+          "timeSpeed": "与现实同步（1:1）"
+        }
       },
       {
         "uid": 6,
@@ -160,7 +186,9 @@
         "order": 6,
         "position": "before_char",
         "entryType": "highlights",
-        "meta": {}
+        "meta": {
+          "highlights": ["独特的瓶盖经济与废土拾荒体验", "异能觉醒与基因崩溃的生死博弈", "充满变异生物与旧世界遗迹的广阔探索空间"]
+        }
       },
       {
         "uid": 7,
@@ -171,7 +199,15 @@
         "order": 7,
         "position": "before_char",
         "entryType": "events",
-        "meta": {}
+        "meta": {
+          "events": [
+            { "name": "辐射风暴", "description": "致命的辐射风暴席卷大地，室外暴露将导致快速的辐射累积。幸存者必须在风暴来临前找到地下掩体。", "trigger": "随机触发，余烬历每月1-3次", "significance": "major" },
+            { "name": "变异兽潮迁徙", "description": "大规模变异生物群向南迁徙，沿途摧毁一切聚落和障碍物。小型聚落面临灭顶之灾。", "trigger": "季节性，秋冬之交最为频繁", "significance": "major" },
+            { "name": "流浪商队", "description": "装备精良的游商队伍穿梭于各大聚落之间，带来稀缺的药品、弹药、旧世界科技残片和情报。", "trigger": "每2-3周一次，路线不固定", "significance": "minor" },
+            { "name": "帮派领地战争", "description": "大规模的帮派战争将爆发，战火波及范围极广，普通拾荒者和聚落居民将被迫选边站。", "trigger": "资源枯竭或势力扩张时触发", "significance": "major" },
+            { "name": "旧世界遗迹发掘", "description": "在某处废墟深处发现了保存完好的旧世界设施入口，内部可能藏有珍贵的旧世界科技。", "trigger": "偶然发现或情报指引", "significance": "major" }
+          ]
+        }
       },
       {
         "uid": 8,
@@ -182,7 +218,18 @@
         "order": 8,
         "position": "before_char",
         "entryType": "relationships",
-        "meta": {}
+        "meta": {
+          "relationships": {
+            "description": "废土世界的人际关系以生存利益为纽带，信任是比黄金还稀缺的奢侈品。",
+            "mechanics": "好感度通过共同行动积累：分享物资、保护同伴、完成委托会提升信任值；欺骗、偷窃、临阵脱逃会大幅降低。好感度达到特定阈值后可触发专属剧情、解锁隐藏交易路线或获得NPC的生死托付。",
+            "types": [
+              { "name": "拾荒者同伴", "description": "在废墟中结伴搜寻物资的临时同盟。彼此之间保持着警惕的合作关系。" },
+              { "name": "军阀/帮派首领", "description": "控制着聚落或领地的强权人物。与他们的关系决定了你能否获得庇护、贸易机会和任务委托。" },
+              { "name": "变异者社群", "description": "由异能觉醒者和部分友善变异生物组成的边缘群体。获得他们的信任意味着获得强大的异能支援和禁忌知识。" },
+              { "name": "聚落居民", "description": "在废墟中建立了定居点的普通幸存者。他们提供补给、情报和休息场所，但也会在资源紧张时驱逐外来者。" }
+            ]
+          }
+        }
       }
     ]
   }
