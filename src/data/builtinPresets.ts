@@ -154,6 +154,17 @@ const DISPLAY_SCRIPTS: RegexScript[] = [
     markdownOnly: true,
     promptOnly: false,
   },
+  // --- 兜底：隐藏残留的 image### 标签 ---
+  {
+    id: 'builtin_display_strip_image_tag',
+    scriptName: '隐藏生图标签',
+    findRegex: 'image###[\\s\\S]*?###',
+    replaceString: '',
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+  },
   // --- 天赋觉醒内联卡片 ---
   {
     id: 'builtin_display_talent_gain',
