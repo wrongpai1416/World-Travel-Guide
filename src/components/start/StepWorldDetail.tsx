@@ -1,5 +1,5 @@
 import { Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle, DollarSign, Flag, User, Sparkles, Check, Compass, Shield, Zap, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, BookOpen, Heart, Anchor, Backpack, Target, Brain, Dna, Lightbulb, Bookmark, type LucideIcon } from 'lucide-react';
-import type { WorldDef } from '../../data/worldLoader';
+import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import { WORLDS } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
 
@@ -14,8 +14,17 @@ const ICON_COMPONENTS: Record<string, LucideIcon> = {
 function WorldIcon({ name, size = 28 }: { name: string; size?: number }) {
   const IconComp = ICON_COMPONENTS[name];
   if (IconComp) return <IconComp size={size} style={{ color: 'var(--accent)' }} />;
-  // 兼容旧数据：如果是 emoji 或未知名称，回退显示 Globe
   return <Globe size={size} style={{ color: 'var(--accent)' }} />;
+}
+
+/** 从 worldBookEntries 中按 entryType 查找条目 */
+function findEntryByType(entries: WorldBookEntryDef[] | undefined, type: string): WorldBookEntryDef | undefined {
+  return entries?.find(e => e.entryType === type);
+}
+
+/** 从 worldBookEntries 中按 entryType 查找所有条目 */
+function findAllEntriesByType(entries: WorldBookEntryDef[] | undefined, type: string): WorldBookEntryDef[] {
+  return entries?.filter(e => e.entryType === type) ?? [];
 }
 
 interface StepWorldDetailProps {
@@ -64,12 +73,22 @@ export default function StepWorldDetail({
   }
 
   const accentColor = world.coverColor || 'var(--accent)';
-  const hasSetting = !!world.setting;
-  const hasRules = !!world.rules;
-  const hasEconomy = !!world.economy || !!world.timeSystem;
-  const hasFactions = world.factions && world.factions.length > 0;
-  const hasNPCs = world.presetNPCs && world.presetNPCs.length > 0;
-  const hasHighlights = world.highlights && world.highlights.length > 0;
+  const entries = world.worldBookEntries;
+
+  // 从 worldBookEntries 中提取各类数据
+  const settingEntry = findEntryByType(entries, 'setting');
+  const rulesEntry = findEntryByType(entries, 'rules');
+  const economyEntry = findEntryByType(entries, 'economy');
+  const factionsEntry = findEntryByType(entries, 'factions');
+  const npcsEntry = findEntryByType(entries, 'npcs');
+  const highlightsEntry = findEntryByType(entries, 'highlights');
+
+  const hasSetting = !!settingEntry || !!worldEntry;
+  const hasRules = !!rulesEntry;
+  const hasEconomy = !!economyEntry;
+  const hasFactions = !!factionsEntry && factionsEntry.meta?.factions && factionsEntry.meta.factions.length > 0;
+  const hasNPCs = !!npcsEntry && npcsEntry.meta?.npcs && npcsEntry.meta.npcs.length > 0;
+  const hasHighlights = !!highlightsEntry && highlightsEntry.meta?.highlights && highlightsEntry.meta.highlights.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -118,7 +137,7 @@ export default function StepWorldDetail({
       </div>
 
       {/* 世界设定叙事 */}
-      {(hasSetting || worldEntry) && (
+      {hasSetting && (
         <div className="surface-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <ScrollText size={14} />世界设定
@@ -132,101 +151,107 @@ export default function StepWorldDetail({
                 ? worldEntry.content.substring(0, 2000) + '...\n\n[完整设定将在游戏中加载]'
                 : worldEntry.content}
             </div>
-          ) : hasSetting ? (
+          ) : settingEntry ? (
             <div style={{ fontSize: 'var(--font-size-md)', lineHeight: '1.8', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-              {world.setting!.overview}
+              {settingEntry.content}
             </div>
           ) : null}
-          {hasSetting && (
+          {settingEntry?.meta && (
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
-              {world.setting!.location && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {world.setting!.location}</span>}
-              {world.setting!.timePeriod && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {world.setting!.timePeriod}</span>}
-              {world.setting!.atmosphere && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Cloud size={12} /> {world.setting!.atmosphere}</span>}
+              {settingEntry.meta.location && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {settingEntry.meta.location}</span>}
+              {settingEntry.meta.timePeriod && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {settingEntry.meta.timePeriod}</span>}
+              {settingEntry.meta.atmosphere && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Cloud size={12} /> {settingEntry.meta.atmosphere}</span>}
             </div>
           )}
         </div>
       )}
 
       {/* 世界规则 */}
-      {hasRules && (
+      {hasRules && rulesEntry && (
         <div className="surface-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Swords size={14} />世界规则
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-            {world.rules!.powerSystem && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>力量体系</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{world.rules!.powerSystem}</div>
+          {rulesEntry.meta && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                {rulesEntry.meta.powerSystem && (
+                  <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>力量体系</div>
+                    <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{rulesEntry.meta.powerSystem}</div>
+                  </div>
+                )}
+                {rulesEntry.meta.socialStructure && (
+                  <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>社会结构</div>
+                    <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{rulesEntry.meta.socialStructure}</div>
+                  </div>
+                )}
               </div>
-            )}
-            {world.rules!.socialStructure && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>社会结构</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{world.rules!.socialStructure}</div>
-              </div>
-            )}
-          </div>
-          {world.rules!.specialRules && world.rules!.specialRules.length > 0 && (
-            <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {world.rules!.specialRules.map((rule, i) => (
-                <span key={i} style={{
-                  fontSize: 'var(--font-size-sm)', padding: '3px 10px', borderRadius: '12px',
-                  background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
-                  display: 'flex', alignItems: 'center', gap: '4px',
-                }}><AlertTriangle size={10} /> {rule}</span>
-              ))}
-            </div>
+              {rulesEntry.meta.specialRules && rulesEntry.meta.specialRules.length > 0 && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {rulesEntry.meta.specialRules.map((rule, i) => (
+                    <span key={i} style={{
+                      fontSize: 'var(--font-size-sm)', padding: '3px 10px', borderRadius: '12px',
+                      background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                    }}><AlertTriangle size={10} /> {rule}</span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
       {/* 经济 & 时间 */}
-      {hasEconomy && (
+      {hasEconomy && economyEntry && (
         <div className="surface-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <DollarSign size={14} />经济 & 时间
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
-            {world.economy?.currency && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>货币</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>
-                  {world.economy.currency.symbol} {world.economy.currency.name}
-                  {world.economy.currency.description && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginLeft: '6px' }}>{world.economy.currency.description}</span>}
+          {economyEntry.meta && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+              {economyEntry.meta.currency && (
+                <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>货币</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>
+                    {economyEntry.meta.currency.symbol} {economyEntry.meta.currency.name}
+                    {economyEntry.meta.currency.description && <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginLeft: '6px' }}>{economyEntry.meta.currency.description}</span>}
+                  </div>
                 </div>
-              </div>
-            )}
-            {world.economy?.priceLevel && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>物价水平</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{world.economy.priceLevel}</div>
-              </div>
-            )}
-            {world.timeSystem?.calendar && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>纪年</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{world.timeSystem.calendar}</div>
-              </div>
-            )}
-            {world.timeSystem?.startTime && (
-              <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>开始时间</div>
-                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{world.timeSystem.startTime}</div>
-              </div>
-            )}
-          </div>
+              )}
+              {economyEntry.meta.priceLevel && (
+                <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>物价水平</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{economyEntry.meta.priceLevel}</div>
+                </div>
+              )}
+              {economyEntry.meta.calendar && (
+                <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>纪年</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{economyEntry.meta.calendar}</div>
+                </div>
+              )}
+              {economyEntry.meta.startTime && (
+                <div style={{ padding: '10px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginBottom: '4px' }}>开始时间</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>{economyEntry.meta.startTime}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* 势力 */}
-      {hasFactions && (
+      {hasFactions && factionsEntry && (
         <div>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Flag size={14} />势力 ({world.factions!.length})
+            <Flag size={14} />势力 ({factionsEntry.meta!.factions!.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-            {world.factions!.map((f, i) => (
+            {factionsEntry.meta!.factions!.map((f, i) => (
               <div key={i} className="surface-card" style={{ padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600', fontSize: 'var(--font-size-md)' }}>{f.name}</span>
@@ -246,13 +271,13 @@ export default function StepWorldDetail({
       )}
 
       {/* 关键人物 */}
-      {hasNPCs && (
+      {hasNPCs && npcsEntry && (
         <div>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <User size={14} />关键人物 ({world.presetNPCs!.length})
+            <User size={14} />关键人物 ({npcsEntry.meta!.npcs!.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-            {world.presetNPCs!.map((npc, i) => (
+            {npcsEntry.meta!.npcs!.map((npc, i) => (
               <div key={i} className="surface-card" style={{ padding: '10px 12px' }}>
                 <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '2px' }}>{npc.name}</div>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: accentColor, marginBottom: '4px' }}>{npc.role}</div>
@@ -265,13 +290,13 @@ export default function StepWorldDetail({
       )}
 
       {/* 核心特色 */}
-      {hasHighlights && (
+      {hasHighlights && highlightsEntry && (
         <div>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Sparkles size={14} />核心特色
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {world.highlights!.map((h, i) => (
+            {highlightsEntry.meta!.highlights!.map((h, i) => (
               <span key={i} style={{
                 fontSize: 'var(--font-size-base)', padding: '6px 14px', borderRadius: '20px',
                 background: `${accentColor}12`, color: accentColor, fontWeight: '500',

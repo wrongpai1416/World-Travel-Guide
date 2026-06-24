@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { WorldDef } from '../../data/worlds-schema';
+import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import { requestStreamWithRetry } from '../../api/client';
 import ModuleSelector, { getDefaultSelectedModules } from './ModuleSelector';
 import { useConfigStore } from '../../stores/configStore';
@@ -72,9 +72,6 @@ type FormState = {
   factions: Array<{ name: string; description: string; alignment: string }>;
   presetNPCs: Array<{ name: string; role: string; description: string; personality: string }>;
   highlights: string;
-  // 无 module 映射的旧字段（保留）
-  relationships: WorldDef['relationships'];
-  events: WorldDef['events'];
   // 模块化系统（v2.1）
   modules: WorldDef['modules'];
 };
@@ -86,27 +83,44 @@ const defaultForm: FormState = {
   currencyName: '', currencySymbol: '', currencyDesc: '', priceLevel: '',
   calendar: '', startTime: '', timeSpeed: '',
   factions: [], presetNPCs: [], highlights: '',
-  relationships: undefined, events: undefined,
   modules: undefined,
 };
 
+/** 从 worldBookEntries 中按 entryType 查找条目的 meta */
+function findMeta(entries: WorldBookEntryDef[] | undefined, type: string) {
+  return entries?.find(e => e.entryType === type)?.meta;
+}
+
 function worldToForm(w: WorldDef): FormState {
+  const entries = w.worldBookEntries;
+  const settingMeta = findMeta(entries, 'setting');
+  const rulesMeta = findMeta(entries, 'rules');
+  const economyMeta = findMeta(entries, 'economy');
+  const factionsMeta = findMeta(entries, 'factions');
+  const npcsMeta = findMeta(entries, 'npcs');
+  const highlightsMeta = findMeta(entries, 'highlights');
+
   return {
     name: w.name || '', description: w.description || '',
     icon: w.icon || '', coverColor: w.coverColor || '#3b82f6',
     tags: w.tags?.join(', ') || '', difficulty: w.difficulty || 'medium',
-    overview: w.setting?.overview || '', timePeriod: w.setting?.timePeriod || '',
-    location: w.setting?.location || '', atmosphere: w.setting?.atmosphere || '',
-    powerSystem: w.rules?.powerSystem || '', socialStructure: w.rules?.socialStructure || '',
-    specialRules: w.rules?.specialRules?.join('\n') || '',
-    currencyName: w.economy?.currency?.name || '', currencySymbol: w.economy?.currency?.symbol || '',
-    currencyDesc: w.economy?.currency?.description || '', priceLevel: w.economy?.priceLevel || '',
-    calendar: w.timeSystem?.calendar || '', startTime: w.timeSystem?.startTime || '',
-    timeSpeed: w.timeSystem?.timeSpeed || '',
-    factions: w.factions?.map(f => ({ name: f.name, description: f.description, alignment: f.alignment || '中立' })) || [],
-    presetNPCs: w.presetNPCs?.map(n => ({ name: n.name, role: n.role, description: n.description, personality: n.personality || '' })) || [],
-    highlights: w.highlights?.join(', ') || '',
-    relationships: w.relationships, events: w.events,
+    overview: entries?.find(e => e.entryType === 'setting')?.content || '',
+    timePeriod: settingMeta?.timePeriod || '',
+    location: settingMeta?.location || '',
+    atmosphere: settingMeta?.atmosphere || '',
+    powerSystem: rulesMeta?.powerSystem || '',
+    socialStructure: rulesMeta?.socialStructure || '',
+    specialRules: rulesMeta?.specialRules?.join('\n') || '',
+    currencyName: economyMeta?.currency?.name || '',
+    currencySymbol: economyMeta?.currency?.symbol || '',
+    currencyDesc: economyMeta?.currency?.description || '',
+    priceLevel: economyMeta?.priceLevel || '',
+    calendar: economyMeta?.calendar || '',
+    startTime: economyMeta?.startTime || '',
+    timeSpeed: economyMeta?.timeSpeed || '',
+    factions: factionsMeta?.factions?.map(f => ({ name: f.name, description: f.description, alignment: f.alignment || '中立' })) || [],
+    presetNPCs: npcsMeta?.npcs?.map(n => ({ name: n.name, role: n.role, description: n.description, personality: n.personality || '' })) || [],
+    highlights: highlightsMeta?.highlights?.join(', ') || '',
     modules: w.modules,
   };
 }
@@ -263,14 +277,6 @@ export default function WorldEditorForm({
     "socialStructure": "社会结构",
     "specialRules": ["特殊规则1", "特殊规则2"]
   },
-  "relationships": {
-    "description": "关系系统描述",
-    "mechanics": "关系机制说明",
-    "types": [{ "name": "关系类型", "description": "说明" }]
-  },
-  "events": [
-    { "name": "事件名", "description": "事件描述", "trigger": "触发条件", "significance": "major" }
-  ],
   "economy": {
     "currency": { "name": "货币名", "symbol": "符号", "description": "说明" },
     "priceLevel": "物价水平描述"
@@ -317,8 +323,6 @@ export default function WorldEditorForm({
         factions: Array.isArray(baseData.factions) ? baseData.factions.map((f: any) => ({ name: f.name || '', description: f.description || '', alignment: f.alignment || '中立' })) : [],
         presetNPCs: Array.isArray(baseData.presetNPCs) ? baseData.presetNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: n.personality || '' })) : [],
         highlights: Array.isArray(baseData.highlights) ? baseData.highlights.join(', ') : '',
-        relationships: baseData.relationships || undefined,
-        events: Array.isArray(baseData.events) ? baseData.events : undefined,
       });
 
       // ─── 阶段2：管线生成模块数据（多阶段调用） ───
@@ -491,24 +495,130 @@ export default function WorldEditorForm({
   const talentData = form.modules?.find(m => m.moduleId === 'talent')?.data as TalentModuleSchema | undefined;
 
   // 将当前表单转换为 WorldDef 对象（供导出和保存共用）
-  const formToWorldDef = (): WorldDef => ({
-    id: initialWorld?.id || `custom_${Date.now()}`,
-    name: form.name.trim(), description: form.description.trim(), entryId: null,
-    icon: form.icon || undefined, coverColor: form.coverColor || undefined,
-    tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
-    difficulty: (form.difficulty as any) || undefined,
-    setting: form.overview ? { overview: form.overview, timePeriod: form.timePeriod || undefined, location: form.location || undefined, atmosphere: form.atmosphere || undefined } : undefined,
-    rules: (form.powerSystem || form.socialStructure || form.specialRules) ? { powerSystem: form.powerSystem || undefined, socialStructure: form.socialStructure || undefined, specialRules: form.specialRules ? form.specialRules.split('\n').map(s => s.trim()).filter(Boolean) : undefined } : undefined,
-    economy: form.currencyName ? { currency: { name: form.currencyName, symbol: form.currencySymbol || undefined, description: form.currencyDesc || undefined }, priceLevel: form.priceLevel || undefined } : undefined,
-    timeSystem: (form.calendar || form.startTime) ? { calendar: form.calendar || undefined, startTime: form.startTime || undefined, timeSpeed: form.timeSpeed || undefined } : undefined,
-    factions: form.factions.filter(f => f.name.trim()).length > 0 ? form.factions.filter(f => f.name.trim()).map(f => ({ name: f.name.trim(), description: f.description.trim(), alignment: f.alignment || undefined })) : undefined,
-    presetNPCs: form.presetNPCs.filter(n => n.name.trim()).length > 0 ? form.presetNPCs.filter(n => n.name.trim()).map(n => ({ name: n.name.trim(), role: n.role.trim(), description: n.description.trim(), personality: n.personality.trim() || undefined })) : undefined,
-    highlights: form.highlights ? form.highlights.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
-    relationships: form.relationships,
-    events: form.events,
-    modules: form.modules,
-    author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
-  });
+  // 叙事内容全部存为 worldBookEntries
+  const formToWorldDef = (): WorldDef => {
+    const entries: WorldBookEntryDef[] = [];
+    let uid = 1;
+
+    // setting 条目
+    if (form.overview) {
+      entries.push({
+        uid: uid++, key: [], constant: true, comment: '世界设定', content: form.overview,
+        order: 1, position: 'before_char', entryType: 'setting',
+        meta: {
+          location: form.location || undefined,
+          timePeriod: form.timePeriod || undefined,
+          atmosphere: form.atmosphere || undefined,
+        },
+      });
+    }
+
+    // rules 条目
+    if (form.powerSystem || form.socialStructure || form.specialRules) {
+      const rulesContent = [
+        form.powerSystem ? `力量体系：${form.powerSystem}` : '',
+        form.socialStructure ? `社会结构：${form.socialStructure}` : '',
+        form.specialRules ? `特殊规则：${form.specialRules}` : '',
+      ].filter(Boolean).join('\n');
+      entries.push({
+        uid: uid++, key: [], constant: true, comment: '世界规则', content: rulesContent,
+        order: 2, position: 'before_char', entryType: 'rules',
+        meta: {
+          powerSystem: form.powerSystem || undefined,
+          socialStructure: form.socialStructure || undefined,
+          specialRules: form.specialRules ? form.specialRules.split('\n').map(s => s.trim()).filter(Boolean) : undefined,
+        },
+      });
+    }
+
+    // factions 条目
+    const validFactions = form.factions.filter(f => f.name.trim());
+    if (validFactions.length > 0) {
+      const factionsContent = validFactions.map(f =>
+        `【${f.name.trim()}】${f.alignment ? `[${f.alignment}]` : ''} ${f.description.trim()}`
+      ).join('\n');
+      entries.push({
+        uid: uid++, key: [], constant: true, comment: '势力', content: factionsContent,
+        order: 3, position: 'before_char', entryType: 'factions',
+        meta: {
+          factions: validFactions.map(f => ({
+            name: f.name.trim(), description: f.description.trim(),
+            alignment: f.alignment || undefined,
+          })),
+        },
+      });
+    }
+
+    // npcs 条目
+    const validNPCs = form.presetNPCs.filter(n => n.name.trim());
+    if (validNPCs.length > 0) {
+      const npcsContent = validNPCs.map(n =>
+        `【${n.name.trim()}】${n.role.trim()} — ${n.description.trim()}${n.personality.trim() ? `（性格：${n.personality.trim()}）` : ''}`
+      ).join('\n');
+      entries.push({
+        uid: uid++, key: [], constant: true, comment: '关键人物', content: npcsContent,
+        order: 4, position: 'before_char', entryType: 'npcs',
+        meta: {
+          npcs: validNPCs.map(n => ({
+            name: n.name.trim(), role: n.role.trim(),
+            description: n.description.trim(),
+            personality: n.personality.trim() || undefined,
+          })),
+        },
+      });
+    }
+
+    // economy + timeSystem 条目
+    if (form.currencyName || form.calendar || form.startTime) {
+      const economyContent = [
+        form.currencyName ? `货币：${form.currencySymbol || ''}${form.currencyName}${form.currencyDesc ? `（${form.currencyDesc}）` : ''}` : '',
+        form.priceLevel ? `物价水平：${form.priceLevel}` : '',
+        form.calendar ? `纪年：${form.calendar}` : '',
+        form.startTime ? `开始时间：${form.startTime}` : '',
+        form.timeSpeed ? `时间流速：${form.timeSpeed}` : '',
+      ].filter(Boolean).join('\n');
+      entries.push({
+        uid: uid++, key: ['花钱', '消费', '买单', '价格', '买东西', '付钱', '货币', '工资', '收入'],
+        constant: false, comment: '经济 & 时间', content: economyContent,
+        order: 5, position: 'before_char', entryType: 'economy',
+        meta: {
+          currency: form.currencyName ? {
+            name: form.currencyName,
+            symbol: form.currencySymbol || undefined,
+            description: form.currencyDesc || undefined,
+          } : undefined,
+          priceLevel: form.priceLevel || undefined,
+          calendar: form.calendar || undefined,
+          startTime: form.startTime || undefined,
+          timeSpeed: form.timeSpeed || undefined,
+        },
+      });
+    }
+
+    // highlights 条目
+    const highlightList = form.highlights ? form.highlights.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [];
+    if (highlightList.length > 0) {
+      entries.push({
+        uid: uid++, key: [], constant: true, comment: '核心特色', content: highlightList.join('、'),
+        order: 6, position: 'before_char', entryType: 'highlights',
+        meta: { highlights: highlightList },
+      });
+    }
+
+    // 保留已有的非叙事 worldBookEntries（如模块规则条目）
+    const existingEntries = initialWorld?.worldBookEntries?.filter(e => e.entryType === 'module_rule' || !e.entryType) ?? [];
+
+    return {
+      id: initialWorld?.id || `custom_${Date.now()}`,
+      name: form.name.trim(), description: form.description.trim(), entryId: null,
+      icon: form.icon || undefined, coverColor: form.coverColor || undefined,
+      tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
+      difficulty: (form.difficulty as any) || undefined,
+      worldBookEntries: [...entries, ...existingEntries],
+      modules: form.modules,
+      author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
+    };
+  };
 
   const handleSave = () => {
     if (!form.name.trim()) return;

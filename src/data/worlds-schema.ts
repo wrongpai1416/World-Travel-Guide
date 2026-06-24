@@ -1,10 +1,10 @@
 // 世界定义完整 Schema —— 通用结构化框架，适用于所有类型的世界
 //
-// 设计原则：用固定的高级概念（属性、进阶、冲突、资源、关系、事件）作为
-// 通用框架。所有世界都有这些概念，只是内容完全不同。留空 = 不适用。
+// 设计原则：worldBookEntries 是世界叙事内容的唯一真相源。
+// WorldDef 只保留纯 UI 元数据。详情页、编辑器、游戏引擎全部从 worldBookEntries 读取。
 
 // ═══════════════════════════════════════════════════════════════
-//  通用子接口 —— 6 大结构化概念
+//  通用子接口 —— 6 大结构化概念（供模块系统和 worldBookEntries.meta 使用）
 // ═══════════════════════════════════════════════════════════════
 
 /** 属性定义 —— 该世界的核心数值属性 */
@@ -71,7 +71,7 @@ export interface WorldEventDef {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  玩家指南与叙事风格
+//  玩家指南与叙事风格（供 worldBookEntries.meta 使用）
 // ═══════════════════════════════════════════════════════════════
 
 /** 玩家指南 —— 帮助玩家选择适合自己的世界 */
@@ -89,8 +89,80 @@ export interface NarrativeStyleDef {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  嵌入式世界书条目 —— 替代 entryId: null 模式
+//  嵌入式世界书条目 —— 唯一真相源
 // ═══════════════════════════════════════════════════════════════
+
+/** 条目分类，用于 UI 渲染分组 */
+export type WorldBookEntryType =
+  | 'setting'         // 世界观设定
+  | 'factions'        // 势力
+  | 'npcs'            // 预设NPC
+  | 'rules'           // 世界规则
+  | 'economy'         // 经济/时间系统
+  | 'events'          // 世界事件
+  | 'relationships'   // 关系系统
+  | 'highlights'      // 核心特色
+  | 'module_rule';    // 模块生成的规则条目
+
+/** 预设势力（用于 meta.factions） */
+export interface FactionDef {
+  name: string;
+  description: string;
+  alignment?: string;           // '友善' | '中立' | '敌对' | ...
+}
+
+/** 预设NPC（用于 meta.npcs） */
+export interface PresetNPCDef {
+  name: string;
+  role: string;                 // 角色定位：'邻居大婶'、'矿场工头'
+  description: string;
+  personality?: string;         // 性格标签：'热心肠、爱八卦'
+}
+
+/** worldBookEntry 的结构化元数据，供 UI 渲染卡片/网格/徽章等（不注入 AI） */
+export interface WorldBookEntryMeta {
+  // setting 类型用
+  location?: string;
+  timePeriod?: string;
+  atmosphere?: string;
+
+  // factions 类型用
+  factions?: FactionDef[];
+
+  // npcs 类型用
+  npcs?: PresetNPCDef[];
+
+  // rules 类型用
+  powerSystem?: string;
+  socialStructure?: string;
+  specialRules?: string[];
+
+  // economy 类型用
+  currency?: { name: string; symbol?: string; description?: string };
+  priceLevel?: string;
+
+  // timeSystem（挂在 economy 条目或独立条目）
+  calendar?: string;
+  startTime?: string;
+  timeSpeed?: string;
+
+  // events 类型用
+  events?: WorldEventDef[];
+
+  // relationships 类型用
+  relationships?: RelationshipDef;
+
+  // highlights 类型用
+  highlights?: string[];
+
+  // playstyleGuide（挂在 setting 条目或独立条目）
+  recommendedFor?: string[];
+  avoidIf?: string[];
+  estimatedPlaytime?: string;
+
+  // narrativeStyle（挂在 setting 条目或独立条目）
+  narrativeStyle?: NarrativeStyleDef;
+}
 
 /** 世界书条目（直接嵌入 WorldDef，可注入到 system prompt） */
 export interface WorldBookEntryDef {
@@ -117,25 +189,11 @@ export interface WorldBookEntryDef {
   group?: string;                // 分组名（同组互斥）
   useGroupScoring?: boolean;     // 使用分组评分
   groupWeight?: number;          // 分组权重
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  已有子接口
-// ═══════════════════════════════════════════════════════════════
-
-/** 预设势力 */
-export interface FactionDef {
-  name: string;
-  description: string;
-  alignment?: string;           // '友善' | '中立' | '敌对' | ...
-}
-
-/** 预设NPC */
-export interface PresetNPCDef {
-  name: string;
-  role: string;                 // 角色定位：'邻居大婶'、'矿场工头'
-  description: string;
-  personality?: string;         // 性格标签：'热心肠、爱八卦'
+  // ── v3 新增：统一架构 ──
+  /** 条目分类，用于 UI 渲染分组（不设置 = 纯世界书条目） */
+  entryType?: WorldBookEntryType;
+  /** 结构化元数据，供 UI 渲染（不注入 AI） */
+  meta?: WorldBookEntryMeta;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -168,7 +226,7 @@ export interface WorldModule {
 //  完整的世界定义
 // ═══════════════════════════════════════════════════════════════
 
-/** 完整的世界定义 —— 通用结构化框架 */
+/** 完整的世界定义 —— worldBookEntries 为唯一叙事真相源 */
 export interface WorldDef {
   // ─── 必填 ───
   id: string;
@@ -181,43 +239,6 @@ export interface WorldDef {
   icon?: string;                // Lucide 图标名称：'Cpu'、'Swords'（见 shared/worldIcons.tsx）
   coverColor?: string;          // 主题色 hex：'#e74c3c'
 
-  // ─── 世界设定 ───
-  setting?: {
-    overview: string;           // 2-3段世界观背景故事
-    timePeriod?: string;        // '1990年春' | '星际历2187年'
-    location?: string;          // '东北工业城市鹤岗'
-    atmosphere?: string;        // '温暖怀旧、市井烟火气'
-  };
-
-  // ─── 世界规则（概览，保留向后兼容） ───
-  rules?: {
-    powerSystem?: string;       // 力量/魔法/科技体系
-    socialStructure?: string;   // 社会结构
-    specialRules?: string[];    // ['角色可能死亡', '无魔法']
-  };
-
-  // ─── 经济/时间系统 ───
-  economy?: {
-    currency?: {
-      name: string;             // '人民币'
-      symbol?: string;          // '¥'
-      description?: string;
-    };
-    priceLevel?: string;        // '1990年物价水平'
-  };
-  timeSystem?: {
-    calendar?: string;          // '公历' | '星际历'
-    startTime?: string;         // '1990年3月15日'
-    timeSpeed?: string;         // '与现实同步'
-  };
-
-  // ─── 势力与NPC ───
-  factions?: FactionDef[];
-  presetNPCs?: PresetNPCDef[];
-
-  // ─── 核心特色 ───
-  highlights?: string[];        // ['日常生活细节', '温情互动', '怀旧氛围']
-
   // ─── 文风引用（预留） ───
   writingStyleRef?: string;     // 引用外部文风 JSON 的 id
 
@@ -228,38 +249,11 @@ export interface WorldDef {
   createdAt?: string;
   matureContent?: boolean;
 
-  // ═══════════════════════════════════════════════════════════════
-  //  通用结构化框架 —— v2.0 新增
-  //  所有字段均为 optional，留空表示不适用于该世界
-  // ═══════════════════════════════════════════════════════════════
-
-  /** 核心属性 —— 该世界中最重要的 3-5 个数值属性 */
-  coreStats?: StatDef[];
-
-  /** 进阶体系 —— 角色如何变强/晋升 */
-  progression?: ProgressionDef;
-
-  /** 冲突方式 —— 该世界如何处理对抗 */
-  conflict?: ConflictDef;
-
-  /** 资源系统 —— 该世界的重要资源 */
-  resources?: ResourceManagementDef;
-
-  /** 关系系统 —— 该世界的人际关系机制 */
-  relationships?: RelationshipDef;
-
-  /** 世界事件 —— 该世界中的关键事件/活动 */
-  events?: WorldEventDef[];
-
-  /** 玩家指南 —— 帮助选择适合的世界 */
-  playstyleGuide?: PlaystyleGuideDef;
-
-  /** 叙事风格 —— 可注入到 system prompt */
-  narrativeStyle?: NarrativeStyleDef;
-
-  /** 嵌入式世界书条目 —— 替代 entryId: null */
+  // ─── 叙事内容（唯一真相源） ───
+  /** 嵌入式世界书条目 —— 所有叙事内容都在这里 */
   worldBookEntries?: WorldBookEntryDef[];
 
+  // ─── 模块系统 ───
   /** 世界启用的模块列表 */
   modules?: WorldModule[];
 }

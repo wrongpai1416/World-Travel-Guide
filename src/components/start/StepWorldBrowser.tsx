@@ -8,10 +8,15 @@ import {
   Compass, BookOpen, Star, Upload, ArrowLeft,
   Briefcase, TrendingUp, TrendingDown,
 } from 'lucide-react';
-import type { WorldDef } from '../../data/worldLoader';
+import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import type { WorldBookEntry } from '../../worldbook/index';
 import WorldCard, { CreateWorldCard, getWorldIcon } from './WorldCard';
 import { useIsMobile } from '../../hooks/useIsMobile';
+
+// ── 从 worldBookEntries 按 entryType 查找 ──
+function findEntryByType(entries: WorldBookEntryDef[] | undefined, type: string): WorldBookEntryDef | undefined {
+  return entries?.find(e => e.entryType === type);
+}
 
 // ── 难度筛选 ──
 const DIFFICULTY_FILTERS = [
@@ -319,6 +324,10 @@ export default function StepWorldBrowser({
 
 /** 概览 Tab */
 function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: WorldBookEntry | null }) {
+  const settingEntry = findEntryByType(world.worldBookEntries, 'setting');
+  const rulesEntry = findEntryByType(world.worldBookEntries, 'rules');
+  const highlightsEntry = findEntryByType(world.worldBookEntries, 'highlights');
+
   return (
     <div className="tab-section">
       {/* 世界设定 */}
@@ -327,40 +336,40 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
           <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
           <div className="detail-block-body">{worldEntry.content}</div>
         </div>
-      ) : world.setting?.overview && (
+      ) : settingEntry?.content && (
         <div className="detail-block">
           <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
-          <div className="detail-block-body">{world.setting.overview}</div>
+          <div className="detail-block-body">{settingEntry.content}</div>
         </div>
       )}
 
       {/* 元数据徽章 */}
-      {world.setting && (
+      {settingEntry?.meta && (
         <div className="detail-badges">
-          {world.setting.location && (
-            <span className="detail-badge"><MapPin size={12} />{world.setting.location}</span>
+          {settingEntry.meta.location && (
+            <span className="detail-badge"><MapPin size={12} />{settingEntry.meta.location}</span>
           )}
-          {world.setting.timePeriod && (
-            <span className="detail-badge"><Clock size={12} />{world.setting.timePeriod}</span>
+          {settingEntry.meta.timePeriod && (
+            <span className="detail-badge"><Clock size={12} />{settingEntry.meta.timePeriod}</span>
           )}
-          {world.setting.atmosphere && (
-            <span className="detail-badge"><Cloud size={12} />{world.setting.atmosphere}</span>
+          {settingEntry.meta.atmosphere && (
+            <span className="detail-badge"><Cloud size={12} />{settingEntry.meta.atmosphere}</span>
           )}
         </div>
       )}
 
       {/* 世界规则概览 */}
-      {world.rules && (
+      {rulesEntry?.meta && (
         <div className="detail-block">
           <div className="detail-block-title"><Shield size={15} />世界规则</div>
           <div className="detail-block-body">
-            {world.rules.powerSystem && (
-              <div className="detail-row"><Zap size={13} /><strong>力量体系：</strong>{world.rules.powerSystem}</div>
+            {rulesEntry.meta.powerSystem && (
+              <div className="detail-row"><Zap size={13} /><strong>力量体系：</strong>{rulesEntry.meta.powerSystem}</div>
             )}
-            {world.rules.socialStructure && (
-              <div className="detail-row"><Users size={13} /><strong>社会结构：</strong>{world.rules.socialStructure}</div>
+            {rulesEntry.meta.socialStructure && (
+              <div className="detail-row"><Users size={13} /><strong>社会结构：</strong>{rulesEntry.meta.socialStructure}</div>
             )}
-            {world.rules.specialRules?.map((rule, i) => (
+            {rulesEntry.meta.specialRules?.map((rule, i) => (
               <div key={i} className="detail-rule"><AlertTriangle size={12} />{rule}</div>
             ))}
           </div>
@@ -368,21 +377,21 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
       )}
 
       {/* 核心特色 */}
-      {world.highlights && world.highlights.length > 0 && (
+      {highlightsEntry?.meta?.highlights && highlightsEntry.meta.highlights.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Star size={15} />核心特色</div>
           <div className="detail-pills">
-            {world.highlights.map((h, i) => <span key={i} className="detail-pill"><Sparkles size={11} />{h}</span>)}
+            {highlightsEntry.meta.highlights.map((h, i) => <span key={i} className="detail-pill"><Sparkles size={11} />{h}</span>)}
           </div>
         </div>
       )}
 
       {/* 适合人群 */}
-      {world.playstyleGuide?.recommendedFor && world.playstyleGuide.recommendedFor.length > 0 && (
+      {settingEntry?.meta?.recommendedFor && settingEntry.meta.recommendedFor.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Compass size={15} />适合人群</div>
           <div className="detail-pills">
-            {world.playstyleGuide.recommendedFor.map((p, i) => <span key={i} className="detail-pill">{p}</span>)}
+            {settingEntry.meta.recommendedFor.map((p, i) => <span key={i} className="detail-pill">{p}</span>)}
           </div>
         </div>
       )}
@@ -410,6 +419,10 @@ function SystemsTab({ world }: { world: WorldDef }) {
   const survData = survMod?.moduleConfig as any;
   const resources = survData?.resources || [];
   const resDesc = survData?.description;
+
+  // 关系系统和世界事件从 worldBookEntries 读取
+  const relationshipsEntry = findEntryByType(world.worldBookEntries, 'relationships');
+  const eventsEntry = findEntryByType(world.worldBookEntries, 'events');
 
   // 新格式：modules 是字符串数组时，只显示模块列表
   const modulesRaw = world.modules as any[] | undefined;
@@ -572,16 +585,16 @@ function SystemsTab({ world }: { world: WorldDef }) {
       })()}
 
       {/* 关系系统 */}
-      {world.relationships && (
+      {relationshipsEntry?.meta?.relationships && (
         <div className="detail-block">
           <div className="detail-block-title"><Heart size={15} />关系系统</div>
           <div className="detail-block-body">
-            {world.relationships.description && <p>{world.relationships.description}</p>}
-            {world.relationships.mechanics && (
-              <div className="detail-row"><Zap size={13} /><strong>机制：</strong>{world.relationships.mechanics}</div>
+            {relationshipsEntry.meta.relationships.description && <p>{relationshipsEntry.meta.relationships.description}</p>}
+            {relationshipsEntry.meta.relationships.mechanics && (
+              <div className="detail-row"><Zap size={13} /><strong>机制：</strong>{relationshipsEntry.meta.relationships.mechanics}</div>
             )}
             <div className="detail-pills">
-              {world.relationships.types.map((rt, i) => (
+              {relationshipsEntry.meta.relationships.types.map((rt, i) => (
                 <span key={i} className="detail-pill" title={rt.description}>{rt.name}</span>
               ))}
             </div>
@@ -590,11 +603,11 @@ function SystemsTab({ world }: { world: WorldDef }) {
       )}
 
       {/* 世界事件 */}
-      {world.events && world.events.length > 0 && (
+      {eventsEntry?.meta?.events && eventsEntry.meta.events.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Calendar size={15} />世界事件</div>
           <div className="events-list">
-            {world.events.map((evt, i) => (
+            {eventsEntry.meta.events.map((evt, i) => (
               <div key={i} className={`event-item${evt.significance === 'major' ? ' major' : ''}`}>
                 <div className="event-header">
                   <span className="event-name">{evt.name}</span>
@@ -610,7 +623,7 @@ function SystemsTab({ world }: { world: WorldDef }) {
   );
 }
 
-/** 经济 Tab — 从 modules[] 读取生存资源/经营资产 */
+/** 经济 Tab — 从 modules[] 和 worldBookEntries 读取 */
 function EconomyTab({ world }: { world: WorldDef }) {
   // 生存资源（新模块 ID: 'survival'）
   const survMod = world.modules?.find(m => m.moduleId === 'survival' && m.enabled);
@@ -620,13 +633,14 @@ function EconomyTab({ world }: { world: WorldDef }) {
   const rules = survData?.rules;
   const resDesc = survData?.description;
 
-  // 经济系统（旧格式兼容）
-  const currency = world.economy?.currency;
+  // 经济系统从 worldBookEntries 读取
+  const economyEntry = findEntryByType(world.worldBookEntries, 'economy');
+  const currency = economyEntry?.meta?.currency;
 
   return (
     <div className="tab-section">
       {/* 货币 & 经济 */}
-      {(world.economy || currency) && (
+      {(economyEntry || currency) && (
         <div className="detail-block">
           <div className="detail-block-title"><DollarSign size={15} />经济系统</div>
           <div className="detail-block-body">
@@ -636,8 +650,8 @@ function EconomyTab({ world }: { world: WorldDef }) {
                 {currency.description && <span> — {currency.description}</span>}
               </div>
             )}
-            {world.economy?.priceLevel && (
-              <div className="detail-row"><BarChart3 size={13} /><strong>物价水平：</strong>{world.economy.priceLevel}</div>
+            {economyEntry?.meta?.priceLevel && (
+              <div className="detail-row"><BarChart3 size={13} /><strong>物价水平：</strong>{economyEntry.meta.priceLevel}</div>
             )}
           </div>
         </div>
@@ -680,21 +694,19 @@ function EconomyTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 经营资产（占位） */}
-
       {/* 时间系统 */}
-      {world.timeSystem && (
+      {economyEntry?.meta && (economyEntry.meta.calendar || economyEntry.meta.startTime || economyEntry.meta.timeSpeed) && (
         <div className="detail-block">
           <div className="detail-block-title"><Clock size={15} />时间系统</div>
           <div className="detail-block-body">
-            {world.timeSystem.calendar && (
-              <div className="detail-row"><Calendar size={13} /><strong>历法：</strong>{world.timeSystem.calendar}</div>
+            {economyEntry.meta.calendar && (
+              <div className="detail-row"><Calendar size={13} /><strong>历法：</strong>{economyEntry.meta.calendar}</div>
             )}
-            {world.timeSystem.startTime && (
-              <div className="detail-row"><Clock size={13} /><strong>开局时间：</strong>{world.timeSystem.startTime}</div>
+            {economyEntry.meta.startTime && (
+              <div className="detail-row"><Clock size={13} /><strong>开局时间：</strong>{economyEntry.meta.startTime}</div>
             )}
-            {world.timeSystem.timeSpeed && (
-              <div className="detail-row"><Zap size={13} /><strong>时间流速：</strong>{world.timeSystem.timeSpeed}</div>
+            {economyEntry.meta.timeSpeed && (
+              <div className="detail-row"><Zap size={13} /><strong>时间流速：</strong>{economyEntry.meta.timeSpeed}</div>
             )}
           </div>
         </div>
@@ -705,14 +717,17 @@ function EconomyTab({ world }: { world: WorldDef }) {
 
 /** 人物 Tab */
 function CharactersTab({ world }: { world: WorldDef }) {
+  const factionsEntry = findEntryByType(world.worldBookEntries, 'factions');
+  const npcsEntry = findEntryByType(world.worldBookEntries, 'npcs');
+
   return (
     <div className="tab-section">
       {/* 势力 */}
-      {world.factions && world.factions.length > 0 && (
+      {factionsEntry?.meta?.factions && factionsEntry.meta.factions.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Flag size={15} />势力分布</div>
           <div className="factions-grid">
-            {world.factions.map((f, i) => (
+            {factionsEntry.meta.factions.map((f, i) => (
               <div key={i} className="faction-card">
                 <div className="faction-header">
                   <span className="faction-name">{f.name}</span>
@@ -730,11 +745,11 @@ function CharactersTab({ world }: { world: WorldDef }) {
       )}
 
       {/* 预设 NPC */}
-      {world.presetNPCs && world.presetNPCs.length > 0 && (
+      {npcsEntry?.meta?.npcs && npcsEntry.meta.npcs.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><User size={15} />关键 NPC</div>
           <div className="npcs-grid">
-            {world.presetNPCs.map((npc, i) => (
+            {npcsEntry.meta.npcs.map((npc, i) => (
               <div key={i} className="npc-card">
                 <div className="npc-header">
                   <span className="npc-name">{npc.name}</span>

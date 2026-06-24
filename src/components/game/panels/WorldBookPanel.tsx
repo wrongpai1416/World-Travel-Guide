@@ -1,10 +1,11 @@
-// 世界书面板 — 展示当前预设的系统提示词条目
+// 世界书面板 — 展示当前世界的 worldBookEntries
 import { useState, useMemo } from 'react';
 import {
   BookOpen, ChevronDown, ChevronRight, Search,
   Eye, EyeOff, MapPin, Layers, Lock,
 } from 'lucide-react';
-import { getBuiltinPreset, getEnhancementModules } from '../../../data/builtinPresets';
+import { findWorldDef } from '../../../data/worldLoader';
+import type { WorldBookEntryDef } from '../../../data/worlds-schema';
 
 interface Props {
   worldId: string;
@@ -15,34 +16,22 @@ export default function WorldBookPanel({ worldId }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showDisabled, setShowDisabled] = useState(true);
 
-  // 从内置预设获取系统提示词条目
+  // 从当前世界的 worldBookEntries 读取
   const entries = useMemo(() => {
-    const preset = getBuiltinPreset('default');
-    const presetEntries = preset.prompts
-      .filter((p: any) => p.enabled)
-      .sort((a: any, b: any) => a.order - b.order);
+    const world = findWorldDef(worldId);
+    const wbEntries = world?.worldBookEntries ?? [];
 
-    const enhancementModules = getEnhancementModules().filter((m: any) => m.enabled);
-    const allEntries = [...presetEntries, ...enhancementModules];
-
-    // 去重（按 identifier）
-    const seen = new Set<string>();
-    const unique = allEntries.filter((e: any) => {
-      if (seen.has(e.identifier)) return false;
-      seen.add(e.identifier);
-      return true;
-    });
-
-    return unique.map((e: any) => ({
-      id: e.identifier,
-      comment: e.name || e.identifier,
-      content: e.content || '',
-      constant: e.triggerMode === 'blue',
-      enabled: e.enabled,
-      keys: e.triggerKeywords || [],
-      position: 'after_char' as const,
+    return wbEntries.map((e: WorldBookEntryDef) => ({
+      id: String(e.uid),
+      comment: e.comment,
+      content: e.content,
+      constant: e.constant,
+      enabled: !e.disable,
+      keys: e.key ?? [],
+      position: (e.position ?? 'after_char') as 'before_char' | 'after_char',
       order: e.order ?? 0,
-      depth: 0,
+      depth: e.depth ?? 0,
+      entryType: e.entryType,
     }));
   }, [worldId]);
 
@@ -80,8 +69,6 @@ export default function WorldBookPanel({ worldId }: Props) {
     });
   };
 
-  const worldName = worldId;
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* 头部 */}
@@ -93,7 +80,7 @@ export default function WorldBookPanel({ worldId }: Props) {
         <BookOpen size={16} style={{ color: 'var(--accent)' }} />
         <span style={{ fontWeight: '600', fontSize: 'var(--font-size-lg)' }}>世界书</span>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
-          {worldName} · {entries.length} 条
+          {worldId} · {entries.length} 条
         </span>
       </div>
 
