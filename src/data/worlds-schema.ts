@@ -102,6 +102,8 @@ export type WorldBookEntryType =
   | 'events'          // 世界事件
   | 'relationships'   // 关系系统
   | 'highlights'      // 核心特色
+  | 'lore'            // 地理地点
+  | 'culture'         // 文化风俗
   | 'module_rule';    // 模块生成的规则条目
 
 /** 预设势力（用于 meta.factions） */

@@ -1,4 +1,4 @@
-import { Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle, DollarSign, Flag, User, Sparkles, Check, Compass, Shield, Zap, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, BookOpen, Heart, Anchor, Backpack, Target, Brain, Dna, Lightbulb, Bookmark, type LucideIcon } from 'lucide-react';
+import { Globe, ScrollText, Pencil, MapPin, Clock, Cloud, Swords, AlertTriangle, DollarSign, Flag, User, Sparkles, Check, Compass, Shield, Zap, Flame, Mountain, Ship, Castle, Skull, Crown, Rocket, Star, BookOpen, Heart, Anchor, Backpack, Target, Brain, Dna, Lightbulb, Bookmark, Landmark, Scroll, type LucideIcon } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import { WORLDS } from '../../data/worldLoader';
 import type { WorldBookEntry } from '../../worldbook/index';
@@ -79,15 +79,20 @@ export default function StepWorldDetail({
   const settingEntry = findEntryByType(entries, 'setting');
   const rulesEntry = findEntryByType(entries, 'rules');
   const economyEntry = findEntryByType(entries, 'economy');
-  const factionsEntry = findEntryByType(entries, 'factions');
-  const npcsEntry = findEntryByType(entries, 'npcs');
   const highlightsEntry = findEntryByType(entries, 'highlights');
+  const loreEntries = findAllEntriesByType(entries, 'lore');
+  const cultureEntry = findEntryByType(entries, 'culture');
+  // 势力和 NPC：合并所有同类型条目的 meta（每个势力/NPC 各一条）
+  const factionEntries = findAllEntriesByType(entries, 'factions');
+  const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
+  const npcEntries = findAllEntriesByType(entries, 'npcs');
+  const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
 
   const hasSetting = !!settingEntry || !!worldEntry;
   const hasRules = !!rulesEntry;
   const hasEconomy = !!economyEntry;
-  const hasFactions = !!factionsEntry && factionsEntry.meta?.factions && factionsEntry.meta.factions.length > 0;
-  const hasNPCs = !!npcsEntry && npcsEntry.meta?.npcs && npcsEntry.meta.npcs.length > 0;
+  const hasFactions = allFactions.length > 0;
+  const hasNPCs = allNPCs.length > 0;
   const hasHighlights = !!highlightsEntry && highlightsEntry.meta?.highlights && highlightsEntry.meta.highlights.length > 0;
 
   return (
@@ -245,13 +250,13 @@ export default function StepWorldDetail({
       )}
 
       {/* 势力 */}
-      {hasFactions && factionsEntry && (
+      {hasFactions && (
         <div>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Flag size={14} />势力 ({factionsEntry.meta!.factions!.length})
+            <Flag size={14} />势力 ({allFactions.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-            {factionsEntry.meta!.factions!.map((f, i) => (
+            {allFactions.map((f, i) => (
               <div key={i} className="surface-card" style={{ padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600', fontSize: 'var(--font-size-md)' }}>{f.name}</span>
@@ -271,13 +276,13 @@ export default function StepWorldDetail({
       )}
 
       {/* 关键人物 */}
-      {hasNPCs && npcsEntry && (
+      {hasNPCs && (
         <div>
           <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <User size={14} />关键人物 ({npcsEntry.meta!.npcs!.length})
+            <User size={14} />关键人物 ({allNPCs.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-            {npcsEntry.meta!.npcs!.map((npc, i) => (
+            {allNPCs.map((npc, i) => (
               <div key={i} className="surface-card" style={{ padding: '10px 12px' }}>
                 <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '2px' }}>{npc.name}</div>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: accentColor, marginBottom: '4px' }}>{npc.role}</div>
@@ -285,6 +290,37 @@ export default function StepWorldDetail({
                 {npc.personality && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>{npc.personality}</div>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 地理地点 */}
+      {loreEntries.length > 0 && (
+        <div>
+          <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Landmark size={14} />地理 ({loreEntries.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {loreEntries.map(entry => (
+              <div key={entry.uid} className="surface-card" style={{ padding: '10px 12px' }}>
+                <div style={{ fontWeight: '600', fontSize: 'var(--font-size-md)', marginBottom: '4px' }}>{entry.comment}</div>
+                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                  {entry.content.length > 300 ? entry.content.substring(0, 300) + '...' : entry.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 文化风俗 */}
+      {cultureEntry && (
+        <div className="surface-card" style={{ padding: '1.25rem' }}>
+          <div style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Scroll size={14} />文化风俗
+          </div>
+          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+            {cultureEntry.content}
           </div>
         </div>
       )}

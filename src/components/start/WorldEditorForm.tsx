@@ -5,9 +5,8 @@ import ModuleSelector, { getDefaultSelectedModules } from './ModuleSelector';
 import { useConfigStore } from '../../stores/configStore';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from '../../modules/schema';
-import { executeBuildPipeline } from '../../modules/buildPipeline';
-import { createBuildContext } from '../../modules/buildContext';
-import { waitForRateLimit } from '../../api/rateLimiter';
+import { executeWorldGenPipeline } from '../../worldgen';
+import WaitingGame from './WaitingGame';
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
 import {
@@ -140,6 +139,9 @@ export default function WorldEditorForm({
   const [isGeneratingWorld, setIsGeneratingWorld] = useState(false);
   const [isGeneratingTalent, setIsGeneratingTalent] = useState(false);
   const [generatingModule, setGeneratingModule] = useState<string | null>(null);
+  const [pipelineStage, setPipelineStage] = useState('');
+  /** 细化后的世界书条目（管线生成时写入，formToWorldDef 优先使用） */
+  const [refinedEntries, setRefinedEntries] = useState<WorldBookEntryDef[]>([]);
   const [genError, setGenError] = useState('');
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => {
     // 如果是编辑已有世界，从 modules 中恢复已选模块
@@ -252,153 +254,71 @@ export default function WorldEditorForm({
     const ctrl = new AbortController(); aiAbortRef.current = ctrl;
 
     const enabledModuleIds = [...selectedModules];
-    const hasModules = enabledModuleIds.length > 0;
 
     try {
-      // ─── 阶段1：生成世界基础数据（单次调用） ───
-      const baseSysPrompt = `你是一位专业的世界观架构师。请根据用户给出的世界描述，生成一个完整的世界定义JSON。
-
-要求：
-1. 根据描述创意生成一个合适的中文世界名称（不要直接使用用户输入）
-2. 严格返回一个JSON对象（不要markdown标记），包含以下结构。★ 所有字段都必须生成，不可省略 ★：
-{
-  "name": "创意中文世界名称",
-  "description": "一句话简介（20字以内）",
-  "icon": "Lucide图标名（Globe/Compass/BookOpen/Flame/Mountain/Ship/Castle/Skull/Crown/Rocket/Star/Shield/Zap/Brain/Gem/Ghost/Snowflake/Sun/Moon/Wind/Waves/Anchor/Eye/Heart/Target/Wand2/Fish/Flower/TreePine/Cloud）",
-  "tags": ["标签1", "标签2", "标签3"],
-  "setting": {
-    "overview": "2-3段沉浸式世界观描述（200-400字）",
-    "timePeriod": "时间背景",
-    "location": "地理位置",
-    "atmosphere": "氛围描述"
-  },
-  "rules": {
-    "powerSystem": "力量/魔法/科技体系",
-    "socialStructure": "社会结构",
-    "specialRules": ["特殊规则1", "特殊规则2"]
-  },
-  "economy": {
-    "currency": { "name": "货币名", "symbol": "符号", "description": "说明" },
-    "priceLevel": "物价水平描述"
-  },
-  "timeSystem": {
-    "calendar": "纪年方式",
-    "startTime": "故事开始时间",
-    "timeSpeed": "时间流速"
-  },
-  "factions": [{ "name": "势力名", "description": "描述", "alignment": "友善/中立/敌对" }],
-  "presetNPCs": [{ "name": "NPC名", "role": "角色定位", "description": "简介", "personality": "性格" }],
-  "highlights": ["特色1", "特色2"]
-}`;
-
       // 封装 AI 调用（复用 apiConfig + abort signal）
       const callAI = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
         const result = await requestStreamWithRetry(apiConfig, messages as any, { signal: ctrl.signal, onDelta: () => {} });
         return result.text;
       };
 
-      // 生成世界基础
-      const baseRaw = await callAI([
-        { role: 'system', content: baseSysPrompt },
-        { role: 'user', content: `请为以下世界生成完整设定：${aiGenName.trim()}` },
-      ]);
-      const baseJsonMatch = baseRaw.match(/```(?:json)?\s*([\s\S]*?)```/) || baseRaw.match(/(\{[\s\S]*\})/);
-      if (!baseJsonMatch) { setGenError('AI未返回有效JSON，请重试'); return; }
-      // 修复中文引号（某些 API 会返回全角引号）
-      const fixedJson = baseJsonMatch[1].trim().replace(/[""]/g, '"').replace(/['']/g, "'");
-      const baseData = JSON.parse(fixedJson);
-
-      // 更新表单基础字段
-      update({
-        name: baseData.name || aiGenName.trim(), description: baseData.description || '',
-        icon: baseData.icon || '', tags: Array.isArray(baseData.tags) ? baseData.tags.join(', ') : '',
-        overview: baseData.setting?.overview || '', timePeriod: baseData.setting?.timePeriod || '',
-        location: baseData.setting?.location || '', atmosphere: baseData.setting?.atmosphere || '',
-        powerSystem: baseData.rules?.powerSystem || '', socialStructure: baseData.rules?.socialStructure || '',
-        specialRules: Array.isArray(baseData.rules?.specialRules) ? baseData.rules.specialRules.join('\n') : '',
-        currencyName: baseData.economy?.currency?.name || '', currencySymbol: baseData.economy?.currency?.symbol || '',
-        currencyDesc: baseData.economy?.currency?.description || '', priceLevel: baseData.economy?.priceLevel || '',
-        calendar: baseData.timeSystem?.calendar || '', startTime: baseData.timeSystem?.startTime || '',
-        timeSpeed: baseData.timeSystem?.timeSpeed || '',
-        factions: Array.isArray(baseData.factions) ? baseData.factions.map((f: any) => ({ name: f.name || '', description: f.description || '', alignment: f.alignment || '中立' })) : [],
-        presetNPCs: Array.isArray(baseData.presetNPCs) ? baseData.presetNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: n.personality || '' })) : [],
-        highlights: Array.isArray(baseData.highlights) ? baseData.highlights.join(', ') : '',
+      // ─── 调用 7 阶段深度管线 ───
+      const result = await executeWorldGenPipeline(aiGenName.trim(), {
+        callAI,
+        onProgress: (stage, detail) => setPipelineStage(`${stage}：${detail}`),
+        selectedModules: enabledModuleIds,
+        maxConcurrency: 2,
       });
 
-      // ─── 阶段2：管线生成模块数据（多阶段调用） ───
-      if (hasModules) {
-        await waitForRateLimit();
-        const worldDesc = baseData.setting?.overview || aiGenName.trim();
-        const ctx = createBuildContext(worldDesc, enabledModuleIds);
-        // 如果用户填写了生存资源描述，附加到上下文
-        if (survivalGenDesc.trim()) {
-          ctx.survivalUserDesc = survivalGenDesc.trim();
-        }
+      // 从管线结果填充表单
+      // 管线的 worldBookEntries 包含所有细化条目，从中提取表单字段
+      const entries = result.worldBookEntries;
+      const settingEntry = entries.find(e => e.entryType === 'setting');
+      const rulesEntry = entries.find(e => e.entryType === 'rules' && e.constant);
+      const economyEntry = entries.find(e => e.entryType === 'economy');
+      const highlightsEntry = entries.find(e => e.entryType === 'highlights');
+      // 势力：合并所有 factions 条目中的 meta.factions
+      const factionEntries = entries.filter(e => e.entryType === 'factions');
+      const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
+      // NPC：合并所有 npcs 条目中的 meta.npcs
+      const npcEntries = entries.filter(e => e.entryType === 'npcs');
+      const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
 
-        await executeBuildPipeline(ctx, {
-          callAI,
-          onProgress: (_stage, _detail) => { /* 进度可扩展 */ },
-        });
+      update({
+        name: result.worldDef.name,
+        description: result.worldDef.description,
+        icon: result.worldDef.icon || '',
+        tags: result.worldDef.tags?.join(', ') || '',
+        overview: settingEntry?.content || '',
+        // 从 settingEntry.meta 提取时间/地点/氛围
+        timePeriod: settingEntry?.meta?.timePeriod || '',
+        location: settingEntry?.meta?.location || '',
+        atmosphere: settingEntry?.meta?.atmosphere || '',
+        powerSystem: rulesEntry?.meta?.powerSystem || '',
+        socialStructure: rulesEntry?.meta?.socialStructure || '',
+        specialRules: rulesEntry?.meta?.specialRules?.join('\n') || '',
+        currencyName: economyEntry?.meta?.currency?.name || '',
+        currencySymbol: economyEntry?.meta?.currency?.symbol || '',
+        currencyDesc: economyEntry?.meta?.currency?.description || '',
+        priceLevel: economyEntry?.meta?.priceLevel || '',
+        calendar: economyEntry?.meta?.calendar || '',
+        startTime: economyEntry?.meta?.startTime || '',
+        timeSpeed: economyEntry?.meta?.timeSpeed || '',
+        // 势力和 NPC 从条目 meta 中提取
+        factions: allFactions.map(f => ({
+          name: f.name || '', description: f.description || '',
+          alignment: f.alignment || '中立',
+        })),
+        presetNPCs: allNPCs.map(n => ({
+          name: n.name || '', role: n.role || '',
+          description: n.description || '', personality: n.personality || '',
+        })),
+        highlights: highlightsEntry?.meta?.highlights?.join(', ') || '',
+        modules: result.worldDef.modules,
+      });
 
-        // 从管线结果构建 modules 数组（管线失败的模块用默认数据兜底）
-        const moduleIdToKey: Record<string, string> = {
-          stat: '数值属性', progression: '成长体系', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
-        };
-        const modules = enabledModuleIds.map(id => {
-          const key = moduleIdToKey[id];
-          const pipelineData = key ? ctx.result?.[key] : undefined;
-
-          // 新格式：pipelineData 包含 { config, initialState }
-          if (pipelineData && typeof pipelineData === 'object' && 'config' in pipelineData) {
-            const { config, initialState } = pipelineData as any;
-            // 同时设置 data 字段（编辑界面需要读取）
-            let data: Record<string, unknown>;
-            if (id === 'progression') {
-              data = { ...config, currentTierIndex: initialState?.currentTierIndex ?? 0, currentXP: initialState?.currentXP ?? 0 };
-            } else if (id === 'stat') {
-              // 数值属性：合并 config（名称/范围）+ initialState（实际数值）
-              const s = initialState || {};
-              const specialArr = Array.isArray(config.special) ? config.special.map((sp: any) => ({
-                ...sp,
-                value: s.special?.[sp.id] ?? sp.value ?? 0,
-              })) : [];
-              data = {
-                attrA: { name: config.attrA?.name || '生命', current: s.attrA ?? config.attrA?.max ?? 100, max: config.attrA?.max ?? 100 },
-                attrB: { name: config.attrB?.name || '能量', current: s.attrB ?? config.attrB?.max ?? 100, max: config.attrB?.max ?? 100 },
-                dim1: { name: config.dim1?.name || '属性1', value: s.dim1Value ?? 50, range: config.dim1?.range ?? [0, 100] },
-                dim2: { name: config.dim2?.name || '属性2', value: s.dim2Value ?? 50, range: config.dim2?.range ?? [0, 100] },
-                dim3: { name: config.dim3?.name || '属性3', value: s.dim3Value ?? 50, range: config.dim3?.range ?? [0, 100] },
-                dim4: { name: config.dim4?.name || '属性4', value: s.dim4Value ?? 50, range: config.dim4?.range ?? [0, 100] },
-                dim5: { name: config.dim5?.name || '属性5', value: s.dim5Value ?? 50, range: config.dim5?.range ?? [0, 100] },
-                dim6: { name: config.dim6?.name || '属性6', value: s.dim6Value ?? 50, range: config.dim6?.range ?? [0, 100] },
-                special: specialArr,
-              };
-            } else {
-              data = { ...config, ...initialState };
-            }
-            return {
-              moduleId: id,
-              name: key || id,
-              description: '',
-              enabled: true,
-              moduleConfig: config,
-              ...(initialState ? { initialState } : {}),
-              data,
-            };
-          }
-
-          // 管线失败，使用默认数据
-          const fallbackData = DEFAULT_MODULE_FACTORIES[id]?.();
-          return {
-            moduleId: id,
-            name: key || id,
-            description: '',
-            enabled: true,
-            ...(fallbackData ? { data: fallbackData as Record<string, unknown> } : {}),
-          };
-        });
-        update({ modules: modules as any });
-      }
+      // 存储细化条目，formToWorldDef 会优先使用
+      setRefinedEntries(entries);
 
       setEditorMode('manual');
     } catch (err: unknown) {
@@ -496,7 +416,23 @@ export default function WorldEditorForm({
 
   // 将当前表单转换为 WorldDef 对象（供导出和保存共用）
   // 叙事内容全部存为 worldBookEntries
+  // 如果有管线生成的细化条目，优先使用
   const formToWorldDef = (): WorldDef => {
+    // 如果有管线生成的细化条目，直接使用
+    if (refinedEntries.length > 0) {
+      return {
+        id: initialWorld?.id || `custom_${Date.now()}`,
+        name: form.name.trim(), description: form.description.trim(), entryId: null,
+        icon: form.icon || undefined, coverColor: form.coverColor || undefined,
+        tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
+        difficulty: (form.difficulty as any) || undefined,
+        worldBookEntries: refinedEntries,
+        modules: form.modules,
+        author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
+      };
+    }
+
+    // 手动编辑模式：从表单字段构建条目
     const entries: WorldBookEntryDef[] = [];
     let uid = 1;
 
@@ -689,7 +625,20 @@ export default function WorldEditorForm({
                 </div>
               )}
               {genError && <div style={{ color: '#ef4444', fontSize: 'var(--font-size-sm)', marginTop: 8 }}>{genError}</div>}
-              {isGeneratingWorld && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, color: 'var(--accent)' }}><div className="ai-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /><span style={{ fontSize: 'var(--font-size-base)' }}>AI 正在构建世界...</span></div>}
+              {isGeneratingWorld && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent)' }}>
+                    <div className="ai-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span style={{ fontSize: 'var(--font-size-base)' }}>AI 正在构建世界...</span>
+                  </div>
+                  {pipelineStage && (
+                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', paddingLeft: 28, display: 'block', marginTop: 4 }}>
+                      {pipelineStage}
+                    </span>
+                  )}
+                  <WaitingGame />
+                </div>
+              )}
             </div>
           )}
 

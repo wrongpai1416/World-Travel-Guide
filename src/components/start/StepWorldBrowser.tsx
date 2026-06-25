@@ -6,7 +6,7 @@ import {
   Sparkles, ChevronRight, Layers, Shield, Users,
   Calendar, Heart, Zap, Target, BarChart3,
   Compass, BookOpen, Star, Upload, ArrowLeft,
-  Briefcase, TrendingUp, TrendingDown,
+  Briefcase, TrendingUp, TrendingDown, Landmark, Scroll,
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import type { WorldBookEntry } from '../../worldbook/index';
@@ -619,6 +619,39 @@ function SystemsTab({ world }: { world: WorldDef }) {
           </div>
         </div>
       )}
+
+      {/* 地理地点 (lore) */}
+      {(() => {
+        const loreEntries = world.worldBookEntries?.filter(e => e.entryType === 'lore') ?? [];
+        if (loreEntries.length === 0) return null;
+        return (
+          <div className="detail-block">
+            <div className="detail-block-title"><Landmark size={15} />地理 ({loreEntries.length})</div>
+            <div className="detail-block-body">
+              {loreEntries.map(entry => (
+                <div key={entry.uid} style={{ marginBottom: 8 }}>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.comment}</div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    {entry.content.length > 200 ? entry.content.substring(0, 200) + '...' : entry.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 文化风俗 (culture) */}
+      {(() => {
+        const cultureEntry = world.worldBookEntries?.find(e => e.entryType === 'culture');
+        if (!cultureEntry) return null;
+        return (
+          <div className="detail-block">
+            <div className="detail-block-title"><Scroll size={15} />文化风俗</div>
+            <div className="detail-block-body">{cultureEntry.content}</div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -717,17 +750,19 @@ function EconomyTab({ world }: { world: WorldDef }) {
 
 /** 人物 Tab */
 function CharactersTab({ world }: { world: WorldDef }) {
-  const factionsEntry = findEntryByType(world.worldBookEntries, 'factions');
-  const npcsEntry = findEntryByType(world.worldBookEntries, 'npcs');
+  const factionEntries = world.worldBookEntries?.filter(e => e.entryType === 'factions') ?? [];
+  const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
+  const npcEntries = world.worldBookEntries?.filter(e => e.entryType === 'npcs') ?? [];
+  const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
 
   return (
     <div className="tab-section">
       {/* 势力 */}
-      {factionsEntry?.meta?.factions && factionsEntry.meta.factions.length > 0 && (
+      {allFactions.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><Flag size={15} />势力分布</div>
           <div className="factions-grid">
-            {factionsEntry.meta.factions.map((f, i) => (
+            {allFactions.map((f, i) => (
               <div key={i} className="faction-card">
                 <div className="faction-header">
                   <span className="faction-name">{f.name}</span>
@@ -745,11 +780,11 @@ function CharactersTab({ world }: { world: WorldDef }) {
       )}
 
       {/* 预设 NPC */}
-      {npcsEntry?.meta?.npcs && npcsEntry.meta.npcs.length > 0 && (
+      {allNPCs.length > 0 && (
         <div className="detail-block">
           <div className="detail-block-title"><User size={15} />关键 NPC</div>
           <div className="npcs-grid">
-            {npcsEntry.meta.npcs.map((npc, i) => (
+            {allNPCs.map((npc, i) => (
               <div key={i} className="npc-card">
                 <div className="npc-header">
                   <span className="npc-name">{npc.name}</span>
