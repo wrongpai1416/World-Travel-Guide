@@ -3,7 +3,7 @@ import type { GameState } from '../../../schema/variables';
 import type { WorldDef } from '../../../data/worlds-schema';
 import { extractWorldSystemData } from '../../../modules/runtime';
 import type { WorldSystemData, ProgressionConfig, SurvivalRecipe } from '../../../modules/schema';
-import { BaseStatsCard, SixDimCard, ProgressionCard, SurvivalCard, BusinessCard, TalentCard } from './modules';
+import { BaseStatsCard, SixDimCard, ProgressionCard, SurvivalCard, BusinessCard } from './modules';
 import { findWorldDef } from '../../../data/worldLoader';
 
 interface Props {
@@ -180,10 +180,6 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
           onOpenOverlay={onOpenBusinessOverlay ?? (() => {})}
         />
       )}
-      {worldSystem.天赋体系 && (
-        <TalentCard data={worldSystem.天赋体系} title={moduleNames?.['天赋体系']} />
-      )}
-
       {/* 待办事项 */}
       {Object.keys(notebook.待办事项).length > 0 && (
         <div className="surface-card" style={{ padding: '1rem' }}>

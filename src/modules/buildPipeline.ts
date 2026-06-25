@@ -432,10 +432,17 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
       '属性', '数值', '状态',
     ].filter((k): k is string => !!k && k.length > 0);
 
+    // 把 AI 生成的属性名称写入内容
+    const dimNames = dims.filter(Boolean).map(d => d!.name).join('、');
+    const specialNames = Array.isArray(statData.special)
+      ? statData.special.filter(s => s?.name).map(s => `${s.name}（${s.description || ''}）`).join('、')
+      : '';
+    const statContent = `${STAT_UPDATE_RULES}\n\n─── 属性体系 ───\n生命类：${statData.attrA?.name || '生命'}（上限${statData.attrA?.max || 100}）\n能量类：${statData.attrB?.name || '能量'}（上限${statData.attrB?.max || 100}）\n六维属性：${dimNames}${specialNames ? `\n特色属性：${specialNames}` : ''}`;
+
     entries.push({
       uid: -5002,
       comment: '[模块] 数值属性 - 规则',
-      content: STAT_UPDATE_RULES,
+      content: statContent,
       constant: false,
       key: statKeywords,
       order: 51,
@@ -447,21 +454,27 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
   if (ctx.progressionData) {
     const progData = ctx.progressionData;
     let progressionKeywords: string[] = [];
+    let progressionContent = PROGRESSION_UPDATE_RULES;
 
     if (progData.mode === 'level' && progData.levelData) {
       progressionKeywords = ['等级', '升级', '经验', 'Lv', '等级制'];
+      progressionContent += `\n\n─── 等级制详情 ───\n最大等级：${progData.levelData.maxLevel}\n每级增长：${JSON.stringify(progData.levelData.growthPerLevel)}`;
     } else if (progData.tiers?.length) {
       progressionKeywords = [
         ...progData.tiers.map(t => t.name),
         '段位', '境界', '突破', '升级', '进阶',
       ];
+      const tierList = progData.tiers.map((t, i) =>
+        `${i + 1}. ${t.name}${t.description ? `：${t.description}` : ''}`
+      ).join('\n');
+      progressionContent += `\n\n─── 段位体系 ───\n${tierList}`;
     }
 
     if (progressionKeywords.length > 0) {
       entries.push({
         uid: -5004,
         comment: '[模块] 成长体系 - 规则',
-        content: PROGRESSION_UPDATE_RULES,
+        content: progressionContent,
         constant: false,
         key: progressionKeywords.filter(k => k && k.length > 0),
         order: 53,
@@ -478,10 +491,16 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
       '生存', '资源', '采集', '制作', '消耗', '食物', '水',
     ].filter(k => k && k.length > 0);
 
+    // 把 AI 生成的资源列表写入内容
+    const resourceList = Array.isArray(survivalData.resources)
+      ? survivalData.resources.map(r => `${r.symbol || ''}${r.name}：${r.description || ''}${r.scarce ? '（稀缺）' : ''}`).join('\n')
+      : '';
+    const survContent = `${SURVIVAL_UPDATE_RULES}${resourceList ? `\n\n─── 资源清单 ───\n${resourceList}` : ''}`;
+
     entries.push({
       uid: -5006,
       comment: '[模块] 生存资源 - 规则',
-      content: SURVIVAL_UPDATE_RULES,
+      content: survContent,
       constant: false,
       key: survivalKeywords,
       order: 55,
@@ -522,13 +541,31 @@ function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
   }
 
   // ─── 天赋体系模块（绿灯：关键词触发）───
-  if (ctx.selectedModules.includes('talent')) {
+  if (ctx.selectedModules.includes('talent') && ctx.talentData?.categories?.length) {
+    const cats = ctx.talentData.categories;
+    const allTalents = cats.flatMap(c => c.talents || []);
+
+    // 从 AI 生成的天赋中提取关键词
+    const talentKeywords = [
+      ...cats.map(c => c.name),           // 大类名（如"灵根"、"体质"）
+      ...allTalents.slice(0, 10).map(t => t.name),  // 前10个天赋名
+      '天赋', '技能', '觉醒', '能力',
+    ].filter(k => k && k.length > 0);
+
+    // 把 AI 生成的天赋列表写入内容
+    const talentList = cats.map(c => {
+      const talents = (c.talents || []).map(t =>
+        `  - ${t.name}（${t.rarity}）：${t.description}${t.effects?.length ? ` [${t.effects.join('、')}]` : ''}`
+      ).join('\n');
+      return `【${c.name}】${c.description ? ` ${c.description}` : ''}\n${talents}`;
+    }).join('\n\n');
+
     entries.push({
       uid: -5008,
       comment: '[模块] 天赋体系 - 规则',
-      content: `${TALENT_RULES_PROMPT}\n\n${TALENT_UPDATE_RULES}`,
+      content: `${TALENT_RULES_PROMPT}\n\n${TALENT_UPDATE_RULES}\n\n─── 已知天赋 ───\n${talentList}`,
       constant: false,
-      key: ['天赋', '技能', '觉醒', '能力', '神通', '功法', '武技', '魔法', '异能', '血脉', '体质', '灵根', '资质'],
+      key: [...new Set(talentKeywords)],
       order: 57,
       position: 'after_char',
     });

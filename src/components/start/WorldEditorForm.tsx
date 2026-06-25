@@ -6,7 +6,9 @@ import { useConfigStore } from '../../stores/configStore';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from '../../modules/schema';
 import { executeWorldGenPipeline } from '../../worldgen';
-import WaitingGame from './WaitingGame';
+import { createBuildContext } from '../../modules/buildContext';
+import { executeBuildPipeline } from '../../modules/buildPipeline';
+
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
 import {
@@ -556,9 +558,47 @@ export default function WorldEditorForm({
     };
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) return;
-    onSave(formToWorldDef());
+
+    const world = formToWorldDef();
+
+    // 手动编辑模式：如果有模块但没有模块规则条目，补充生成
+    if (refinedEntries.length === 0 && world.modules?.some(m => m.enabled)) {
+      try {
+        const enabledModules = world.modules.filter(m => m.enabled).map(m => m.moduleId);
+        const worldDesc = form.overview || form.name;
+        const buildCtx = createBuildContext(worldDesc, enabledModules);
+
+        // 把模块数据注入 buildCtx 供 generateWorldBookEntries 使用
+        for (const mod of world.modules.filter(m => m.enabled)) {
+          if (mod.moduleId === 'stat' && mod.data) buildCtx.statData = mod.data as any;
+          if (mod.moduleId === 'progression' && mod.data) buildCtx.progressionData = mod.data as any;
+          if (mod.moduleId === 'survival' && mod.data) buildCtx.survivalData = mod.data as any;
+          if (mod.moduleId === 'business' && mod.data) buildCtx.businessData = mod.data as any;
+          if (mod.moduleId === 'talent' && mod.data) buildCtx.talentData = mod.data as any;
+        }
+
+        await executeBuildPipeline(buildCtx, {
+          callAI: async () => '{}',  // 不需要 AI 调用，只用阶段3生成条目
+          onProgress: () => {},
+        });
+
+        if (buildCtx.worldBookEntries?.length) {
+          // 合并模块条目，用负数 uid 避免冲突
+          const moduleEntries = buildCtx.worldBookEntries.map((e, i) => ({
+            ...e,
+            uid: -5000 - i,
+            entryType: 'module_rule' as const,
+          }));
+          world.worldBookEntries = [...(world.worldBookEntries ?? []), ...moduleEntries];
+        }
+      } catch (err) {
+        console.warn('[handleSave] 生成模块世界书条目失败:', err);
+      }
+    }
+
+    onSave(world);
   };
 
   // 导出世界为 JSON 文件
@@ -636,7 +676,6 @@ export default function WorldEditorForm({
                       {pipelineStage}
                     </span>
                   )}
-                  <WaitingGame />
                 </div>
               )}
             </div>

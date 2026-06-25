@@ -55,7 +55,15 @@ export async function executeWorldGenPipeline(
     ctx.worldBookEntries = executeStage5(ctx);
 
     // 阶段6：模块管线
-    ctx.modules = await executeStage6(ctx);
+    const stage6Result = await executeStage6(ctx);
+    ctx.modules = stage6Result.modules;
+    // 合并模块生成的世界书条目（数值规则、成长规则等）
+    if (stage6Result.moduleWorldBookEntries.length > 0) {
+      ctx.worldBookEntries = [
+        ...(ctx.worldBookEntries ?? []),
+        ...stage6Result.moduleWorldBookEntries,
+      ];
+    }
 
     // 组装最终结果
     return {

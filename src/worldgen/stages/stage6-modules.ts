@@ -1,15 +1,20 @@
 // 阶段6：模块管线（复用现有 executeBuildPipeline）
 
 import type { WorldGenContext } from '../types';
-import type { WorldModule } from '../../data/worlds-schema';
+import type { WorldModule, WorldBookEntryDef } from '../../data/worlds-schema';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
 import { createBuildContext } from '../../modules/buildContext';
 
-export async function executeStage6(ctx: WorldGenContext): Promise<WorldModule[]> {
+export interface Stage6Result {
+  modules: WorldModule[];
+  moduleWorldBookEntries: WorldBookEntryDef[];
+}
+
+export async function executeStage6(ctx: WorldGenContext): Promise<Stage6Result> {
   const { callAI, onProgress, selectedModules = [] } = ctx.config;
 
   if (selectedModules.length === 0) {
-    return [];
+    return { modules: [], moduleWorldBookEntries: [] };
   }
 
   onProgress?.('阶段6', '生成模块数据...');
@@ -29,7 +34,7 @@ export async function executeStage6(ctx: WorldGenContext): Promise<WorldModule[]
       business: '经营资产', dice: '骰子检定', talent: '天赋体系',
     };
 
-    return selectedModules.map(id => {
+    const modules = selectedModules.map(id => {
       const key = moduleIdToKey[id];
       const pipelineData = key ? buildCtx.result?.[key] : undefined;
 
@@ -76,13 +81,21 @@ export async function executeStage6(ctx: WorldGenContext): Promise<WorldModule[]
         enabled: true,
       };
     }) as WorldModule[];
+
+    // 提取模块生成的世界书条目（数值规则、成长规则等）
+    const moduleWorldBookEntries = buildCtx.worldBookEntries ?? [];
+
+    return { modules, moduleWorldBookEntries };
   } catch (err) {
     console.warn('[stage6] 模块管线失败:', err);
-    return selectedModules.map(id => ({
-      moduleId: id,
-      name: id,
-      description: '',
-      enabled: true,
-    })) as WorldModule[];
+    return {
+      modules: selectedModules.map(id => ({
+        moduleId: id,
+        name: id,
+        description: '',
+        enabled: true,
+      })) as WorldModule[],
+      moduleWorldBookEntries: [],
+    };
   }
 }
