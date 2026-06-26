@@ -7,7 +7,7 @@ export function Collapsible({ icon, title, count, children, defaultOpen = true }
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ borderBottom: '1px solid var(--border)' }}>
-      <div onClick={() => setOpen(!open)} style={{
+      <div role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpen(!open)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }} style={{
         display: 'flex', alignItems: 'center', gap: '8px',
         padding: '10px 16px', cursor: 'pointer', userSelect: 'none',
         background: open ? 'var(--bg-primary)' : 'transparent',

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useEffect, type ReactNode } from 'react';
 import { useConfigStore, type UISettings, type Theme, type FontFamily, type FontSize, type LineHeight, type Language } from '../stores/configStore';
 
 export type { Theme, FontFamily, FontSize, LineHeight, Language, UISettings };
@@ -16,12 +16,14 @@ export function UISettingsProvider({ children }: { children: ReactNode }) {
   const updateSettings = useConfigStore(s => s.updateSettings);
   const t = useConfigStore(s => s.t);
 
-  // 初始化 CSS 变量（仅首次）
-  const initialized = useConfigStore(s => s._initialized);
-  if (!initialized) {
-    useConfigStore.getState().initialize();
-    useConfigStore.setState({ _initialized: true } as any);
-  }
+  // 初始化 CSS 变量（仅首次，移入 useEffect 避免渲染阶段副作用）
+  useEffect(() => {
+    const state = useConfigStore.getState();
+    if (!state._initialized) {
+      state.initialize();
+      useConfigStore.setState({ _initialized: true } as any);
+    }
+  }, []);
 
   // 稳定 Provider value，防止每次渲染创建新引用
   const contextValue = useMemo(() => ({ settings, update: updateSettings, t }), [settings, updateSettings, t]);

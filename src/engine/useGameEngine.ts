@@ -238,7 +238,7 @@ export function useGameEngine(
   }, []);
 
   const resendFromMessage = useCallback(async (id: string) => {
-    if (!apiConfig || isGenerating) return;
+    if (!apiConfig || generatingRef.current) return;
     const currentMessages = messagesRef.current;
     const idx = currentMessages.findIndex(m => m.id === id);
     if (idx === -1) return;
@@ -250,11 +250,11 @@ export function useGameEngine(
     setTimeout(() => {
       sendMessageRef.current?.(getMessageContent(msg));
     }, 0);
-  }, [apiConfig, isGenerating, rollbackAndTruncate]);
+  }, [apiConfig, rollbackAndTruncate]);
 
   // 从 AI 消息回滚并重新发送
   const resendFromAssistantMessage = useCallback(async (id: string) => {
-    if (!apiConfig || isGenerating) return;
+    if (!apiConfig || generatingRef.current) return;
     const currentMessages = messagesRef.current;
     const aiIdx = currentMessages.findIndex(m => m.id === id);
     if (aiIdx === -1) return;
@@ -274,7 +274,7 @@ export function useGameEngine(
     setTimeout(() => {
       sendMessageRef.current?.(getMessageContent(userMsg));
     }, 0);
-  }, [apiConfig, isGenerating, rollbackAndTruncate]);
+  }, [apiConfig, rollbackAndTruncate]);
 
   const loadSave = useCallback((save: GameSave) => {
     setMessages(save.messages);

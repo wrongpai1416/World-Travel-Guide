@@ -60,35 +60,37 @@ export async function detectOptimalRateLimit(
 
   onProgress?.('开始测试 API 限流间隔...');
 
-  for (const interval of testIntervals) {
-    onProgress?.(`测试间隔: ${interval}ms`);
+  const originalInterval = 10000;
+  try {
+    for (const interval of testIntervals) {
+      onProgress?.(`测试间隔: ${interval}ms`);
 
-    // 设置间隔并等待
-    setRateLimitInterval(interval);
-    await waitForRateLimit();
+      // 设置间隔并等待
+      setRateLimitInterval(interval);
+      await waitForRateLimit();
 
-    try {
-      await testApiCall();
-      lastSuccessInterval = interval;
-      onProgress?.(`✓ ${interval}ms 成功`);
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const is429 = errMsg.includes('429') || errMsg.includes('rate limit');
-      if (is429) {
-        onProgress?.(`✗ ${interval}ms 触发限流，停止测试`);
-        break;
+      try {
+        await testApiCall();
+        lastSuccessInterval = interval;
+        onProgress?.(`✓ ${interval}ms 成功`);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const is429 = errMsg.includes('429') || errMsg.includes('rate limit');
+        if (is429) {
+          onProgress?.(`✗ ${interval}ms 触发限流，停止测试`);
+          break;
+        }
+        // 非 429 错误，继续测试
+        onProgress?.(`✗ ${interval}ms 失败（非限流错误）`);
       }
-      // 非 429 错误，继续测试
-      onProgress?.(`✗ ${interval}ms 失败（非限流错误）`);
     }
+
+    // 推荐值：最后成功的间隔 + 20% 余量
+    const recommended = Math.ceil(lastSuccessInterval * 1.2 / 1000) * 1000;
+    onProgress?.(`推荐限流间隔: ${recommended}ms`);
+    return recommended;
+  } finally {
+    // 无论成功失败，始终恢复默认间隔
+    setRateLimitInterval(originalInterval);
   }
-
-  // 推荐值：最后成功的间隔 + 20% 余量
-  const recommended = Math.ceil(lastSuccessInterval * 1.2 / 1000) * 1000;
-  onProgress?.(`推荐限流间隔: ${recommended}ms`);
-
-  // 恢复默认
-  setRateLimitInterval(10000);
-
-  return recommended;
 }

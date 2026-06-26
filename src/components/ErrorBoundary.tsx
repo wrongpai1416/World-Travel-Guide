@@ -46,8 +46,9 @@ export default class ErrorBoundary extends Component<Props, State> {
             maxHeight: '60vh',
           }}>
             {this.state.error?.message}
-            {'\n\n'}
-            {this.state.error?.stack}
+            {process.env.NODE_ENV !== 'production' && this.state.error?.stack && (
+              <>{'\n\n'}{this.state.error.stack}</>
+            )}
           </pre>
           <button
             onClick={() => { this.setState({ hasError: false, error: null }); }}

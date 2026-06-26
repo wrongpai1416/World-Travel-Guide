@@ -4,6 +4,12 @@ import { createDefaultGameState } from '../schema/variables';
 import type { ApiConfig } from '../api/types';
 import { requestCompletion } from '../api/client';
 import { cloneDeep, get, set, merge, unset } from 'lodash-es';
+
+/** 原型污染防护 — 过滤危险路径段 */
+const DANGEROUS_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+function isSafePath(path: string): boolean {
+  return !path.split('.').some(seg => DANGEROUS_PATH_SEGMENTS.has(seg));
+}
 import {
   resolveNpcId,
   warnIgnoredNpcPatchUpdate,
@@ -58,6 +64,7 @@ export class VariableManager {
   // forceReplace=false 时对象深度合并（避免部分更新丢失字段）
   // forceReplace=true 时直接替换（允许删除旧键）
   setVar(path: string, value: unknown, forceReplace = false) {
+    if (!isSafePath(path)) return;
     if (!forceReplace && value !== null && typeof value === 'object' && !Array.isArray(value)) {
       const existing = get(this.state, path);
       if (existing !== null && typeof existing === 'object' && !Array.isArray(existing)) {
@@ -223,6 +230,7 @@ export class VariableManager {
       }
 
       const resolvedPath = pathParts.join('.');
+      if (!isSafePath(resolvedPath)) continue;
       switch (patch.op) {
         case 'replace':
         case 'add':

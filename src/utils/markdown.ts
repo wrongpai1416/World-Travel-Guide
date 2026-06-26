@@ -169,7 +169,7 @@ const PURIFY_CONFIG = {
   ],
   ALLOWED_ATTR: [
     'href', 'target', 'rel', 'title', 'alt', 'src', 'loading',
-    'class', 'id', 'style', 'lang', 'dir',
+    'class', 'id', 'lang', 'dir',
     'colspan', 'rowspan', 'scope', 'headers',
     'open', 'name',
     // onclick/onerror 已移除，防止 XSS。代码复制改为事件委托（见 initCodeCopyDelegate）

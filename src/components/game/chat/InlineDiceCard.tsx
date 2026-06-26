@@ -1,5 +1,5 @@
 // 内联骰子检定卡片 — 渲染在消息正文中的可交互骰子卡片
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Dice6 } from 'lucide-react';
 import type { DiceRoll, StatModuleSchema } from '../../../modules/schema';
 import { rollDice, getCheckableAttributes, calcModifier } from '../../../modules/xpAlgorithm';
@@ -32,11 +32,11 @@ export default function InlineDiceCard({ attr, dc, statData, onRoll }: InlineDic
   const [selectedAttr, setSelectedAttr] = useState(initialAttr);
 
   // 当 initialAttr 变化时同步（首次渲染后 statData 可能异步到达）
-  useMemo(() => {
+  useEffect(() => {
     if (initialAttr && !selectedAttr) {
       setSelectedAttr(initialAttr);
     }
-  }, [initialAttr]);
+  }, [initialAttr, selectedAttr]);
 
   const selectedAttrData = checkableAttrs.find(a => a.id === selectedAttr);
   const modifier = selectedAttrData ? calcModifier(selectedAttrData.value) : 0;

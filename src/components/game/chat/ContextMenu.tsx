@@ -68,6 +68,8 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
     <div
       ref={menuRef}
       className="context-menu"
+      role="menu"
+      aria-label="上下文菜单"
       style={{
         position: 'fixed',
         left: x,
@@ -86,6 +88,9 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
       {items.map((item, i) => (
         <div
           key={i}
+          role="menuitem"
+          tabIndex={item.disabled ? -1 : 0}
+          aria-disabled={item.disabled}
           onClick={() => {
             if (item.disabled) return;
             item.action();

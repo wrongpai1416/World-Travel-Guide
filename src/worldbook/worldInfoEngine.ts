@@ -315,11 +315,10 @@ class WIScanner {
       }
     }
 
-    // 4. 概率
-    const useProb = entry.useProbability !== false;
-    const prob = Number.isFinite(entry.probability) ? entry.probability! : 100;
-    if (useProb && prob < 100) {
-      if (Math.random() * 100 > prob) return false;
+    // 4. 概率（仅当 useProbability 显式为 true 时才启用概率门控）
+    if (entry.useProbability === true) {
+      const prob = Number.isFinite(entry.probability) ? entry.probability! : 100;
+      if (prob < 100 && Math.random() * 100 > prob) return false;
     }
 
     return true;
