@@ -147,13 +147,38 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
         </div>
       )}
 
-      {/* ── v2 模块卡片（新格式） ── */}
-      {worldSystem.数值属性 && (
-        <>
-          <BaseStatsCard data={worldSystem.数值属性} title={moduleNames?.['数值属性']} />
-          <SixDimCard data={worldSystem.数值属性} title={moduleNames?.['数值属性'] ? moduleNames['数值属性'] + ' · 六维' : undefined} />
-        </>
-      )}
+      {/* ── 数值属性卡片（配置从世界定义读取，当前值从玩家.生存状态读取） ── */}
+      {hasStatModule && (() => {
+        const cfg = statConfig;
+        const ss = player.生存状态;
+        const getVal = (key: string, fallback: number) => typeof ss[key] === 'number' ? ss[key] as number : fallback;
+        const statModData = statMod?.data as any;
+        // 从世界定义读取特色属性配置，从生存状态读取当前值
+        const specialFromConfig = Array.isArray(statModData?.special) ? statModData.special : [];
+        const special = specialFromConfig.map((sp: any) => ({
+          id: sp.id, name: sp.name || sp.id,
+          value: getVal(sp.id, 0),
+          range: sp.range || [0, 100],
+          description: sp.description || '',
+        }));
+        const mergedData = {
+          attrA: { name: cfg?.attrA?.name || '生命', current: ss.血量, max: 100 },
+          attrB: { name: cfg?.attrB?.name || '能量', current: ss.体力值, max: 100 },
+          dim1: { name: cfg?.dim1?.name || '属性1', value: getVal('dim1', 50), range: [0, 100] as [number, number] },
+          dim2: { name: cfg?.dim2?.name || '属性2', value: getVal('dim2', 50), range: [0, 100] as [number, number] },
+          dim3: { name: cfg?.dim3?.name || '属性3', value: getVal('dim3', 50), range: [0, 100] as [number, number] },
+          dim4: { name: cfg?.dim4?.name || '属性4', value: getVal('dim4', 50), range: [0, 100] as [number, number] },
+          dim5: { name: cfg?.dim5?.name || '属性5', value: getVal('dim5', 50), range: [0, 100] as [number, number] },
+          dim6: { name: cfg?.dim6?.name || '属性6', value: getVal('dim6', 50), range: [0, 100] as [number, number] },
+          special,
+        };
+        return (
+          <>
+            <BaseStatsCard data={mergedData as any} title={moduleNames?.['数值属性']} />
+            <SixDimCard data={mergedData as any} title={moduleNames?.['数值属性'] ? moduleNames['数值属性'] + ' · 六维' : undefined} />
+          </>
+        );
+      })()}
       {/* 成长体系：配置从世界定义读取，状态从玩家读取 */}
       {progressionConfig && (
         <ProgressionCard
