@@ -97,8 +97,9 @@ function worldToForm(w: WorldDef): FormState {
   const settingMeta = findMeta(entries, 'setting');
   const rulesMeta = findMeta(entries, 'rules');
   const economyMeta = findMeta(entries, 'economy');
-  const factionsMeta = findMeta(entries, 'factions');
-  const npcsMeta = findMeta(entries, 'npcs');
+  // 合并所有 factions/npcs 条目（管线可能生成多个条目）
+  const allFactions = (entries?.filter(e => e.entryType === 'factions') ?? []).flatMap(e => (e.meta as any)?.factions ?? []);
+  const allNPCs = (entries?.filter(e => e.entryType === 'npcs') ?? []).flatMap(e => (e.meta as any)?.npcs ?? []);
   const highlightsMeta = findMeta(entries, 'highlights');
 
   return {
@@ -119,8 +120,8 @@ function worldToForm(w: WorldDef): FormState {
     calendar: economyMeta?.calendar || '',
     startTime: economyMeta?.startTime || '',
     timeSpeed: economyMeta?.timeSpeed || '',
-    factions: factionsMeta?.factions?.map(f => ({ name: f.name, description: f.description, alignment: f.alignment || '中立' })) || [],
-    presetNPCs: npcsMeta?.npcs?.map(n => ({ name: n.name, role: n.role, description: n.description, personality: n.personality || '' })) || [],
+    factions: allFactions.map((f: any) => ({ name: f.name || '', description: f.description || '', alignment: f.alignment || '中立' })),
+    presetNPCs: allNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: n.personality || '' })),
     highlights: highlightsMeta?.highlights?.join(', ') || '',
     modules: w.modules,
   };
