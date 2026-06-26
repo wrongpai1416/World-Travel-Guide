@@ -2,12 +2,12 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.7.0
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.7.1
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)，支持多世界观、多阶段管线、编译式记忆系统。
 
 **技术栈**:
-- 前端框架: React 18 + TypeScript
+- 前端框架: React 19 + TypeScript
 - 构建工具: Bun
 - 状态管理: Zustand + React Context (useReducer)
 - 持久化: IndexedDB (存档) + localStorage (配置)

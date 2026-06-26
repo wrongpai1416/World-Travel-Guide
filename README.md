@@ -2,7 +2,7 @@
 
 **AI 驱动的互动小说引擎** — 在自定义世界观中创建角色、展开冒险，与 AI 共同书写属于你的故事。
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-1.3-FBF0CF?logo=bun)](https://bun.sh/)
 [![Zustand](https://img.shields.io/badge/Zustand-5-3B3B3B)](https://zustand-demo.pmnd.rs/)
@@ -184,91 +184,210 @@ bun run build
 
 ```
 src/
-├── api/                    # API 层
-│   ├── client.ts           # 多 Provider API 客户端（OpenAI/DeepSeek/Google）
-│   ├── rateLimiter.ts      # 限流器（防止 429 错误）
-│   └── types.ts            # API 类型定义
-├── components/             # UI 组件
-│   ├── start/              # 开始界面
-│   │   ├── MainMenuView.tsx    # 主菜单
-│   │   ├── ModuleSelector.tsx  # 模块选择器（世界创建时勾选）
-│   │   └── WorldEditorForm.tsx # 世界编辑器
-│   ├── game/               # 游戏界面
-│   │   ├── chat/           # 聊天面板
-│   │   │   ├── MessageBubble.tsx    # 消息渲染（含内联卡片挂载）
-│   │   │   ├── InlineDiceCard.tsx   # 骰子检定内联卡片
-│   │   │   ├── InlineTalentCard.tsx # 天赋觉醒内联卡片
-│   │   │   └── PipelineMonitorModal.tsx # 管线监控弹窗
-│   │   └── panels/         # 侧边面板
-│   │       └── modules/    # 模块卡片（StatsCard/ProgressionCard 等）
-│   ├── settings/           # 设置界面
-│   │   ├── memory/         # 记忆系统设置面板
-│   │   └── ApiSettingsTab.tsx # API 设置
-│   └── shared/             # 共享组件
-├── config/                 # 配置常量
-│   └── storageKeys.ts      # localStorage 键名
-├── context/                # React Context
-│   ├── GameContext.tsx      # 游戏上下文
-│   └── UISettingsContext.tsx# UI 设置上下文
-├── data/                   # 数据定义
-│   ├── worlds/             # 内置世界 JSON
-│   ├── worlds-schema.ts    # WorldDef 类型定义
-│   ├── builtinPresets.ts   # 内置提示词预设 + 正则脚本
-│   └── modules.ts          # 模块渲染类型映射
-├── engine/                 # 游戏引擎
-│   ├── useGameEngine.ts    # 核心引擎 hook（记忆管线 + 正文生成）
-│   ├── pipelineExecutor.ts # 管线执行器（同层并行/层间串行）
-│   ├── pipelineTypes.ts    # 管线类型定义和执行顺序
-│   ├── variableManager.ts  # 变量管理器
-│   ├── variableExtraction.ts # 变量提取
-│   ├── promptAssembler.ts  # 提示词组装器
-│   ├── responseExtractor.ts # 响应解析器
-│   ├── macroEngine.ts      # 宏引擎
-│   └── eventBus.ts         # 事件总线
-├── hooks/                  # 自定义 Hooks
-│   ├── useAiFill.ts        # AI 角色自动填充
-│   └── useIsMobile.ts      # 移动端检测
-├── memory/                 # 记忆系统
-│   ├── memoryStore.ts      # Zustand Store
-│   ├── memoryPipeline.ts   # 9 阶段记忆管线（写入/摘要/向量/检索/编译）
-│   ├── memoryPrompts.ts    # 记忆系统 Prompt 模板
-│   ├── narrativeParsers.ts # 叙事记忆解析器
-│   ├── narrativeGraph.ts   # 叙事图谱数据构建
-│   ├── vectorUtils.ts      # 向量工具函数
-│   └── types.ts            # 记忆类型定义
-├── modules/                # 游戏模块系统
-│   ├── schema.ts           # 模块 Schema 定义（属性/成长/生存/经营/骰子/天赋）
-│   ├── runtime.ts          # 模块运行时工具
-│   ├── buildPipeline.ts    # 世界创建管线（主题提取→生成→世界书→合成）
-│   ├── buildContext.ts     # 管线上下文类型
-│   ├── prompts/            # 模块 Prompt 模板
-│   │   ├── stat.ts         # 数值属性 Prompt
-│   │   ├── progression.ts  # 成长体系 Prompt
-│   │   ├── survival.ts     # 生存资源 Prompt
-│   │   ├── business.ts     # 经营资产 Prompt
-│   │   ├── dice.ts         # 骰子检定规则
-│   │   └── talent.ts       # 天赋体系 Prompt
-│   └── index.ts            # 模块导出
-├── schema/                 # 全局类型定义
-│   └── variables.ts        # GameState 结构
-├── storage/                # 持久化层
-│   └── db.ts               # IndexedDB 存档管理
-├── stores/                 # Zustand Stores
-│   ├── configStore.ts      # 配置管理
-│   └── saveStore.ts        # 存档管理
-├── types/                  # 通用类型
-├── utils/                  # 工具函数
-│   ├── markdown.ts         # Markdown 渲染
-│   ├── regexScripts.ts     # 正则脚本执行器
-│   ├── text-colorization.ts # 文本着色
-│   ├── npcHelpers.ts       # NPC 管理工具
-│   ├── moduleToWorldBook.ts # 模块转世界书工具
-│   └── prompts/            # 提示词模板
-│       └── editor-prompts.ts # 编辑器 Prompt
-└── worldbook/              # 世界书引擎
-    ├── index.ts            # 世界书管理器
-    ├── worldInfoEngine.ts  # SillyTavern 兼容扫描引擎
-    └── npcWorldbook.ts     # NPC 世界书生成
+├── api/                        # API 层
+│   ├── client.ts               # 多 Provider API 客户端（流式/非流式/重试/降级）
+│   ├── auxiliaryApi.ts         # 辅助 API（变量提取专用调用）
+│   ├── imageGen.ts             # 生图 API（NovelAI/ComfyUI/OpenAI Compatible）
+│   ├── imageGenTypes.ts        # 生图类型定义 + 常量
+│   ├── rateLimiter.ts          # 限流器（防止 429 错误）
+│   └── types.ts                # API 类型定义
+├── components/                 # UI 组件
+│   ├── start/                  # 开始界面
+│   │   ├── MainMenuView.tsx        # 主菜单
+│   │   ├── StartScreen.tsx         # 启动屏幕入口
+│   │   ├── WizardShell.tsx         # 世界创建向导外壳
+│   │   ├── ModuleSelector.tsx      # 模块选择器（世界创建时勾选）
+│   │   ├── WorldEditorForm.tsx     # 世界编辑器
+│   │   ├── WorldCard.tsx           # 世界卡片
+│   │   ├── StepWorldBrowser.tsx    # 向导步骤：世界浏览
+│   │   ├── StepWorldDetail.tsx     # 向导步骤：世界详情
+│   │   ├── StepWorldSelect.tsx     # 向导步骤：世界选择
+│   │   ├── StepPersonalInfo.tsx    # 向导步骤：个人信息
+│   │   ├── StepCharacterHistory.tsx# 向导步骤：角色经历
+│   │   ├── StepConfirm.tsx         # 向导步骤：确认
+│   │   ├── NpcEditorModal.tsx      # NPC 编辑弹窗
+│   │   └── SavesView.tsx           # 存档管理视图
+│   ├── game/                   # 游戏界面
+│   │   ├── GameScreen.tsx          # 游戏主屏幕
+│   │   ├── MobileOverlay.tsx       # 移动端滑入面板
+│   │   ├── VariableSettingsOverlay.tsx # 变量设置覆盖层
+│   │   ├── chat/               # 聊天面板
+│   │   │   ├── ChatPanel.tsx           # 聊天主面板
+│   │   │   ├── MessageBubble.tsx       # 消息渲染（含内联卡片挂载）
+│   │   │   ├── InputArea.tsx           # 输入区域
+│   │   │   ├── ContextMenu.tsx         # 右键菜单
+│   │   │   ├── InlineDiceCard.tsx      # 骰子检定内联卡片
+│   │   │   ├── InlineTalentCard.tsx    # 天赋觉醒内联卡片
+│   │   │   ├── InlineImageGenButton.tsx# 正文生图按钮
+│   │   │   ├── ReasoningBlock.tsx      # 思考链展示
+│   │   │   ├── PipelineStatus.tsx      # 管线状态指示器
+│   │   │   ├── PipelineMonitorModal.tsx# 管线监控弹窗
+│   │   │   └── pipelineUI.ts           # 管线 UI 工具函数
+│   │   └── panels/             # 侧边面板
+│   │       ├── RightPanel.tsx          # 右侧面板入口
+│   │       ├── ProfilePanel.tsx        # 角色档案面板
+│   │       ├── CharacterGrid.tsx       # NPC 网格
+│   │       ├── NotebookPanel.tsx       # 笔记本面板
+│   │       ├── WorldBookPanel.tsx      # 世界书面板
+│   │       ├── VariableSnapshotPanel.tsx# 变量快照面板
+│   │       ├── ImageGallery.tsx        # 图片画廊
+│   │       ├── BusinessOverlay.tsx     # 经营资产覆盖层
+│   │       ├── ModuleCard.tsx          # 模块卡片（旧格式兼容）
+│   │       └── modules/        # 模块卡片组件
+│   │           ├── BaseStatsCard.tsx       # 数值属性卡片
+│   │           ├── SixDimCard.tsx          # 六维属性卡片
+│   │           ├── ProgressionCard.tsx     # 成长体系卡片
+│   │           ├── SurvivalCard.tsx        # 生存资源卡片
+│   │           ├── BusinessCard.tsx        # 经营资产卡片
+│   │           ├── DiceCard.tsx            # 骰子检定卡片
+│   │           ├── TalentCard.tsx          # 天赋体系卡片
+│   │           └── index.ts               # 模块卡片索引
+│   ├── settings/               # 设置界面
+│   │   ├── GeneralSettingsTab.tsx      # 通用设置
+│   │   ├── ApiSettingsTab.tsx          # API 设置
+│   │   ├── PresetSettingsTab.tsx       # 预设管理
+│   │   ├── ImageGenSettingsTab.tsx     # 生图设置
+│   │   ├── VariableSettingsTab.tsx     # 变量设置
+│   │   ├── MemorySettingsTab.tsx       # 记忆设置入口
+│   │   ├── ProxyTutorialOverlay.tsx    # 代理教程覆盖层
+│   │   ├── SettingsUIComponents.tsx    # 设置 UI 通用组件
+│   │   ├── apiPresetUtils.ts          # API 预设工具
+│   │   └── memory/             # 记忆系统设置面板
+│   │       ├── MemorySettingsOverlay.tsx   # 记忆设置覆盖层
+│   │       ├── PromptTemplatesPanel.tsx    # Prompt 模板面板
+│   │       ├── RetrievalConfigPanel.tsx    # 检索配置面板
+│   │       ├── RuntimeGraphPanel.tsx       # 运行时图谱面板
+│   │       ├── VectorConfigPanel.tsx       # 向量配置面板
+│   │       ├── VectorExtractDialog.tsx     # 向量提取弹窗
+│   │       ├── WriteConfigPanel.tsx        # 写入配置面板
+│   │       ├── ExportPickerDialog.tsx      # 导出选择弹窗
+│   │       └── index.ts                    # 模块索引
+│   ├── shared/                 # 共享组件
+│   │   ├── Avatar.tsx              # 头像组件
+│   │   ├── Collapsible.tsx         # 可折叠容器
+│   │   ├── Dialog.tsx              # 弹窗组件
+│   │   ├── EmptyState.tsx          # 空状态展示
+│   │   ├── ExcelRow.tsx            # 表格行组件
+│   │   ├── MermaidGraphPanel.tsx   # Mermaid 图谱面板
+│   │   ├── TemplatePickerDialog.tsx# 模板选择弹窗
+│   │   ├── iconMap.tsx             # 图标映射
+│   │   ├── qualityUtils.ts         # 品质工具函数
+│   │   └── worldIcons.tsx          # 世界图标
+│   └── ErrorBoundary.tsx       # 错误边界
+├── config/                     # 配置常量
+│   └── storageKeys.ts          # localStorage 键名统一管理
+├── context/                    # React Context
+│   ├── GameContext.tsx          # 游戏上下文（导航/引擎/存档）
+│   └── UISettingsContext.tsx    # UI 设置上下文（主题/字号/染色）
+├── data/                       # 数据定义
+│   ├── worlds/                 # 内置世界 JSON（6 个世界）
+│   ├── worlds.json             # 世界定义汇总
+│   ├── worlds-schema.ts        # WorldDef Zod Schema
+│   ├── worldLoader.ts          # 世界加载器（内置 + 自建）
+│   ├── builtinPresets.ts       # 内置提示词预设 + 正则脚本
+│   └── modules.ts              # 模块渲染类型映射（旧格式兼容）
+├── engine/                     # 游戏引擎
+│   ├── useGameEngine.ts        # 核心引擎 hook（管线编排 + 正文生成 + 记忆集成）
+│   ├── pipelineExecutor.ts     # 管线执行器（同层并行/层间串行）
+│   ├── pipelineTypes.ts        # 管线类型定义和默认执行顺序
+│   ├── variableManager.ts      # 变量管理器（GameState CRUD + 快照 + NPC 感知）
+│   ├── variableExtraction.ts   # 变量提取（独立 API 调用 + 重试）
+│   ├── variableStructureDefs.ts# 变量结构定义（路径/显示名/分组）
+│   ├── promptAssembler.ts      # 提示词组装器（预设 + 宏引擎 + 世界书 + 记忆）
+│   ├── responseExtractor.ts    # 响应解析器（剥标签提取纯正文）
+│   ├── contextManager.ts       # 上下文管理器（消息历史清理 + 正则脚本）
+│   ├── macroEngine.ts          # 宏引擎（{{var}}/{{random}}/{{#if}}/{{roll}}）
+│   ├── worldPersonality.ts     # 世界书加载 + 世界/模块注入
+│   ├── types.ts                # 引擎类型定义（ChatMessage/GameEngine）
+│   └── eventBus.ts             # 事件总线
+├── hooks/                      # 自定义 Hooks
+│   ├── useGame.ts              # 游戏上下文 Hook
+│   ├── useWizard.ts            # 世界创建向导 Hook
+│   ├── useAiFill.ts            # AI 角色自动填充
+│   ├── useCharacterHistory.ts  # 角色经历管理
+│   ├── useCharacterPortrait.ts # 角色画像（生图集成）
+│   ├── useImageGen.ts          # 生图功能 Hook
+│   ├── useNpcCreate.ts         # NPC 创建
+│   ├── useNpcFill.ts           # NPC 自动填充
+│   ├── useIsMobile.ts          # 移动端检测
+│   ├── useBodyScrollLock.ts    # Body 滚动锁定
+│   └── useUISettings.ts        # UI 设置 Hook
+├── memory/                     # 记忆系统
+│   ├── memoryStore.ts          # Zustand Store（运行态 + 配置 + 检查点）
+│   ├── memoryPipeline.ts       # 记忆管线（写入/摘要/向量/检索/编译 9 阶段）
+│   ├── memoryConfig.ts         # 配置默认值 + 归一化 + 迁移
+│   ├── memoryPrompts.ts        # 记忆系统 Prompt 模板
+│   ├── memoryUtils.ts          # 记忆工具函数
+│   ├── useMemorySystem.ts      # 记忆系统 Hook（对外接口）
+│   ├── narrativeParsers.ts     # 叙事记忆解析器
+│   ├── narrativeGraph.ts       # 叙事图谱数据构建（Mermaid）
+│   ├── narrativePng.ts         # 记忆数据 PNG 导出/导入
+│   ├── vectorUtils.ts          # 向量工具函数
+│   ├── types.ts                # 记忆类型定义（运行态/配置/向量事实）
+│   └── index.ts                # 统一导出
+├── modules/                    # 游戏模块系统
+│   ├── schema.ts               # 模块 Zod Schema（属性/成长/生存/经营/骰子/天赋）
+│   ├── defaults.ts             # 模块默认值工厂函数
+│   ├── runtime.ts              # 模块运行时工具
+│   ├── buildPipeline.ts        # 世界创建管线（种子→骨架→维度→一致性→深描→世界书→模块）
+│   ├── buildContext.ts         # 管线上下文类型
+│   ├── injector.ts             # 模块世界书注入器
+│   ├── xpAlgorithm.ts          # 经验值算法
+│   ├── prompts/                # 模块 Prompt 模板
+│   │   ├── stat.ts             # 数值属性 Prompt
+│   │   ├── progression.ts      # 成长体系 Prompt
+│   │   ├── survival.ts         # 生存资源 Prompt
+│   │   ├── business.ts         # 经营资产 Prompt
+│   │   ├── dice.ts             # 骰子检定规则
+│   │   ├── talent.ts           # 天赋体系 Prompt
+│   │   └── index.ts            # Prompt 导出
+│   └── index.ts                # 模块导出
+├── schema/                     # 全局类型定义
+│   └── variables.ts            # GameState/PlayerState/NPCData 结构
+├── storage/                    # 持久化层
+│   ├── db.ts                   # IndexedDB 存档管理（CRUD + 快照优化）
+│   └── templateStore.ts        # 模板存储（玩家预设/历史预设）
+├── stores/                     # Zustand Stores
+│   ├── configStore.ts          # 全局配置管理
+│   ├── saveStore.ts            # 存档管理
+│   ├── presetStore.ts          # 提示词预设管理
+│   └── imageStore.ts           # 生图配置管理
+├── utils/                      # 工具函数
+│   ├── markdown.ts             # Markdown 渲染（marked + DOMPurify + highlight.js）
+│   ├── regexScripts.ts         # 正则脚本执行器
+│   ├── text-colorization.ts    # 文本着色（对话引号染色）
+│   ├── npcHelpers.ts           # NPC 管理工具（ID 解析/结构校验/快照）
+│   ├── roleCognitionFirewall.ts# 角色认知防火墙（防 AI 泄露系统信息）
+│   ├── ageStages.ts            # 年龄阶段动态计算
+│   ├── nativeFetch.ts          # 原生 fetch 封装（Tauri/CORS 兼容）
+│   ├── presetIO.ts             # 预设导入/导出
+│   └── prompts/                # 提示词模板
+│       ├── index.ts            # 提示词导出
+│       ├── editor-prompts.ts   # 编辑器 Prompt
+│       └── README.md           # 提示词说明
+├── worldbook/                  # 世界书引擎
+│   ├── index.ts                # 世界书管理器（v2 扫描注入）
+│   ├── worldInfoEngine.ts      # SillyTavern 兼容扫描引擎
+│   └── npcWorldbook.ts         # NPC 世界书去重
+└── worldgen/                   # 世界生成管线
+    ├── pipeline.ts             # 7 阶段生成管线
+    ├── types.ts                # 世界生成类型定义
+    ├── index.ts                # 导出
+    ├── prompts/                # 各阶段 Prompt
+    │   ├── seed.ts             # 种子分析 Prompt
+    │   ├── skeleton.ts         # 骨架生成 Prompt
+    │   ├── dimensions.ts       # 维度展开 Prompt
+    │   ├── consistency.ts      # 一致性校验 Prompt
+    │   ├── deep-detail.ts      # 深度描写 Prompt
+    │   └── worldbook-synth.ts  # 世界书合成 Prompt
+    └── stages/                 # 各阶段实现
+        ├── stage0-seed.ts      # 阶段 0：种子分析
+        ├── stage1-skeleton.ts  # 阶段 1：骨架生成
+        ├── stage2-dimensions.ts# 阶段 2：维度展开
+        ├── stage3-consistency.ts# 阶段 3：一致性校验
+        ├── stage4-deep-detail.ts# 阶段 4：深度描写
+        ├── stage5-worldbook.ts # 阶段 5：世界书条目生成
+        └── stage6-modules.ts   # 阶段 6：模块数据生成
 ```
 
 ---
@@ -285,21 +404,21 @@ src/
                                  │
 ┌────────────────────────────────▼─────────────────────────────┐
 │                      状态层                                   │
-│  GameContext  │  configStore  │  saveStore  │  memoryStore    │
+│  GameContext │ configStore │ saveStore │ presetStore │ imageStore │ memoryStore │
 └────────────────────────────────┬─────────────────────────────┘
                                  │
 ┌────────────────────────────────▼─────────────────────────────┐
 │                      引擎层                                   │
 │  useGameEngine │ PipelineExecutor │ VariableManager           │
 │  PromptAssembler │ MacroEngine │ EventBus │ ResponseExtractor │
-└────────┬───────────────┬───────────────┬────────────────────┘
-         │               │               │
-┌────────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐
-│ memory/*       │ │ worldbook/*│ │ modules/*    │
-│ 9阶段记忆管线   │ │ 世界书引擎  │ │ 模块系统      │
-│ (写入/摘要/向量 │ │ (SillyTavern│ │ (6个可选模块) │
-│  /检索/编译)    │ │  兼容扫描)  │ │              │
-└────────────────┘ └────────────┘ └──────────────┘
+└────────┬───────────────┬───────────────┬──────────┬─────────┘
+         │               │               │          │
+┌────────▼───────┐ ┌─────▼──────┐ ┌──────▼───────┐ ┌▼────────────┐
+│ memory/*       │ │ worldbook/*│ │ modules/*    │ │ worldgen/*  │
+│ 9阶段记忆管线   │ │ 世界书引擎  │ │ 模块系统      │ │ 7阶段世界生成│
+│ (写入/摘要/向量 │ │ (SillyTavern│ │ (6个可选模块) │ │ (种子→骨架→ │
+│  /检索/编译)    │ │  兼容扫描)  │ │              │ │  维度→合成)  │
+└────────────────┘ └────────────┘ └──────────────┘ └─────────────┘
                                  │
 ┌────────────────────────────────▼─────────────────────────────┐
 │                      数据层                                   │
@@ -308,7 +427,7 @@ src/
                                  │
 ┌────────────────────────────────▼─────────────────────────────┐
 │                      API 层                                   │
-│  client.ts (OpenAI/DeepSeek/Google) │ rateLimiter             │
+│  client.ts (多Provider) │ auxiliaryApi │ imageGen │ rateLimiter │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -349,9 +468,9 @@ AI 生成回复
 - 检索阶段串行执行（有依赖关系）
 - 内置限流器防止 API 429 错误
 
-**世界创建管线**：
+**世界创建管线**（7 阶段）：
 ```
-主题提取 → [属性 + 成长 + 生存 + 经营 + 天赋]（顺序生成）→ 世界书条目 → 合成验证
+种子分析 → 骨架生成 → 维度展开 → 一致性校验 → 深度描写 → 世界书条目 → 模块数据
 ```
 
 ---
