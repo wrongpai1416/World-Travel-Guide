@@ -129,32 +129,6 @@ export function assembleSystemPrompt(
 }
 
 /**
- * 从旧版 monolithic systemPrompt 构建（向后兼容）
- * 当 preset 没有 prompts[] 时使用
- */
-export function assembleSystemPromptLegacy(
-  systemPromptTemplate: string,
-  ctx: AssemblerContext,
-): string {
-  // 替换 {{VAR_SNAPSHOT}}（带 token budget 裁剪）
-  const VAR_SNAPSHOT_TOKEN_BUDGET = 1800;
-  const trimmedVarSnapshot = trimToTokenBudget(ctx.varSnapshot, VAR_SNAPSHOT_TOKEN_BUDGET);
-  let resolved = systemPromptTemplate.replace(/\{\{VAR_SNAPSHOT\}\}/gi, trimmedVarSnapshot);
-  // 宏解析
-  resolved = ctx.macroEngine.resolve(resolved);
-
-  const parts: string[] = [];
-  if (ctx.wbInjection) parts.push(ctx.wbInjection);
-  if (ctx.playerProfileBlock) parts.push(ctx.playerProfileBlock);
-  if (ctx.firewallTitle && ctx.firewallContent) {
-    parts.push(`${ctx.firewallTitle}\n${ctx.firewallContent}`);
-  }
-  parts.push(resolved);
-
-  return parts.join('\n\n');
-}
-
-/**
  * 将 atDepth 世界书条目注入到聊天历史中。
  *
  * depth 含义：depth=2 表示"在倒数第 2 条消息之前插入"，

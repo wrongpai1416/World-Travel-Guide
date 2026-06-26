@@ -10,7 +10,8 @@ import { parseContent, createIframeSrcDoc } from '../../../utils/markdown';
 import { getEnabledTextColorizationRules } from '../../../utils/text-colorization';
 import { processRegexScripts } from '../../../utils/regexScripts';
 import { getBuiltinDisplayScripts } from '../../../data/builtinPresets';
-import { usePresetStore } from '../../../stores/presetStore';
+import { usePresetStore, applyOverrides } from '../../../stores/presetStore';
+import { getBuiltinPreset } from '../../../data/builtinPresets';
 import { useImageStore } from '../../../stores/imageStore';
 
 interface Props {
@@ -42,7 +43,19 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
   const colorizationRules = useMemo(() => getEnabledTextColorizationRules(), []);
   // 内置渲染正则始终执行 + 预设正则叠加（合并而非二选一）
   const builtinDisplay = useMemo(() => getBuiltinDisplayScripts(), []);
-  const activePreset = usePresetStore((s) => s.getActivePreset());
+  // 订阅原始状态字段，避免 getActivePreset() 每次返回新引用导致无限重渲染
+  const activePresetId = usePresetStore(s => s.activePresetId);
+  const userPresets = usePresetStore(s => s.userPresets);
+  const builtinOverrides = usePresetStore(s => s.builtinOverrides);
+  const activePreset = useMemo(() => {
+    if (activePresetId) {
+      const found = userPresets.find(p => p.id === activePresetId);
+      if (found) return found;
+      const builtin = getBuiltinPreset(activePresetId);
+      return applyOverrides(builtin, builtinOverrides);
+    }
+    return applyOverrides(getBuiltinPreset('default'), builtinOverrides);
+  }, [activePresetId, userPresets, builtinOverrides]);
   const presetDisplayScripts = (activePreset?.regexScripts || []).filter(s => (s.markdownOnly || (!s.markdownOnly && !s.promptOnly)) && !s.disabled);
   const displayScripts = useMemo(() => [...builtinDisplay, ...presetDisplayScripts], [builtinDisplay, presetDisplayScripts]);
 

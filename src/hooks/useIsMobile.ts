@@ -27,28 +27,3 @@ export function useIsMobile(breakpoint = 900) {
 
   return isMobile;
 }
-
-/**
- * 通用媒体查询 hook
- * @param query - 媒体查询字符串
- * @returns boolean
- */
-export function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      setMatches(e.matches);
-    };
-
-    handler(mq);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [query]);
-
-  return matches;
-}

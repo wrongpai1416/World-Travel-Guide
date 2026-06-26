@@ -5,12 +5,6 @@ export const DEFAULT_TEXT_COLORIZATION_PRESET_ID = 'default_dialogue_quotes'
 export const DEFAULT_TEXT_COLORIZATION_PREVIEW_TEXT = '她轻声说："欢迎来到异世界。" 「今晚月色真美。」 "Hello, traveler." 『命运之书』静静躺在桌上。'
 
 const LEGACY_TEXT_COLORIZATION_RULE_COLOR = '#f3d56b'
-const DEFAULT_TEXT_COLORIZATION_RULE_IDS = new Set([
-  'text_color_rule_cn_double_quotes',
-  'text_color_rule_en_double_quotes',
-  'text_color_rule_cn_corner_quotes',
-  'text_color_rule_cn_book_quotes'
-])
 const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
 // ─── 类型定义 ──────────────────────────────────────────────

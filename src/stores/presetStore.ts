@@ -45,7 +45,7 @@ function loadBuiltinOverrides(): BuiltinOverrides {
 }
 
 /** 将覆盖层应用到内置预设 */
-function applyOverrides(preset: PresetPack, overrides: BuiltinOverrides): PresetPack {
+export function applyOverrides(preset: PresetPack, overrides: BuiltinOverrides): PresetPack {
   const presetOverrides = overrides[preset.id];
   if (!presetOverrides || !preset.builtin) return preset;
   return {

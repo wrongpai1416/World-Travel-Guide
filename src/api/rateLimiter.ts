@@ -39,13 +39,6 @@ export async function waitForRateLimit(): Promise<void> {
 }
 
 /**
- * 更新最后调用时间（用于外部调用后同步状态）
- */
-export function updateLastCallTime(): void {
-  lastCallTime = Date.now();
-}
-
-/**
  * 测试 API 限流间隔
  * @param testApiCall 测试用的 API 调用函数
  * @param onProgress 进度回调
