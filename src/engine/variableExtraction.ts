@@ -76,7 +76,20 @@ async function callAuxiliaryApiForEngine(
   const worldDef = findWorldDef((gameState as any).selectedWorld);
   const progressionConfig = worldDef?.modules?.find(m => m.moduleId === 'progression' && m.enabled)?.data;
 
-  const variableUpdatePrompt = buildVariableExtractionPrompt(gameState.世界?.世界系统, progressionConfig as Record<string, unknown>);
+  // 从世界定义的模块 data 构建世界系统数据（用于生成模块更新规则）
+  const worldSystemFromDef: Record<string, unknown> = {};
+  if (worldDef?.modules) {
+    const keyMap: Record<string, string> = {
+      stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系',
+    };
+    for (const mod of worldDef.modules) {
+      if (mod.enabled && mod.data && keyMap[mod.moduleId]) {
+        worldSystemFromDef[keyMap[mod.moduleId]] = mod.data;
+      }
+    }
+  }
+
+  const variableUpdatePrompt = buildVariableExtractionPrompt(worldSystemFromDef, progressionConfig as Record<string, unknown>);
 
   return callAuxiliaryApi(config, messages, variableUpdatePrompt, signal);
 }

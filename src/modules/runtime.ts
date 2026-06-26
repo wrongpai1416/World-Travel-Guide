@@ -7,7 +7,8 @@ import type { WorldSystemData, StatModuleSchema, ProgressionModuleSchema, Surviv
 import { getXpForNextTier, getTierProgress } from './xpAlgorithm';
 
 /**
- * 从 WorldState.世界系统 中提取模块数据
+ * 从世界定义模块数据中提取 WorldSystemData
+ * 数据来源：worldDef.modules[].data（世界定义模块），不再从 GameState.世界.世界系统 读取
  * 兼容旧格式（WorldModuleRuntime）和新格式（WorldSystemData）
  */
 export function extractWorldSystemData(

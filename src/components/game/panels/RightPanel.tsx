@@ -1,7 +1,5 @@
 import { Clock, MapPin, Cloud, Landmark, Globe, Brain, Heart, Zap } from 'lucide-react';
 import type { GameState } from '../../../schema/variables';
-import type { WorldDef } from '../../../data/worlds-schema';
-import { extractWorldSystemData } from '../../../modules/runtime';
 import type { WorldSystemData, ProgressionConfig, SurvivalRecipe } from '../../../modules/schema';
 import { BaseStatsCard, SixDimCard, ProgressionCard, SurvivalCard, BusinessCard } from './modules';
 import { findWorldDef } from '../../../data/worldLoader';
@@ -54,17 +52,31 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
   const player = gameState.玩家;
   const notebook = player.记事本;
 
-  // 提取世界系统数据
-  const worldSystem = extractWorldSystemData(world.世界系统);
-  const hasStatModule = !!worldSystem.数值属性;
-
-  // 提取模块自定义名称（世界创建时设置）
-  const moduleNames = (world.世界系统 as any)?._moduleNames as Record<string, string> | undefined;
+  // 判断是否有数值模块（生存状态中有 dim1 等字段说明启用了数值模块）
+  const hasStatModule = 'dim1' in (player.生存状态 || {});
 
   // 从世界定义获取成长体系配置（静态配置，不存入 GameState）
   const worldDef = worldId ? findWorldDef(worldId) : null;
   const progMod = worldDef?.modules?.find(m => m.moduleId === 'progression' && m.enabled);
   const progressionConfig = progMod?.moduleConfig as ProgressionConfig | undefined;
+
+  // 从世界定义构建 WorldSystemData（用于 UI 卡片展示）
+  const keyMap: Record<string, string> = {
+    stat: '数值属性', progression: '成长体系', survival: '生存资源',
+    business: '经营资产', dice: '骰子检定', talent: '天赋体系',
+  };
+  const worldSystem: WorldSystemData = {};
+  const moduleNames: Record<string, string> = {};
+  if (worldDef?.modules) {
+    for (const mod of worldDef.modules) {
+      if (!mod.enabled) continue;
+      const key = keyMap[mod.moduleId];
+      if (key && mod.data) {
+        (worldSystem as any)[key] = mod.data;
+        if (mod.name) moduleNames[key] = mod.name;
+      }
+    }
+  }
 
   // 从世界定义获取数值属性配置（用于显示属性中文名称）
   const statMod = worldDef?.modules?.find(m => m.moduleId === 'stat' && m.enabled);

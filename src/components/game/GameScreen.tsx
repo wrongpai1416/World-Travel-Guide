@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain, Maximize2, Minimize2, BookMarked } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
@@ -15,8 +15,7 @@ import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
 import BusinessOverlay from './panels/BusinessOverlay';
 import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
-import { extractWorldSystemData } from '../../modules/runtime';
-import type { DiceRoll, SurvivalRecipe, BusinessModuleSchema } from '../../modules/schema';
+import type { WorldSystemData, DiceRoll, SurvivalRecipe, BusinessModuleSchema } from '../../modules/schema';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
 import { findWorldDef } from '../../data/worldLoader';
@@ -183,20 +182,33 @@ export default function GameScreen() {
 
   const gameState = engine.variableManager.getState();
 
-  // 提取世界系统数据（用于内联骰子卡片）
-  const worldSystem = extractWorldSystemData(gameState.世界.世界系统);
-  const hasBusinessModule = !!worldSystem.经营资产;
+  // 模块数据从世界定义读取（用于内联骰子卡片等）
+  const worldDef = useMemo(() => {
+    try { return findWorldDef(state.selectedWorld); } catch { return undefined; }
+  }, [state.selectedWorld]);
+  const hasBusinessModule = !!worldDef?.modules?.some(m => m.moduleId === 'business' && m.enabled);
 
-  // 骰子掷骰结果回调 — 更新世界系统中的骰子数据
+  // 模块数据聚合（从世界定义 modules 构建 WorldSystemData，用于 UI 卡片）
+  const worldSystem = useMemo((): WorldSystemData => {
+    if (!worldDef?.modules) return {};
+    const keyMap: Record<string, string> = {
+      stat: '数值属性', progression: '成长体系', survival: '生存资源',
+      business: '经营资产', dice: '骰子检定', talent: '天赋体系',
+    };
+    const result: WorldSystemData = {};
+    for (const mod of worldDef.modules) {
+      if (!mod.enabled) continue;
+      const key = keyMap[mod.moduleId];
+      if (key && mod.data) (result as any)[key] = mod.data;
+    }
+    return result;
+  }, [worldDef]);
+
+  // 骰子掷骰结果回调 — 存入本地 state 刷新 UI
+  const [lastDiceRoll, setLastDiceRoll] = useState<DiceRoll | null>(null);
   const handleDiceRoll = useCallback((roll: DiceRoll) => {
-    const state = engine.variableManager.getState();
-    const ws = extractWorldSystemData(state.世界.世界系统);
-    if (!ws.骰子检定) return;
-    ws.骰子检定.lastRoll = roll;
-    ws.骰子检定.history = [...(ws.骰子检定.history || []), roll].slice(-10);
-    // 触发变量更新事件以刷新UI
-    setStateVersion(v => v + 1);
-  }, [engine]);
+    setLastDiceRoll(roll);
+  }, []);
 
   const apiConfig = useConfigStore(s => s.apiConfig);
 
@@ -205,39 +217,29 @@ export default function GameScreen() {
 
   const handleSurvivalCraft = useCallback((recipe: SurvivalRecipe) => {
     const state = engine.variableManager.getState();
-    const surv = (state.世界?.世界系统 as any)?.生存资源;
-    if (!surv?.resources) return;
+    const resources = state.玩家?.生存资源;
+    if (!resources) return;
 
     // 检查资源是否足够
     for (const [resId, need] of Object.entries(recipe.inputs)) {
-      const res = surv.resources.find((r: any) => r.id === resId);
-      if (!res || res.amount < need) return;
+      const res = resources[resId];
+      if (!res || res.数量 < need) return;
     }
 
     // 消耗材料
     for (const [resId, need] of Object.entries(recipe.inputs)) {
-      const res = surv.resources.find((r: any) => r.id === resId);
-      if (res) res.amount -= need;
+      const res = resources[resId];
+      if (res) res.数量 -= need;
     }
 
     // 产出产品
     const outputId = recipe.output.resourceId;
     const outputAmount = recipe.output.amount;
-    const outputRes = surv.resources.find((r: any) => r.id === outputId);
+    const outputRes = resources[outputId];
     if (outputRes) {
-      // 已有资源，增加数量
-      outputRes.amount = Math.min(outputRes.amount + outputAmount, outputRes.max);
+      outputRes.数量 += outputAmount;
     } else {
-      // 新物品，添加到资源列表
-      surv.resources.push({
-        id: outputId,
-        name: recipe.name,
-        symbol: '📦',
-        amount: outputAmount,
-        max: 99,
-        scarce: false,
-        description: recipe.description || `通过${recipe.name}制作获得`,
-      });
+      resources[outputId] = { 数量: outputAmount };
     }
 
     engine.variableManager.setState(state);
@@ -251,9 +253,9 @@ export default function GameScreen() {
     try {
       const { buildRecipeGenPrompt } = await import('../../modules/prompts');
       const state = engine.variableManager.getState();
-      const surv = (state.世界?.世界系统 as any)?.生存资源;
-      const currentResources = (surv?.resources || []).map((r: any) => ({
-        id: r.id, name: r.name, amount: r.amount, max: r.max,
+      const resources = state.玩家?.生存资源 || {};
+      const currentResources = Object.entries(resources).map(([id, r]) => ({
+        id, name: id, amount: r.数量, max: r.最大值 ?? 9999,
       }));
       const worldTheme = state.世界?.社会环境?.社会氛围 || '生存世界';
 
@@ -268,12 +270,7 @@ export default function GameScreen() {
         const fixed = jsonMatch[1].trim().replace(/[""]/g, '"').replace(/['']/g, "'");
         const recipe = JSON.parse(fixed);
 
-        // 添加到 GameState
-        if (!surv.recipes) surv.recipes = [];
-        // 确保 ID 唯一
-        if (!recipe.id) recipe.id = `recipe_${Date.now()}`;
-        surv.recipes.push(recipe);
-
+        // 配方数据在世界定义中，此处仅刷新UI展示
         engine.variableManager.setState(state);
         setStateVersion(v => v + 1);
       }
@@ -284,21 +281,15 @@ export default function GameScreen() {
     }
   }, [engine, apiConfig]);
 
-  // ── 生存资源：删除配方 ──
-  const handleSurvivalDeleteRecipe = useCallback((recipeId: string) => {
-    const state = engine.variableManager.getState();
-    const surv = (state.世界?.世界系统 as any)?.生存资源;
-    if (!surv?.recipes) return;
-    surv.recipes = surv.recipes.filter((r: any) => r.id !== recipeId);
-    engine.variableManager.setState(state);
+  // ── 生存资源：删除配方（配方数据在世界定义中，此处仅刷新UI） ──
+  const handleSurvivalDeleteRecipe = useCallback((_recipeId: string) => {
     setStateVersion(v => v + 1);
-  }, [engine]);
+  }, []);
 
   // ── 经营资产：自动结算（每轮变量更新后，纯机械计算） ──
   useEffect(() => {
     const handler = () => {
-      const state = engine.variableManager.getState();
-      const biz = (state.世界?.世界系统 as any)?.经营资产 as BusinessModuleSchema | undefined;
+      const biz = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.data as BusinessModuleSchema | undefined;
       if (!biz?.assets?.length) return;
 
       let totalIncome = 0;
@@ -321,7 +312,6 @@ export default function GameScreen() {
         amount: net,
       });
 
-      engine.variableManager.setState(state);
       setStateVersion(v => v + 1);
     };
 
@@ -707,7 +697,7 @@ export default function GameScreen() {
 
       {/* 经营管理覆盖层（纯展示） */}
       {(() => {
-        const bizData = (gameState.世界?.世界系统 as any)?.经营资产 as BusinessModuleSchema | undefined;
+        const bizData = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.data as BusinessModuleSchema | undefined;
         if (!bizData) return null;
         return (
           <BusinessOverlay

@@ -265,7 +265,10 @@ export interface TalentModuleSchema {
 
 // ─── 世界系统聚合类型 ───
 
-/** 世界系统运行时数据（存放在 GameState.世界.世界系统） */
+/**
+ * 世界系统聚合类型 — 用于模块数据传递（UI 卡片、prompt 生成等）
+ * 不再存放在 GameState 中，数据来源为 worldDef.modules[].data
+ */
 export interface WorldSystemData {
   数值属性?: StatModuleSchema;
   成长体系?: ProgressionModuleSchema;

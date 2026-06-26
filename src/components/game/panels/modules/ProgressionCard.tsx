@@ -18,7 +18,7 @@ interface StatNames {
 }
 
 interface ProgressionCardProps {
-  /** 成长体系配置（静态，从世界系统读取） */
+  /** 成长体系配置（静态，从世界定义模块读取） */
   config: ProgressionConfig;
   /** 成长体系状态（动态，从变量系统读取） */
   state?: ProgressionState;

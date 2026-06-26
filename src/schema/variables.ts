@@ -18,18 +18,18 @@ export interface WorldState {
     本地消息: string;
     圈内传闻: string;
   };
-  /**
-   * 世界模块运行时数据
-   * v2: 使用 WorldSystemData 结构（数值属性/成长体系/生存资源/经营资产/骰子检定）
-   * v2.1 兼容: 也支持旧的 Record<string, WorldModuleRuntime> 格式
-   * 由AI通过UpdateVariable维护
-   */
-  世界系统?: Record<string, unknown>;
+  // 世界系统已移除 — 模块配置只存世界书，运行时数据在 玩家.生存状态
 }
 
+/**
+ * 玩家生存/属性状态
+ * 未启用数值模块时只有 血量/体力值
+ * 启用数值模块后扩展 attrA/attrB/dim1-6/special 等字段
+ */
 export interface SurvivalStats {
   血量: number;
   体力值: number;
+  [key: string]: number; // 六维、特色属性等动态字段
 }
 
 export interface SkillData {
@@ -83,8 +83,8 @@ export interface PlayerState {
   当前经验值?: number;
   /** 可用属性点 */
   可用属性点?: number;
-  /** 六维+特色属性（数值属性模块启用时填充） */
-  属性?: Record<string, number>;
+  /** 生存资源（生存模块启用时填充） */
+  生存资源?: Record<string, { 数量: number; 最大值?: number }>;
 }
 
 export interface NPCData {

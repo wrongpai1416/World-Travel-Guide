@@ -510,39 +510,29 @@ export function formatSnapshotForMainAI(state: GameState): string {
     if (playerGoal) lines.push(`> 目标: ${playerGoal}`);
   }
 
-  // 数值属性模块 or 生存状态（二选一，模块优先）
-  const worldSystem = world.世界系统;
-  const hasStatModule = !!worldSystem && typeof worldSystem === 'object' && '数值属性' in worldSystem;
-  if (hasStatModule) {
-    const stat = (worldSystem as any)['数值属性'];
-    if (stat && typeof stat === 'object') {
+  // 生存状态（血量/体力值 + 六维 dim1-6 + 特色属性）
+  const survival = player.生存状态;
+  if (survival && typeof survival === 'object') {
+    const hp = (survival as any).血量;
+    const stamina = (survival as any).体力值;
+    const hasDims = [1,2,3,4,5,6].some(i => (survival as any)[`dim${i}`] != null);
+    const hasSpecial = Object.keys(survival).some(k => !['血量','体力值'].includes(k) && !k.startsWith('dim') && typeof (survival as any)[k] === 'number');
+    if (hp != null || stamina != null || hasDims || hasSpecial) {
+      lines.push(`### 【生存状态】`);
       const parts = [];
-      if (stat.attrA) parts.push(`${stat.attrA.name}:${stat.attrA.current}/${stat.attrA.max}`);
-      if (stat.attrB) parts.push(`${stat.attrB.name}:${stat.attrB.current}/${stat.attrB.max}`);
+      if (hp != null) parts.push(`血量:${hp}`);
+      if (stamina != null) parts.push(`体力值:${stamina}`);
       // 六维
-      const dims = [stat.dim1, stat.dim2, stat.dim3, stat.dim4, stat.dim5, stat.dim6].filter(Boolean);
-      if (dims.length > 0) {
-        parts.push(dims.map((d: any) => `${d.name}:${d.value}`).join(' '));
+      for (let i = 1; i <= 6; i++) {
+        const val = (survival as any)[`dim${i}`];
+        if (val != null) parts.push(`dim${i}:${val}`);
       }
-      if (parts.length > 0) {
-        lines.push(`### 【数值属性】`);
-        lines.push(`> ${parts.join(' | ')}`);
+      // 特色属性
+      for (const [k, v] of Object.entries(survival as Record<string, unknown>)) {
+        if (['血量','体力值'].includes(k) || k.startsWith('dim')) continue;
+        if (typeof v === 'number') parts.push(`${k}:${v}`);
       }
-    }
-  } else {
-    const survival = player.生存状态;
-    if (survival && typeof survival === 'object') {
-      const hp = (survival as any).生命值 ?? (survival as any).生命;
-      const stamina = (survival as any).体力值 ?? (survival as any).体力;
-      const hunger = (survival as any).饥饿值 ?? (survival as any).饥饿;
-      if (hp != null || stamina != null || hunger != null) {
-        lines.push(`### 【生存状态】`);
-        const parts = [];
-        if (hp != null) parts.push(`生命:${hp}`);
-        if (stamina != null) parts.push(`体力:${stamina}`);
-        if (hunger != null) parts.push(`饥饿:${hunger}`);
-        lines.push(`> ${parts.join(' | ')}`);
-      }
+      lines.push(`> ${parts.join(' | ')}`);
     }
   }
 

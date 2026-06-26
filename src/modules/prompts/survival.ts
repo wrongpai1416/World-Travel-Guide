@@ -86,21 +86,17 @@ export function buildSurvivalGenPrompt(params: {
 export const SURVIVAL_UPDATE_RULES = `【生存资源更新规则】
 
 当资源数量发生变化时，通过 UpdateVariable 更新：
-{"世界系统":{"生存资源":{"resources":{"资源id":{"amount":新数量}}}}}
+{"玩家":{"生存资源":{"资源id":{"数量":新数量}}}}
 
 规则：
 - 只输出发生变化的资源，未变化的不要输出
-- amount 不能为负数，不能超过该资源的 max
-- 多个资源同时变化时，放在同一个 resources 对象中
-- 示例：食物消耗1、木材采集3 → {"世界系统":{"生存资源":{"resources":{"food":{"amount":5},"wood":{"amount":8}}}}}
-
-上限更新（当玩家建造更大的存储设施、升级仓库时）：
-- 同时更新 amount 和 max
-- 示例：建造大型仓库后 → {"世界系统":{"生存资源":{"resources":{"wood":{"max":100}}}}}
+- 数量不能为负数
+- 多个资源同时变化时，放在同一个对象中
+- 示例：食物消耗1、木材采集3 → {"玩家":{"生存资源":{"food":{"数量":5},"wood":{"数量":8}}}}
 
 危机触发：
-- 当任何资源的 amount 低于 criticalThreshold 时，应在叙事中体现危机感
-- 资源耗尽（amount=0）时，必须触发严重后果（受伤、虚弱、死亡威胁等）`;
+- 当任何资源数量过低时，应在叙事中体现危机感
+- 资源耗尽时，必须触发严重后果（受伤、虚弱、死亡威胁等）`;
 
 /** 动态配方生成（游戏中玩家触发） */
 export function buildRecipeGenPrompt(params: {

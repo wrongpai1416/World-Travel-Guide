@@ -49,7 +49,7 @@ ${userBlock}
 
 /** 运行时 UpdateVariable 规则 */
 export const BUSINESS_UPDATE_RULES = `【经营资产更新规则】
-- 经营数据存放在 世界系统.经营资产 路径下
+- 经营数据已移至世界书条目中，AI 通过叙事描述经营变化，无需通过 UpdateVariable 更新
 - 初始状态下玩家没有经营资产，需要通过角色行动获取
 - 收购资产：当玩家在叙事中明确表达要购买/承包/开设经营项目时，将新资产 push 到 assets 数组，同时扣除 funds
   - 新资产必须包含完整字段：id, name, type, level(1), maxLevel, description, income, maintenance, status("active")
@@ -61,5 +61,4 @@ export const BUSINESS_UPDATE_RULES = `【经营资产更新规则】
 - funds 不能为负数
 - 经营日志：重大事件添加到 transactionLog 数组
 
-UpdateVariable 格式示例：
-{"世界系统":{"经营资产":{"funds":450,"assets":[{"id":"tavern","name":"酒馆","type":"餐饮","level":1,"maxLevel":3,"description":"...","income":{"base":30,"perLevel":15,"cycle":"天"},"maintenance":10,"status":"active"}]}}}`;
+注意：经营数据通过世界书条目管理，无需通过 UpdateVariable 更新。`;

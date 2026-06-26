@@ -33,4 +33,4 @@ export const DICE_RULES_PROMPT = `【骰子检定系统】
 
 /** 运行时UpdateVariable规则 */
 export const DICE_UPDATE_RULES = `【骰子检定更新规则】
-骰子检定由玩家在前端卡片中操作，结果自动更新到世界系统，AI无需手动更新骰子数据。`;
+骰子检定由玩家在前端卡片中操作，AI无需手动更新骰子数据。`;

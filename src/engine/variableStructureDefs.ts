@@ -170,13 +170,13 @@ export const VARIABLE_STRUCTURE_DEFINITIONS: VariableEntry[] = [
     editable: true,
   },
 
-  // ─── 世界系统 ───
+  // ─── 生存资源（模块数据存世界定义，运行时数量存玩家.生存资源） ───
   {
     id: 'survival_resources',
-    section: 'world_system',
-    sectionLabel: '世界系统',
+    section: 'player_survival',
+    sectionLabel: '生存状态',
     displayName: '生存资源',
-    canonicalPath: '世界.世界系统.生存资源.resources',
+    canonicalPath: '玩家.生存资源',
     description: '生存资源列表及当前数量',
     valueType: 'object',
     editable: true,

@@ -11,7 +11,7 @@ import type { GameSave, PlayerProfile } from '../../storage/db';
 import type { ChatMessage } from '../../engine/types';
 import type { GameState } from '../../schema/variables';
 import { createDefaultGameState } from '../../schema/variables';
-import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
+
 import { v4 as uuid } from 'uuid';
 
 export function useStartScreen() {
@@ -66,50 +66,34 @@ export function useStartScreen() {
     const gs = createDefaultGameState();
     const pi = wizard.personalInfo;
 
-    // 初始化世界系统模块数据
-    // 新格式：moduleConfig（配置，注入世界书）+ initialState（状态，初始化变量）
-    // 旧格式：data（配置+状态混在一起，向后兼容）
+    // 初始化模块数据 → 写入 GameState 对应路径
+    // 数值属性 → 玩家.生存状态（血量/体力值/dim1-6/special）
+    // 成长体系 → 玩家.当前段位索引/当前经验值
+    // 其他模块（生存资源/经营资产/骰子/天赋）数据只存世界定义，不写入 GameState
     const selectedWorldDef = wizard.allWorlds.find(w => w.id === wizard.selectedWorld);
     if (selectedWorldDef?.modules?.length) {
-      const worldSystem: Record<string, unknown> = {};
-      const moduleNames: Record<string, string> = {};
-
       for (const mod of selectedWorldDef.modules) {
         if (!mod.enabled) continue;
 
-        const mapKey: Record<string, string> = {
-          stat: '数值属性', survival: '生存资源', business: '经营资产', dice: '骰子检定', talent: '天赋体系', progression: '成长体系',
-        };
-        const key = mapKey[mod.moduleId];
-        if (!key) continue;
-
-        // 记录模块名称
-        if (mod.name) moduleNames[key] = mod.name;
-
-        // 新格式：从 initialState 初始化变量
+        // 新格式：从 initialState 初始化
         if (mod.initialState && Object.keys(mod.initialState).length > 0) {
           if (mod.moduleId === 'stat') {
             const initState = mod.initialState as any;
+            const cfg = (mod.moduleConfig || {}) as any;
             if (initState.attrA != null) gs.玩家.生存状态.血量 = initState.attrA;
             if (initState.attrB != null) gs.玩家.生存状态.体力值 = initState.attrB;
-            // 构建完整的数值属性模块数据写入世界系统
-            const cfg = (mod.moduleConfig || {}) as any;
-            const dim = (idx: number, defName: string) => ({
-              name: cfg[`dim${idx}`]?.name || defName,
-              value: initState[`dim${idx}Value`] ?? 50,
-              range: cfg[`dim${idx}`]?.range || [0, 100],
-            });
-            const specialArr = Array.isArray(cfg.special) ? cfg.special.map((sp: any) => ({
-              ...sp,
-              value: initState.special?.[sp.id] ?? 0,
-            })) : [];
-            worldSystem[key] = {
-              attrA: { name: cfg.attrA?.name || '生命', current: initState.attrA ?? 80, max: cfg.attrA?.max ?? 100 },
-              attrB: { name: cfg.attrB?.name || '能量', current: initState.attrB ?? 60, max: cfg.attrB?.max ?? 100 },
-              dim1: dim(1, '属性1'), dim2: dim(2, '属性2'), dim3: dim(3, '属性3'),
-              dim4: dim(4, '属性4'), dim5: dim(5, '属性5'), dim6: dim(6, '属性6'),
-              special: specialArr,
-            };
+            // 六维属性写入生存状态
+            for (let i = 1; i <= 6; i++) {
+              const val = initState[`dim${i}Value`];
+              if (val != null) gs.玩家.生存状态[`dim${i}`] = val;
+            }
+            // 特色属性写入生存状态
+            if (Array.isArray(cfg.special)) {
+              for (const sp of cfg.special) {
+                const val = initState.special?.[sp.id];
+                if (val != null) gs.玩家.生存状态[sp.id] = val;
+              }
+            }
           }
           if (mod.moduleId === 'progression') {
             const initState = mod.initialState as any;
@@ -124,64 +108,47 @@ export function useStartScreen() {
             const statData = mod.data as any;
             if (statData.attrA?.current != null) gs.玩家.生存状态.血量 = statData.attrA.current;
             if (statData.attrB?.current != null) gs.玩家.生存状态.体力值 = statData.attrB.current;
-            // 旧格式直接存入世界系统
-            worldSystem[key] = mod.data;
+            // 六维
+            for (let i = 1; i <= 6; i++) {
+              const dim = statData[`dim${i}`];
+              if (dim?.value != null) gs.玩家.生存状态[`dim${i}`] = dim.value;
+            }
+            // 特色属性
+            if (Array.isArray(statData.special)) {
+              for (const sp of statData.special) {
+                if (sp.id && sp.value != null) gs.玩家.生存状态[sp.id] = sp.value;
+              }
+            }
           }
           if (mod.moduleId === 'progression') {
             const progData = mod.data as any;
             gs.玩家.当前段位索引 = progData.currentTierIndex ?? 0;
             gs.玩家.当前经验值 = progData.currentXP ?? 0;
           }
-          if (['survival', 'business', 'dice', 'talent'].includes(mod.moduleId)) {
-            worldSystem[key] = mod.data;
-          }
         }
 
-        // 默认值
+        // 只有 moduleConfig（无 data/initialState）时，从配置初始化
         if (!mod.data && !mod.initialState) {
-          const defaults: Record<string, () => unknown> = {
-            survival: createDefaultSurvivalModule,
-            business: createDefaultBusinessModule,
-            dice: createDefaultDiceModule,
-            talent: createDefaultTalentModule,
-          };
-          if (defaults[mod.moduleId]) {
-            worldSystem[key] = defaults[mod.moduleId]!();
-          }
-          // ★ stat 模块只有 moduleConfig 时，从配置构建世界系统数据
           if (mod.moduleId === 'stat' && mod.moduleConfig) {
             const cfg = mod.moduleConfig as any;
-            const dim = (idx: number) => ({
-              name: cfg[`dim${idx}`]?.name || `属性${idx}`,
-              value: cfg[`dim${idx}`]?.value ?? 50,
-              range: cfg[`dim${idx}`]?.range || [0, 100],
-            });
-            const specialArr = Array.isArray(cfg.special) ? cfg.special : [];
-            worldSystem[key] = {
-              attrA: { name: cfg.attrA?.name || '生命', current: cfg.attrA?.current ?? 80, max: cfg.attrA?.max ?? 100 },
-              attrB: { name: cfg.attrB?.name || '能量', current: cfg.attrB?.current ?? 60, max: cfg.attrB?.max ?? 100 },
-              dim1: dim(1), dim2: dim(2), dim3: dim(3),
-              dim4: dim(4), dim5: dim(5), dim6: dim(6),
-              special: specialArr,
-            };
+            if (cfg.attrA?.current != null) gs.玩家.生存状态.血量 = cfg.attrA.current;
+            if (cfg.attrB?.current != null) gs.玩家.生存状态.体力值 = cfg.attrB.current;
+            for (let i = 1; i <= 6; i++) {
+              const dimCfg = cfg[`dim${i}`];
+              if (dimCfg?.value != null) gs.玩家.生存状态[`dim${i}`] = dimCfg.value;
+            }
+            if (Array.isArray(cfg.special)) {
+              for (const sp of cfg.special) {
+                if (sp.id && sp.value != null) gs.玩家.生存状态[sp.id] = sp.value;
+              }
+            }
           }
-          // ★ progression 模块只有 moduleConfig 时，从配置初始化玩家状态
           if (mod.moduleId === 'progression' && mod.moduleConfig) {
             const cfg = mod.moduleConfig as any;
             gs.玩家.当前段位索引 = cfg.currentTierIndex ?? 0;
             gs.玩家.当前经验值 = cfg.currentXP ?? 0;
           }
         }
-      }
-
-      // 存储模块自定义名称
-      if (Object.keys(moduleNames).length > 0) {
-        (worldSystem as any)._moduleNames = moduleNames;
-      }
-
-      // 存储世界系统数据
-      if (Object.keys(worldSystem).length > 0) {
-        gs.世界.世界系统 = worldSystem;
       }
     }
     gs.玩家.姓名 = pi.name;
