@@ -1,5 +1,6 @@
 // 世界数据加载器 —— 从 worlds/ 目录逐个加载，同时重新导出类型
 import type { WorldDef, WorldBookEntryDef } from './worlds-schema';
+import { STORAGE_KEYS } from '../config/storageKeys';
 
 // ── 逐个导入世界 JSON（Bun 会内联打包） ──
 import desireMetropolis from './worlds/desire_metropolis.json';
@@ -39,7 +40,7 @@ export function findWorldDef(worldId: string): WorldDef | undefined {
   const builtIn = WORLDS.find(w => w.id === worldId);
   if (builtIn) return builtIn;
   try {
-    const custom: WorldDef[] = JSON.parse(localStorage.getItem('world_travel_guide_custom_worlds') || '[]');
+    const custom: WorldDef[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
     return custom.find((w: WorldDef) => w.id === worldId);
   } catch { return undefined; }
 }

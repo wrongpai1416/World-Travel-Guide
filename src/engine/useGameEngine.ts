@@ -13,8 +13,7 @@ import { sanitizeForContext } from './contextManager';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
 import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
-import { WORLDS } from '../data/worldLoader';
-import { STORAGE_KEYS } from '../config/storageKeys';
+import { findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
@@ -43,6 +42,21 @@ import {
 } from '../memory/memoryPipeline';
 
 export type { ChatMessage, GameEngine };
+
+/** 包装记忆管线任务，自动检测降级并抛出错误（消除 3 处重复代码） */
+function withDegradationCheck(
+  memCtx: MemoryPipelineContext,
+  label: string,
+  task: () => Promise<void>,
+): () => Promise<void> {
+  return async () => {
+    const before = memCtx._degradedStages?.length ?? 0;
+    await task();
+    if ((memCtx._degradedStages?.length ?? 0) > before) {
+      throw new Error(`[降级] ${label}失败，使用回退策略`);
+    }
+  };
+}
 
 export function useGameEngine(
   apiConfig: ApiConfig | null,
@@ -111,16 +125,6 @@ export function useGameEngine(
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
-
-  // 辅助：根据 worldId 查找 WorldDef（内置 + 自建）
-  const findWorldDef = useCallback((worldId: string): WorldDef | undefined => {
-    const builtIn = WORLDS.find(w => w.id === worldId);
-    if (builtIn) return builtIn;
-    try {
-      const custom: WorldDef[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
-      return custom.find((w: WorldDef) => w.id === worldId);
-    } catch { return undefined; }
-  }, []);
 
   // 辅助：应用世界 + 模块注入
   const applyWorldAndModules = useCallback((wb: WorldBookManager, worldId: string) => {
@@ -388,29 +392,13 @@ export function useGameEngine(
             await executeMemoryVector(memStore, memCtx);
           } : undefined,
           // 查询改写
-          queryRewrite: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryQueryRewrite(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
-          },
+          queryRewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
           // 检索规划
-          retrievePlan: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryRetrievePlan(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
-          },
+          retrievePlan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
           // 多轮补充
-          multiRound: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryMultiRound(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
-          },
+          multiRound: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
           // 精排
-          rerank: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryRerank(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
-          },
+          rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
           // 检索收尾
           retrieveFinalize: async () => {
             await executeMemoryRetrieveFinalize(memStore, memCtx);
@@ -711,26 +699,10 @@ ${perspectiveInstruction}
           write: async () => { await executeMemoryWrite(memStore, memCtx); },
           summary: async () => { await executeMemorySummary(memStore, memCtx); },
           vector: memConfig.vectorEnabled ? async () => { await executeMemoryVector(memStore, memCtx); } : undefined,
-          queryRewrite: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryQueryRewrite(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
-          },
-          retrievePlan: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryRetrievePlan(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
-          },
-          multiRound: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryMultiRound(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
-          },
-          rerank: async () => {
-            const before = memCtx._degradedStages?.length ?? 0;
-            await executeMemoryRerank(memStore, memCtx);
-            if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
-          },
+          queryRewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
+          retrievePlan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
+          multiRound: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
+          rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
           retrieveFinalize: async () => { await executeMemoryRetrieveFinalize(memStore, memCtx); },
           compile: async () => { await executeMemoryCompile(memStore, memCtx); },
           debugLogger: (kind: string, message: string) => {
@@ -797,26 +769,10 @@ ${perspectiveInstruction}
         memory_write: () => executeMemoryWrite(memStore, memCtx),
         memory_summary: () => executeMemorySummary(memStore, memCtx),
         memory_vector: () => executeMemoryVector(memStore, memCtx),
-        memory_query_rewrite: async () => {
-          const before = memCtx._degradedStages?.length ?? 0;
-          await executeMemoryQueryRewrite(memStore, memCtx);
-          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 查询改写失败，使用回退策略');
-        },
-        memory_retrieve_plan: async () => {
-          const before = memCtx._degradedStages?.length ?? 0;
-          await executeMemoryRetrievePlan(memStore, memCtx);
-          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 检索规划失败，使用回退策略');
-        },
-        memory_multi_round: async () => {
-          const before = memCtx._degradedStages?.length ?? 0;
-          await executeMemoryMultiRound(memStore, memCtx);
-          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 多轮补充失败，使用回退策略');
-        },
-        memory_rerank: async () => {
-          const before = memCtx._degradedStages?.length ?? 0;
-          await executeMemoryRerank(memStore, memCtx);
-          if ((memCtx._degradedStages?.length ?? 0) > before) throw new Error('[降级] 精排失败，使用回退策略');
-        },
+        memory_query_rewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
+        memory_retrieve_plan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
+        memory_multi_round: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
+        memory_rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
         memory_retrieve_finalize: () => executeMemoryRetrieveFinalize(memStore, memCtx),
         memory_compile: () => executeMemoryCompile(memStore, memCtx),
       };
