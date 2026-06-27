@@ -18,13 +18,15 @@ interface UseCharacterHistoryOptions {
   allWorlds: WorldDef[];
   worldEntry: WorldBookEntry | null;
   initialCharacterHistory?: string;
+  /** 玩家选择的叙事视角 */
+  perspective?: string;
   navigate: (screen: any) => void;
   showAlert: (msg: string, opts?: any) => Promise<void>;
 }
 
 export function useCharacterHistory({
   apiConfig, personalInfo, selectedWorld, allWorlds, worldEntry,
-  initialCharacterHistory, navigate, showAlert,
+  initialCharacterHistory, perspective, navigate, showAlert,
 }: UseCharacterHistoryOptions) {
   const [segments, setSegments] = useState<Record<string, string>>(() => {
     // 优先从缓存恢复（解决返回再前进丢失经历的 Bug）
@@ -125,6 +127,12 @@ export function useCharacterHistory({
       ? `\n【关联NPC】\n${personalInfo.customNpcs.map(n => `- ${n.name}：${n.relationshipType || '同伴'}，${n.personality || ''}${n.background ? '。' + n.background : ''}`).join('\n')}\n\n请在经历中自然地融入这些NPC，描写他们与角色的互动和关系发展。`
       : '';
 
+    const perspectiveInstruction = perspective === '第一人称'
+      ? '5. 叙事视角：用第一人称"我"来叙述角色的经历和感受。'
+      : perspective === '第二人称'
+        ? '5. 叙事视角：用第二人称"你"来叙述角色的经历。'
+        : '5. 叙事视角：用第三人称叙述角色的经历，用角色姓名或"他/她"来指代角色，不要使用"你"。';
+
     const systemPrompt = `你是一位专业的角色背景故事撰写者，擅长为互动小说生成沉浸式的人生经历。请根据以下信息，为玩家生成完整的人生经历。
 
 【世界设定】
@@ -155,10 +163,12 @@ ${npcBlock}${draftBlock}
    - 暗示即将到来的冒险或冲突，制造悬念
    - 2-3段，不少于200字
 ${includeAgeStages ? `
-5. 人生阶段要求：
+6. 人生阶段要求：
    - 每个阶段描写2-3个关键事件
    - 要有角色的成长、失去、或认知变化
    - 阶段之间要自然衔接，体现时间流逝` : ''}
+
+${perspectiveInstruction}
 
 ═══════════════════════════════════════
 【输出格式】
@@ -222,6 +232,12 @@ ${stagePrompts}`;
       : '';
 
     const stageName = segmentNames[segmentId] || segmentId;
+    const regenPerspective = perspective === '第一人称'
+      ? '用第一人称"我"来叙述。'
+      : perspective === '第二人称'
+        ? '用第二人称"你"来叙述。'
+        : '用第三人称叙述，用角色姓名或"他/她"来指代角色，不要使用"你"。';
+
     const systemPrompt = `你是一位专业的角色背景故事撰写者。请只为以下阶段生成内容。
 
 【世界设定】
@@ -236,6 +252,7 @@ ${contextBlock}${draftBlock}
 - 要有明确的事件、冲突或转折，不能流水账
 - 使用世界设定中的地名、组织、术语增强代入感
 - 与前后阶段自然衔接
+- ${regenPerspective}
 
 请只输出「${stageName}」的内容，不要输出标题标记，直接输出故事文本，2-3段。`;
 

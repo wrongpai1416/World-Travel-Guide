@@ -91,12 +91,9 @@ export default function BusinessOverlay({
       {/* 面板 */}
       <div
         ref={panelRef}
+        className="business-drawer"
         style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0,
-          width: '50%', minWidth: '380px', maxWidth: '600px',
-          background: 'var(--bg-primary)', zIndex: 100,
-          display: 'flex', flexDirection: 'column',
-          boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
+          zIndex: 100,
           transform: animating ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
@@ -311,7 +308,7 @@ function AssetCardExpandable({ asset, expanded, onToggle }: {
               {asset.description}
             </p>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+          <div className="grid-2" style={{ gap: '6px' }}>
             <DetailItem icon={<TrendingUp size={13} color="#22c55e" />} label="基础收益" value={`${asset.income?.base ?? 0}/${asset.income?.cycle || '天'}`} />
             <DetailItem icon={<TrendingUp size={13} color="#22c55e" />} label="每级加成" value={`+${asset.income?.perLevel ?? 0}`} />
             <DetailItem icon={<TrendingDown size={13} color="#ef4444" />} label="维护费" value={`${asset.maintenance ?? 0}/${asset.income?.cycle || '天'}`} />

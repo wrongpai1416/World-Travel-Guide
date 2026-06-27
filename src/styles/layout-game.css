@@ -67,3 +67,24 @@
   .grid-label-value { grid-template-columns: 1fr; }
   .grid-1-2 { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════
+   经营面板抽屉 — 桌面右侧栏 / 移动端全屏
+   ═══════════════════════════════════════════════ */
+.business-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(280px, 50vw, 600px);
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+}
+@media (max-width: 480px) {
+  .business-drawer {
+    width: 100%;
+    max-width: 100%;
+  }
+}

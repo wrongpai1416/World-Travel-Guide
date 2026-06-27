@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
 import { useConfigStore } from '../../stores/configStore';
-import { useIsMobile } from '../../hooks/useIsMobile';
+import { useMediaQuery } from '../../hooks/useIsMobile';
 import ChatPanel from './chat/ChatPanel';
 import ProfilePanel from './panels/ProfilePanel';
 import CharacterGrid from './panels/CharacterGrid';
@@ -129,7 +129,7 @@ function DrawerPanel({
 export default function GameScreen() {
   const { state, navigate, engine } = useGame();
   const { t } = useUISettings();
-  const isMobile = useIsMobile(900);
+  const isMobile = useMediaQuery('(max-width: 900px)');
 
   // 桌面端状态
   const [overlay, setOverlay] = useState<OverlayPanel>(null);

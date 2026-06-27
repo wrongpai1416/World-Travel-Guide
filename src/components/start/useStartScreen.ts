@@ -55,6 +55,7 @@ export function useStartScreen() {
     allWorlds: wizard.allWorlds,
     worldEntry: wizard.worldEntry,
     initialCharacterHistory: state.characterHistory,
+    perspective: wizard.personalInfo.perspective,
     navigate, showAlert,
   });
 

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Pencil, Copy, RefreshCw, ArrowLeftToLine, Trash2 } from 'lucide-react';
 import { useUISettings } from '../../../context/UISettingsContext';
-import { useIsMobile } from '../../../hooks/useIsMobile';
+import { useMediaQuery } from '../../../hooks/useIsMobile';
 import type { ChatMessage } from '../../../engine/types';
 import type { WorldSystemData, DiceRoll } from '../../../modules/schema';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
@@ -37,7 +37,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
   editingRef.current = editing;
   const isUser = message.role === 'user';
   const { t } = useUISettings();
-  const isMobile = useIsMobile(640);
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   // ─── 渲染管线 ────────────────────────────────────────
   const colorizationRules = useMemo(() => getEnabledTextColorizationRules(), []);

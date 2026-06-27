@@ -240,7 +240,7 @@ function ListOrRecord({ data, emptyText }: { data: string[] | Record<string, unk
 
     return (
       <>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
+        <div className="grid-responsive" style={{ gap: '8px' }}>
           {entries.map(([k, v]) => {
             const isObject = typeof v === 'object' && v !== null;
             const quality = isObject && (v as any).品质 ? (v as any).品质 as string : undefined;
@@ -328,11 +328,7 @@ function InventoryGrid({ data }: { data: Record<string, unknown> | undefined }) 
 
   return (
     <>
-      <div className="inventory-grid" style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: '4px',
-      }}>
+      <div className="inventory-grid grid-fixed-6" style={{ gap: '4px' }}>
         {Array.from({ length: totalSlots }).map((_, i) => {
           const entry = entries[i];
           if (entry) {
@@ -1074,7 +1070,7 @@ export default function CharacterGrid({ gameState, onUpdateChronicles, onMergeCh
 
   return (
     <div style={{ padding: '12px 16px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+      <div className="grid-responsive" style={{ '--grid-card-min': '220px', gap: '12px' } as React.CSSProperties}>
         {sorted.map(([id, npc]) => (
           <NPCCard key={id} id={id} npc={npc} portraitSrc={portraitUrls[id]} onClick={() => setSelected({ id, data: npc })} />
         ))}

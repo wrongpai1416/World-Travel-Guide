@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useUISettings } from '../context/UISettingsContext';
 import { useConfigStore } from '../stores/configStore';
-import { useIsMobile } from '../hooks/useIsMobile';
+import { useIsPhone } from '../hooks/useIsMobile';
 import type { ApiConfig } from '../api/types';
 import GeneralSettingsTab from './settings/GeneralSettingsTab';
 import ApiSettingsTab, { type ApiSettingsRef } from './settings/ApiSettingsTab';
@@ -23,7 +23,7 @@ const SETTINGS_TABS: { id: SettingsTab; icon: LucideIcon; label: string }[] = [
 export default function SettingsScreen() {
   const { goBack } = useGame();
   const { t } = useUISettings();
-  const isMobile = useIsMobile(768);
+  const isMobile = useIsPhone();
   const apiConfig = useConfigStore(s => s.apiConfig);
   const setApiConfig = useConfigStore(s => s.setApiConfig);
   const [tab, setTab] = useState<SettingsTab>('general');

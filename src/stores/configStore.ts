@@ -134,42 +134,10 @@ const translations: Record<Language, Record<string, string>> = {
 function applySettings(settings: UISettings) {
   const root = document.documentElement;
 
-  const themes: Record<Theme, Record<string, string>> = {
-    light: {
-      '--bg-primary': '#f0f4f8', '--bg-secondary': '#ffffff', '--bg-tertiary': '#e2e8f0',
-      '--bg-deep': '#e8edf3', '--bg-elevated': '#ffffff',
-      '--text-primary': '#1e293b', '--text-secondary': '#475569', '--text-muted': '#94a3b8',
-      '--accent': '#3b82f6', '--accent-dim': 'rgba(59,130,246,0.08)', '--accent-glow': 'rgba(59,130,246,0.12)',
-      '--border': '#cbd5e1', '--danger': '#dc2626', '--warning': '#d97706', '--success': '#16a34a',
-    },
-    dark: {
-      '--bg-primary': '#0b0d13', '--bg-secondary': '#111420', '--bg-tertiary': '#1e2336',
-      '--bg-deep': '#08090e', '--bg-elevated': '#252a3d',
-      '--text-primary': '#e8e4dc', '--text-secondary': '#9a96a0', '--text-muted': '#5c5966',
-      '--accent': '#c8a26c', '--accent-dim': 'rgba(200,162,108,0.1)', '--accent-glow': 'rgba(200,162,108,0.15)',
-      '--border': '#2a2f42', '--danger': '#e05252', '--warning': '#d4a24e', '--success': '#5ab87a',
-    },
-    metal: {
-      '--bg-primary': '#f4f5f7', '--bg-secondary': '#ffffff', '--bg-tertiary': '#e8eaef',
-      '--bg-deep': '#ecedf1', '--bg-elevated': '#ffffff',
-      '--text-primary': '#2d3142', '--text-secondary': '#5c6178', '--text-muted': '#9a9eb0',
-      '--accent': '#6b7a94', '--accent-dim': 'rgba(107,122,148,0.08)', '--accent-glow': 'rgba(107,122,148,0.12)',
-      '--border': '#d4d7de', '--danger': '#dc3545', '--warning': '#c2860a', '--success': '#28a76a',
-    },
-    green: {
-      '--bg-primary': '#f2f7f4', '--bg-secondary': '#ffffff', '--bg-tertiary': '#e0ede5',
-      '--bg-deep': '#e9f1ec', '--bg-elevated': '#ffffff',
-      '--text-primary': '#1e3328', '--text-secondary': '#4a6b58', '--text-muted': '#8aab97',
-      '--accent': '#4a8c6a', '--accent-dim': 'rgba(74,140,106,0.08)', '--accent-glow': 'rgba(74,140,106,0.12)',
-      '--border': '#c8ddd0', '--danger': '#dc3545', '--warning': '#c2860a', '--success': '#28a76a',
-    },
-  };
+  // 主题切换：设置 data-theme 属性，由 tokens.css [data-theme] 选择器驱动
+  root.dataset.theme = settings.theme;
 
-  const vars = themes[settings.theme];
-  for (const [key, val] of Object.entries(vars)) {
-    root.style.setProperty(key, val);
-  }
-
+  // 字体 & 排版（JS-only，CSS 无法用 CSS 变量引用另一个变量）
   root.style.setProperty('--font-family', FONT_MAP[settings.font]);
   root.style.setProperty('--font-display', "'Noto Serif SC', 'Source Han Serif SC', 'STSong', serif");
   root.style.setProperty('--font-body', FONT_MAP[settings.font]);
@@ -177,7 +145,7 @@ function applySettings(settings: UISettings) {
   root.style.setProperty('--body-font-size', BODY_FONT_SIZE_MAP[settings.bodyFontSize]);
   root.style.setProperty('--body-line-height', LINE_HEIGHT_MAP[settings.lineHeight]);
 
-  document.documentElement.lang = settings.language;
+  root.lang = settings.language;
 }
 
 // ─── 持久化读取 ───

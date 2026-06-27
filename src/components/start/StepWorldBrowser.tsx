@@ -12,7 +12,7 @@ import {
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import type { WorldBookEntry } from '../../worldbook/index';
 import WorldCard, { CreateWorldCard, getWorldIcon } from './WorldCard';
-import { useIsMobile } from '../../hooks/useIsMobile';
+import { useIsPhone } from '../../hooks/useIsMobile';
 
 // ── 从 worldBookEntries 按 entryType 查找 ──
 function findEntryByType(entries: WorldBookEntryDef[] | undefined, type: string): WorldBookEntryDef | undefined {
@@ -66,7 +66,7 @@ export default function StepWorldBrowser({
   const [importError, setImportError] = useState('');
   const [showMobileDetail, setShowMobileDetail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isMobile = useIsMobile(768);
+  const isMobile = useIsPhone();
 
   const selected = allWorlds.find(w => w.id === selectedWorld);
   useBodyScrollLock(isMobile && showMobileDetail && !!selected);

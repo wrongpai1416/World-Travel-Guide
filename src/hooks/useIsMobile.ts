@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BREAKPOINTS, type BreakpointKey } from '../constants/breakpoints';
 
 /**
@@ -66,4 +66,24 @@ export function useBreakpoint(): BreakpointKey | 'xl' {
 export function useIsPhone(): boolean {
   const bp = useBreakpoint();
   return bp === 'xs' || bp === 'sm' || bp === 'md';
+}
+
+/**
+ * 通用媒体查询 hook — 用于非标准断点（如 640px、900px）
+ * @param query CSS 媒体查询字符串，如 '(max-width: 640px)'
+ */
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    setMatches(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
 }

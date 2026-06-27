@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useUISettings } from '../../../context/UISettingsContext';
-import { useIsMobile } from '../../../hooks/useIsMobile';
+import { useMediaQuery } from '../../../hooks/useIsMobile';
 import { Activity, Send, StopCircle } from 'lucide-react';
 import type { PipelineStatus as PipelineStatusType } from '../../../engine/pipelineTypes';
 
@@ -18,7 +18,7 @@ export default function InputArea({ onSend, onCancel, isGenerating, pipelineStat
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { t } = useUISettings();
-  const isMobile = useIsMobile(640);
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   // 处理外部文本变化（只处理非空值，避免清空回调导致的循环）
   const lastExternalRef = useRef(externalText);
