@@ -58,6 +58,49 @@ function withDegradationCheck(
   };
 }
 
+/** 构建记忆管线任务对象（消除 sendMessage/retryPipeline/retrySingleStage 三处重复） */
+function buildMemoryTasks(
+  memStore: ReturnType<typeof useMemoryStore.getState>,
+  memCtx: MemoryPipelineContext,
+  memConfig: { enabled: boolean; vectorEnabled?: boolean },
+) {
+  if (!memConfig.enabled) return undefined;
+  return {
+    write: async () => { await executeMemoryWrite(memStore, memCtx); },
+    summary: async () => { await executeMemorySummary(memStore, memCtx); },
+    vector: memConfig.vectorEnabled ? async () => { await executeMemoryVector(memStore, memCtx); } : undefined,
+    queryRewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
+    retrievePlan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
+    multiRound: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
+    rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
+    retrieveFinalize: async () => { await executeMemoryRetrieveFinalize(memStore, memCtx); },
+    compile: async () => { await executeMemoryCompile(memStore, memCtx); },
+    debugLogger: (kind: string, message: string) => {
+      memStore.appendWriteDebugLog({ kind: `error_${kind}`, message, timestamp: Date.now() });
+    },
+  };
+}
+
+/** 保存变量快照 + 记忆检查点到消息（消除三处快照保存重复） */
+function saveSnapshot(
+  varMgrRef: React.RefObject<VariableManager>,
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => void,
+  aiMsgId: string,
+) {
+  try {
+    const snapshot = varMgrRef.current.createSnapshot();
+    const memStoreForCheckpoint = useMemoryStore.getState();
+    const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
+    updateMessage(aiMsgId, {
+      snapshot,
+      snapshotTime: Date.now(),
+      memoryCheckpointId: memCheckpoint?.id,
+    });
+  } catch (snapErr: any) {
+    console.warn('[快照] 创建失败（不影响正文）:', snapErr.message);
+  }
+}
+
 export function useGameEngine(
   apiConfig: ApiConfig | null,
   initialVarMgr?: VariableManager,
@@ -378,40 +421,7 @@ export function useGameEngine(
         mainApiConfig: apiConfig,
 
         // 记忆系统任务集
-        memoryTasks: memConfig.enabled ? {
-          // 写入：叙事记忆写入 + 冲突裁决
-          write: async () => {
-            await executeMemoryWrite(memStore, memCtx);
-          },
-          // 摘要：3 类记忆保存
-          summary: async () => {
-            await executeMemorySummary(memStore, memCtx);
-          },
-          // 向量：向量事实提取（未启用则不传，管线自动标 skipped）
-          vector: memConfig.vectorEnabled ? async () => {
-            await executeMemoryVector(memStore, memCtx);
-          } : undefined,
-          // 查询改写
-          queryRewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
-          // 检索规划
-          retrievePlan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
-          // 多轮补充
-          multiRound: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
-          // 精排
-          rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
-          // 检索收尾
-          retrieveFinalize: async () => {
-            await executeMemoryRetrieveFinalize(memStore, memCtx);
-          },
-          // 编译：组装注入文本
-          compile: async () => {
-            await executeMemoryCompile(memStore, memCtx);
-          },
-          // 错误日志 → 写入记忆系统的调试日志（UI 可见）
-          debugLogger: (kind: string, message: string) => {
-            memStore.appendWriteDebugLog({ kind: `error_${kind}`, message, timestamp: Date.now() });
-          },
-        } : undefined,
+        memoryTasks: buildMemoryTasks(memStore, memCtx, memConfig),
 
         // main 任务：正文生成
         mainTask: async () => {
@@ -598,20 +608,7 @@ ${perspectiveInstruction}
       });
 
       // 管线完成 — 保存当前变量快照到 AI 消息（用于回滚）
-      try {
-        const snapshot = varMgrRef.current.createSnapshot();
-        // 创建记忆系统检查点（用于回滚）
-        const memStoreForCheckpoint = useMemoryStore.getState();
-        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
-        updateMessage(aiMsgId, {
-          snapshot,
-          snapshotTime: Date.now(),
-          memoryCheckpointId: memCheckpoint?.id,
-        });
-      } catch (snapErr: any) {
-        // 快照失败不覆盖正文，只打日志
-        console.warn('[快照] 创建失败（不影响正文）:', snapErr.message);
-      }
+      saveSnapshot(varMgrRef, updateMessage, aiMsgId);
 
       // 清理内存中的冗余快照，防止内存无限增长
       setMessages(prev => optimizeSnapshots(prev));
@@ -695,38 +692,14 @@ ${perspectiveInstruction}
         userText: ctx.userText,
         mainApiConfig: apiConfig,
 
-        memoryTasks: memConfig.enabled ? {
-          write: async () => { await executeMemoryWrite(memStore, memCtx); },
-          summary: async () => { await executeMemorySummary(memStore, memCtx); },
-          vector: memConfig.vectorEnabled ? async () => { await executeMemoryVector(memStore, memCtx); } : undefined,
-          queryRewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
-          retrievePlan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
-          multiRound: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
-          rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
-          retrieveFinalize: async () => { await executeMemoryRetrieveFinalize(memStore, memCtx); },
-          compile: async () => { await executeMemoryCompile(memStore, memCtx); },
-          debugLogger: (kind: string, message: string) => {
-            memStore.appendWriteDebugLog({ kind: `error_${kind}`, message, timestamp: Date.now() });
-          },
-        } : undefined,
+        memoryTasks: buildMemoryTasks(memStore, memCtx, memConfig),
 
         // mainTask 为空（跳过）
         mainTask: async () => ({ text: aiMsg.rawText, parsed: { content: extractContentForPrompt(aiMsg.rawText), thinking: '', actionOptions: [], summary: null } }),
       });
 
       // 重试成功后重新保存快照
-      try {
-        const snapshot = varMgrRef.current.createSnapshot();
-        const memStoreForCheckpoint = useMemoryStore.getState();
-        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
-        updateMessage(ctx.aiMsgId, {
-          snapshot,
-          snapshotTime: Date.now(),
-          memoryCheckpointId: memCheckpoint?.id,
-        });
-      } catch (snapErr: any) {
-        console.warn('[重试快照] 创建失败:', snapErr.message);
-      }
+      saveSnapshot(varMgrRef, updateMessage, ctx.aiMsgId);
 
       setMessages(prev => optimizeSnapshots(prev));
       setPipelineStatus(pipelineResult.status);
@@ -765,17 +738,21 @@ ${perspectiveInstruction}
       const memCtx = buildMemoryContext(ctx.round, ctx.batchText, ctx.userText, ctx.recentContext, ctx.playerName, apiConfig);
 
       // 根据 taskId 构建对应的执行函数
-      const taskFnMap: Record<string, () => Promise<void>> = {
-        memory_write: () => executeMemoryWrite(memStore, memCtx),
-        memory_summary: () => executeMemorySummary(memStore, memCtx),
-        memory_vector: () => executeMemoryVector(memStore, memCtx),
-        memory_query_rewrite: withDegradationCheck(memCtx, '查询改写', () => executeMemoryQueryRewrite(memStore, memCtx)),
-        memory_retrieve_plan: withDegradationCheck(memCtx, '检索规划', () => executeMemoryRetrievePlan(memStore, memCtx)),
-        memory_multi_round: withDegradationCheck(memCtx, '多轮补充', () => executeMemoryMultiRound(memStore, memCtx)),
-        memory_rerank: withDegradationCheck(memCtx, '精排', () => executeMemoryRerank(memStore, memCtx)),
-        memory_retrieve_finalize: () => executeMemoryRetrieveFinalize(memStore, memCtx),
-        memory_compile: () => executeMemoryCompile(memStore, memCtx),
-      };
+      const memConfig = memStore.config;
+      const memoryTasks = buildMemoryTasks(memStore, memCtx, memConfig);
+      const taskFnMap: Record<string, (() => Promise<void>) | undefined> = memoryTasks
+        ? {
+            memory_write: memoryTasks.write,
+            memory_summary: memoryTasks.summary,
+            memory_vector: memoryTasks.vector,
+            memory_query_rewrite: memoryTasks.queryRewrite,
+            memory_retrieve_plan: memoryTasks.retrievePlan,
+            memory_multi_round: memoryTasks.multiRound,
+            memory_rerank: memoryTasks.rerank,
+            memory_retrieve_finalize: memoryTasks.retrieveFinalize,
+            memory_compile: memoryTasks.compile,
+          }
+        : {};
 
       const taskFn = taskFnMap[taskId];
       if (!taskFn) {
@@ -786,18 +763,7 @@ ${perspectiveInstruction}
       await executor.retryStage(taskId, taskFn);
 
       // 重试成功后更新快照
-      try {
-        const snapshot = varMgrRef.current.createSnapshot();
-        const memStoreForCheckpoint = useMemoryStore.getState();
-        const memCheckpoint = memStoreForCheckpoint.createCheckpoint();
-        updateMessage(ctx.aiMsgId, {
-          snapshot,
-          snapshotTime: Date.now(),
-          memoryCheckpointId: memCheckpoint?.id,
-        });
-      } catch (snapErr: unknown) {
-        console.warn('[单步重试快照] 创建失败:', snapErr instanceof Error ? snapErr.message : String(snapErr));
-      }
+      saveSnapshot(varMgrRef, updateMessage, ctx.aiMsgId);
 
       setPipelineStatus({ ...executor.getStatus(), stages: { ...executor.getStatus().stages } });
     } catch (err: unknown) {

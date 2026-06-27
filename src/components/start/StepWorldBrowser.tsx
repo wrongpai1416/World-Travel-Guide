@@ -7,6 +7,7 @@ import {
   Calendar, Heart, Zap, Target, BarChart3,
   Compass, BookOpen, Star, Upload, ArrowLeft,
   Briefcase, TrendingUp, TrendingDown, Landmark, Scroll,
+  Map, BookMarked,
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import type { WorldBookEntry } from '../../worldbook/index';
@@ -26,12 +27,17 @@ const DIFFICULTY_FILTERS = [
   { key: 'hard', label: '困难', color: '#ef4444' as string | undefined },
 ];
 
-// ── Tab 定义 ──
+// ── Tab 定义（2.0：按维度拆分） ──
 const TABS = [
   { key: 'overview', label: '概览', icon: BookOpen },
-  { key: 'systems', label: '系统', icon: Layers },
+  { key: 'setting', label: '设定', icon: ScrollText },
+  { key: 'lore', label: '地理', icon: Map },
+  { key: 'factions', label: '势力', icon: Flag },
+  { key: 'culture', label: '文化', icon: BookMarked },
   { key: 'economy', label: '经济', icon: DollarSign },
-  { key: 'characters', label: '人物', icon: Users },
+  { key: 'npcs', label: '人物', icon: User },
+  { key: 'rules', label: '规则', icon: Swords },
+  { key: 'systems', label: '系统', icon: Layers },
 ] as const;
 
 type TabKey = typeof TABS[number]['key'];
@@ -153,7 +159,7 @@ export default function StepWorldBrowser({
             })()}
 
             <div className="world-tabs">
-              {TABS.map(tab => {
+              {TABS.filter(tab => tab.key !== 'systems' || (selected.modules && selected.modules.some(m => m.enabled))).map(tab => {
                 const Icon = tab.icon;
                 return (
                   <button
@@ -170,9 +176,14 @@ export default function StepWorldBrowser({
 
             <div className="world-tab-content">
               {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
-              {activeTab === 'systems' && <SystemsTab world={selected} />}
+              {activeTab === 'setting' && <SettingTab world={selected} worldEntry={worldEntry} />}
+              {activeTab === 'lore' && <LoreTab world={selected} />}
+              {activeTab === 'factions' && <FactionsTab world={selected} />}
+              {activeTab === 'culture' && <CultureTab world={selected} />}
               {activeTab === 'economy' && <EconomyTab world={selected} />}
-              {activeTab === 'characters' && <CharactersTab world={selected} />}
+              {activeTab === 'npcs' && <NpcsTab world={selected} />}
+              {activeTab === 'rules' && <RulesTab world={selected} />}
+              {activeTab === 'systems' && <SystemsTab world={selected} />}
             </div>
           </div>
         </div>
@@ -268,7 +279,7 @@ export default function StepWorldBrowser({
 
               {/* Tab 栏 */}
               <div className="world-tabs">
-                {TABS.map(tab => {
+                {TABS.filter(tab => tab.key !== 'systems' || (selected.modules && selected.modules.some(m => m.enabled))).map(tab => {
                   const Icon = tab.icon;
                   return (
                     <button
@@ -286,9 +297,14 @@ export default function StepWorldBrowser({
               {/* Tab 内容 */}
               <div className="world-tab-content">
                 {activeTab === 'overview' && <OverviewTab world={selected} worldEntry={worldEntry} />}
-                {activeTab === 'systems' && <SystemsTab world={selected} />}
+                {activeTab === 'setting' && <SettingTab world={selected} worldEntry={worldEntry} />}
+                {activeTab === 'lore' && <LoreTab world={selected} />}
+                {activeTab === 'factions' && <FactionsTab world={selected} />}
+                {activeTab === 'culture' && <CultureTab world={selected} />}
                 {activeTab === 'economy' && <EconomyTab world={selected} />}
-                {activeTab === 'characters' && <CharactersTab world={selected} />}
+                {activeTab === 'npcs' && <NpcsTab world={selected} />}
+                {activeTab === 'rules' && <RulesTab world={selected} />}
+                {activeTab === 'systems' && <SystemsTab world={selected} />}
               </div>
             </div>
           ) : (
@@ -322,15 +338,14 @@ export default function StepWorldBrowser({
 //  Tab 内容组件
 // ═══════════════════════════════════════════════════
 
-/** 概览 Tab */
+/** 概览 Tab — 精简版，只展示核心信息 */
 function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: WorldBookEntry | null }) {
   const settingEntry = findEntryByType(world.worldBookEntries, 'setting');
-  const rulesEntry = findEntryByType(world.worldBookEntries, 'rules');
   const highlightsEntry = findEntryByType(world.worldBookEntries, 'highlights');
 
   return (
     <div className="tab-section">
-      {/* 世界设定 */}
+      {/* 世界设定摘要 */}
       {worldEntry?.content ? (
         <div className="detail-block">
           <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
@@ -358,24 +373,6 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
         </div>
       )}
 
-      {/* 世界规则概览 */}
-      {rulesEntry?.meta && (
-        <div className="detail-block">
-          <div className="detail-block-title"><Shield size={15} />世界规则</div>
-          <div className="detail-block-body">
-            {rulesEntry.meta.powerSystem && (
-              <div className="detail-row"><Zap size={13} /><strong>力量体系：</strong>{rulesEntry.meta.powerSystem}</div>
-            )}
-            {rulesEntry.meta.socialStructure && (
-              <div className="detail-row"><Users size={13} /><strong>社会结构：</strong>{rulesEntry.meta.socialStructure}</div>
-            )}
-            {rulesEntry.meta.specialRules?.map((rule, i) => (
-              <div key={i} className="detail-rule"><AlertTriangle size={12} />{rule}</div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* 核心特色 */}
       {highlightsEntry?.meta?.highlights && highlightsEntry.meta.highlights.length > 0 && (
         <div className="detail-block">
@@ -394,6 +391,181 @@ function OverviewTab({ world, worldEntry }: { world: WorldDef; worldEntry: World
             {settingEntry.meta.recommendedFor.map((p, i) => <span key={i} className="detail-pill">{p}</span>)}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 设定 Tab — 基调、时代、氛围 */
+function SettingTab({ world, worldEntry }: { world: WorldDef; worldEntry: WorldBookEntry | null }) {
+  const settingEntry = findEntryByType(world.worldBookEntries, 'setting');
+
+  return (
+    <div className="tab-section">
+      {worldEntry?.content && (
+        <div className="detail-block">
+          <div className="detail-block-title"><ScrollText size={15} />世界设定</div>
+          <div className="detail-block-body">{worldEntry.content}</div>
+        </div>
+      )}
+      {settingEntry?.meta && (
+        <div className="detail-block">
+          <div className="detail-block-title"><Globe size={15} />基本信息</div>
+          <div className="detail-block-body">
+            {settingEntry.meta.timePeriod && (
+              <div className="detail-row"><Clock size={13} /><strong>时代背景：</strong>{settingEntry.meta.timePeriod}</div>
+            )}
+            {settingEntry.meta.location && (
+              <div className="detail-row"><MapPin size={13} /><strong>地理位置：</strong>{settingEntry.meta.location}</div>
+            )}
+            {settingEntry.meta.atmosphere && (
+              <div className="detail-row"><Cloud size={13} /><strong>氛围基调：</strong>{settingEntry.meta.atmosphere}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 地理 Tab — 区域/地点 */
+function LoreTab({ world }: { world: WorldDef }) {
+  const loreEntries = world.worldBookEntries?.filter(e => e.entryType === 'lore') ?? [];
+
+  return (
+    <div className="tab-section">
+      {loreEntries.length > 0 ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><Map size={15} />地理区域</div>
+          <div className="factions-grid">
+            {loreEntries.map((entry, i) => (
+              <div key={i} className="faction-card">
+                <div className="faction-header">
+                  <span className="faction-name">{entry.comment}</span>
+                </div>
+                <div className="faction-desc">{entry.content}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>暂无地理数据</div>
+      )}
+    </div>
+  );
+}
+
+/** 势力 Tab */
+function FactionsTab({ world }: { world: WorldDef }) {
+  const factionEntries = world.worldBookEntries?.filter(e => e.entryType === 'factions') ?? [];
+  const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
+
+  return (
+    <div className="tab-section">
+      {allFactions.length > 0 ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><Flag size={15} />势力分布</div>
+          <div className="factions-grid">
+            {allFactions.map((f, i) => (
+              <div key={i} className="faction-card">
+                <div className="faction-header">
+                  <span className="faction-name">{f.name}</span>
+                  {f.alignment && (
+                    <span className={`faction-alignment ${f.alignment === '友善' ? 'friendly' : f.alignment === '敌对' ? 'hostile' : 'neutral'}`}>
+                      {f.alignment}
+                    </span>
+                  )}
+                </div>
+                <div className="faction-desc">{f.description}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>暂无势力数据</div>
+      )}
+    </div>
+  );
+}
+
+/** 文化 Tab */
+function CultureTab({ world }: { world: WorldDef }) {
+  const cultureEntries = world.worldBookEntries?.filter(e => e.entryType === 'culture') ?? [];
+
+  return (
+    <div className="tab-section">
+      {cultureEntries.length > 0 ? (
+        cultureEntries.map((entry, i) => (
+          <div key={i} className="detail-block">
+            <div className="detail-block-title"><BookMarked size={15} />{entry.comment || '文化风俗'}</div>
+            <div className="detail-block-body">{entry.content}</div>
+          </div>
+        ))
+      ) : (
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>暂无文化数据</div>
+      )}
+    </div>
+  );
+}
+
+/** 人物 Tab — NPC */
+function NpcsTab({ world }: { world: WorldDef }) {
+  const npcEntries = world.worldBookEntries?.filter(e => e.entryType === 'npcs') ?? [];
+  const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
+
+  return (
+    <div className="tab-section">
+      {allNPCs.length > 0 ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><User size={15} />关键 NPC</div>
+          <div className="npcs-grid">
+            {allNPCs.map((npc, i) => (
+              <div key={i} className="npc-card">
+                <div className="npc-header">
+                  <span className="npc-name">{npc.name}</span>
+                  <span className="npc-role">{npc.role}</span>
+                </div>
+                <div className="npc-desc">{npc.description}</div>
+                {npc.personality && <div className="npc-personality">性格：{npc.personality}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>暂无人物数据</div>
+      )}
+    </div>
+  );
+}
+
+/** 规则 Tab */
+function RulesTab({ world }: { world: WorldDef }) {
+  const rulesEntry = findEntryByType(world.worldBookEntries, 'rules');
+
+  return (
+    <div className="tab-section">
+      {rulesEntry?.meta ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><Swords size={15} />世界规则</div>
+          <div className="detail-block-body">
+            {rulesEntry.meta.powerSystem && (
+              <div className="detail-row"><Zap size={13} /><strong>力量体系：</strong>{rulesEntry.meta.powerSystem}</div>
+            )}
+            {rulesEntry.meta.socialStructure && (
+              <div className="detail-row"><Users size={13} /><strong>社会结构：</strong>{rulesEntry.meta.socialStructure}</div>
+            )}
+            {rulesEntry.meta.specialRules?.map((rule, i) => (
+              <div key={i} className="detail-rule"><AlertTriangle size={12} />{rule}</div>
+            ))}
+          </div>
+        </div>
+      ) : rulesEntry?.content ? (
+        <div className="detail-block">
+          <div className="detail-block-title"><Swords size={15} />世界规则</div>
+          <div className="detail-block-body">{rulesEntry.content}</div>
+        </div>
+      ) : (
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>暂无规则数据</div>
       )}
     </div>
   );
@@ -748,55 +920,3 @@ function EconomyTab({ world }: { world: WorldDef }) {
   );
 }
 
-/** 人物 Tab */
-function CharactersTab({ world }: { world: WorldDef }) {
-  const factionEntries = world.worldBookEntries?.filter(e => e.entryType === 'factions') ?? [];
-  const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
-  const npcEntries = world.worldBookEntries?.filter(e => e.entryType === 'npcs') ?? [];
-  const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
-
-  return (
-    <div className="tab-section">
-      {/* 势力 */}
-      {allFactions.length > 0 && (
-        <div className="detail-block">
-          <div className="detail-block-title"><Flag size={15} />势力分布</div>
-          <div className="factions-grid">
-            {allFactions.map((f, i) => (
-              <div key={i} className="faction-card">
-                <div className="faction-header">
-                  <span className="faction-name">{f.name}</span>
-                  {f.alignment && (
-                    <span className={`faction-alignment ${f.alignment === '友善' ? 'friendly' : f.alignment === '敌对' ? 'hostile' : 'neutral'}`}>
-                      {f.alignment}
-                    </span>
-                  )}
-                </div>
-                <div className="faction-desc">{f.description}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 预设 NPC */}
-      {allNPCs.length > 0 && (
-        <div className="detail-block">
-          <div className="detail-block-title"><User size={15} />关键 NPC</div>
-          <div className="npcs-grid">
-            {allNPCs.map((npc, i) => (
-              <div key={i} className="npc-card">
-                <div className="npc-header">
-                  <span className="npc-name">{npc.name}</span>
-                  <span className="npc-role">{npc.role}</span>
-                </div>
-                <div className="npc-desc">{npc.description}</div>
-                {npc.personality && <div className="npc-personality">性格：{npc.personality}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

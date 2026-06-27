@@ -120,7 +120,7 @@ export function useDialog() {
                 background: dialog.danger ? 'rgba(239, 68, 68, 0.12)' : 'var(--accent-dim, rgba(212,175,55,0.12))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                <Icon size={16} color={dialog.danger ? '#ef4444' : 'var(--accent, #d4af37)'} />
+                <Icon size={16} color={dialog.danger ? 'var(--danger)' : 'var(--accent, #d4af37)'} />
               </div>
             );
           })()}
@@ -202,7 +202,7 @@ export function useDialog() {
               background: dialog.danger
                 ? 'rgba(239, 68, 68, 0.9)'
                 : 'var(--accent, #d4af37)',
-              color: dialog.danger ? '#fff' : 'var(--bg-deep, #0f0f1a)',
+              color: dialog.danger ? 'var(--color-on-accent)' : 'var(--bg-deep, #0f0f1a)',
               cursor: 'pointer',
               fontSize: 'var(--font-size-base)',
               fontWeight: '600',

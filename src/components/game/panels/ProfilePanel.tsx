@@ -217,11 +217,7 @@ export default function ProfilePanel({ gameState, hasBusinessModule }: Props) {
 
       {/* 物品栏 - 背包网格 (桌面6列，移动端4列) */}
       <Collapsible icon={<Backpack size={15} />} title="物品栏">
-        <div className="inventory-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
-          gap: '4px',
-        }}>
+        <div className="inventory-grid grid-fixed-6">
           {/* 生成 48 格 (6×8) */}
           {Array.from({ length: 48 }).map((_, i) => {
             const entry = Object.entries(p.物品栏)[i];

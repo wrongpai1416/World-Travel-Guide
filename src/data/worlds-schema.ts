@@ -124,6 +124,7 @@ export interface PresetNPCDef {
 /** worldBookEntry 的结构化元数据，供 UI 渲染卡片/网格/徽章等（不注入 AI） */
 export interface WorldBookEntryMeta {
   // setting 类型用
+  genre?: string;               // 世界类型（如"修仙世界"、"末日废土"）
   location?: string;
   timePeriod?: string;
   atmosphere?: string;

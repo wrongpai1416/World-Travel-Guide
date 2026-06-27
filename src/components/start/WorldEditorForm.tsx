@@ -5,9 +5,9 @@ import ModuleSelector, { getDefaultSelectedModules } from './ModuleSelector';
 import { useConfigStore } from '../../stores/configStore';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from '../../modules/schema';
-import { executeWorldGenPipeline } from '../../worldgen';
 import { createBuildContext } from '../../modules/buildContext';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
+import GuidedChoiceOverlay from './GuidedChoiceOverlay';
 
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
@@ -18,7 +18,7 @@ import {
   Rocket, Star, Shield, Zap, Brain, Gem, Ghost, Snowflake, Sun, Moon,
   Wind, Waves, Anchor, Eye, Heart, Target, Wand2, Fish, Bug,
   Flower, TreePine, Cloud, Sunrise, Eclipse, Hexagon, Diamond, Atom,
-  Download, BarChart3, TrendingUp,
+  Download, BarChart3, TrendingUp, Map, Landmark, BookMarked,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -73,6 +73,10 @@ type FormState = {
   factions: Array<{ name: string; description: string; alignment: string }>;
   presetNPCs: Array<{ name: string; role: string; description: string; personality: string }>;
   highlights: string;
+  // 地理区域（lore entryType）
+  locations: Array<{ name: string; description: string }>;
+  // 文化风俗（culture entryType）
+  culture: string;
   // 模块化系统（v2.1）
   modules: WorldDef['modules'];
 };
@@ -84,6 +88,7 @@ const defaultForm: FormState = {
   currencyName: '', currencySymbol: '', currencyDesc: '', priceLevel: '',
   calendar: '', startTime: '', timeSpeed: '',
   factions: [], presetNPCs: [], highlights: '',
+  locations: [], culture: '',
   modules: undefined,
 };
 
@@ -101,6 +106,10 @@ function worldToForm(w: WorldDef): FormState {
   const allFactions = (entries?.filter(e => e.entryType === 'factions') ?? []).flatMap(e => (e.meta as any)?.factions ?? []);
   const allNPCs = (entries?.filter(e => e.entryType === 'npcs') ?? []).flatMap(e => (e.meta as any)?.npcs ?? []);
   const highlightsMeta = findMeta(entries, 'highlights');
+  // 地理区域（lore 条目）
+  const loreEntries = entries?.filter(e => e.entryType === 'lore') ?? [];
+  // 文化风俗（culture 条目）
+  const cultureEntry = entries?.find(e => e.entryType === 'culture');
 
   return {
     name: w.name || '', description: w.description || '',
@@ -123,6 +132,8 @@ function worldToForm(w: WorldDef): FormState {
     factions: allFactions.map((f: any) => ({ name: f.name || '', description: f.description || '', alignment: f.alignment || '中立' })),
     presetNPCs: allNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: n.personality || '' })),
     highlights: highlightsMeta?.highlights?.join(', ') || '',
+    locations: loreEntries.map(e => ({ name: e.comment || '', description: e.content || '' })),
+    culture: cultureEntry?.content || '',
     modules: w.modules,
   };
 }
@@ -155,6 +166,9 @@ export default function WorldEditorForm({
     return getDefaultSelectedModules();
   });
   const aiAbortRef = useRef<AbortController | null>(null);
+
+  // 引导式选择流程状态
+  const [showGuidedChoice, setShowGuidedChoice] = useState(false);
 
   const DEFAULT_MODULE_FACTORIES: Record<string, () => unknown> = {
     stat: createDefaultStatModule,
@@ -246,6 +260,10 @@ export default function WorldEditorForm({
   const removeNPC = (i: number) => setForm(f => ({ ...f, presetNPCs: f.presetNPCs.filter((_, idx) => idx !== i) }));
   const updateNPC = (i: number, patch: Partial<FormState['presetNPCs'][0]>) =>
     setForm(f => ({ ...f, presetNPCs: f.presetNPCs.map((item, idx) => idx === i ? { ...item, ...patch } : item) }));
+  const addLocation = () => setForm(f => ({ ...f, locations: [...f.locations, { name: '', description: '' }] }));
+  const removeLocation = (i: number) => setForm(f => ({ ...f, locations: f.locations.filter((_, idx) => idx !== i) }));
+  const updateLocation = (i: number, patch: Partial<FormState['locations'][0]>) =>
+    setForm(f => ({ ...f, locations: f.locations.map((item, idx) => idx === i ? { ...item, ...patch } : item) }));
 
   const isEditing = !!initialWorld;
   const [editorMode, setEditorMode] = useState<'manual' | 'ai'>(isEditing ? 'manual' : 'ai');
@@ -256,79 +274,65 @@ export default function WorldEditorForm({
     setGenError(''); setIsGeneratingWorld(true);
     const ctrl = new AbortController(); aiAbortRef.current = ctrl;
 
-    const enabledModuleIds = [...selectedModules];
-
     try {
-      // 封装 AI 调用（复用 apiConfig + abort signal）
-      const callAI = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
-        const result = await requestStreamWithRetry(apiConfig, messages as any, { signal: ctrl.signal, onDelta: () => {} });
-        return result.text;
-      };
-
-      // ─── 调用 7 阶段深度管线 ───
-      const result = await executeWorldGenPipeline(aiGenName.trim(), {
-        callAI,
-        onProgress: (stage, detail) => setPipelineStage(`${stage}：${detail}`),
-        selectedModules: enabledModuleIds,
-        maxConcurrency: 2,
-      });
-
-      // 从管线结果填充表单
-      // 管线的 worldBookEntries 包含所有细化条目，从中提取表单字段
-      const entries = result.worldBookEntries;
-      const settingEntry = entries.find(e => e.entryType === 'setting');
-      const rulesEntry = entries.find(e => e.entryType === 'rules' && e.constant);
-      const economyEntry = entries.find(e => e.entryType === 'economy');
-      const highlightsEntry = entries.find(e => e.entryType === 'highlights');
-      // 势力：合并所有 factions 条目中的 meta.factions
-      const factionEntries = entries.filter(e => e.entryType === 'factions');
-      const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
-      // NPC：合并所有 npcs 条目中的 meta.npcs
-      const npcEntries = entries.filter(e => e.entryType === 'npcs');
-      const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
-
-      update({
-        name: result.worldDef.name,
-        description: result.worldDef.description,
-        icon: result.worldDef.icon || '',
-        tags: result.worldDef.tags?.join(', ') || '',
-        overview: settingEntry?.content || '',
-        // 从 settingEntry.meta 提取时间/地点/氛围
-        timePeriod: settingEntry?.meta?.timePeriod || '',
-        location: settingEntry?.meta?.location || '',
-        atmosphere: settingEntry?.meta?.atmosphere || '',
-        powerSystem: rulesEntry?.meta?.powerSystem || '',
-        socialStructure: rulesEntry?.meta?.socialStructure || '',
-        specialRules: rulesEntry?.meta?.specialRules?.join('\n') || '',
-        currencyName: economyEntry?.meta?.currency?.name || '',
-        currencySymbol: economyEntry?.meta?.currency?.symbol || '',
-        currencyDesc: economyEntry?.meta?.currency?.description || '',
-        priceLevel: economyEntry?.meta?.priceLevel || '',
-        calendar: economyEntry?.meta?.calendar || '',
-        startTime: economyEntry?.meta?.startTime || '',
-        timeSpeed: economyEntry?.meta?.timeSpeed || '',
-        // 势力和 NPC 从条目 meta 中提取
-        factions: allFactions.map(f => ({
-          name: f.name || '', description: f.description || '',
-          alignment: f.alignment || '中立',
-        })),
-        presetNPCs: allNPCs.map(n => ({
-          name: n.name || '', role: n.role || '',
-          description: n.description || '', personality: n.personality || '',
-        })),
-        highlights: highlightsEntry?.meta?.highlights?.join(', ') || '',
-        modules: result.worldDef.modules,
-      });
-
-      // 存储细化条目，formToWorldDef 会优先使用
-      setRefinedEntries(entries);
-
-      setEditorMode('manual');
+      // 打开引导式选择覆盖层（内部会调用 AI 生成选项）
+      setShowGuidedChoice(true);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       const errMsg = err instanceof Error ? err.message : String(err);
       setGenError(`生成失败: ${errMsg}`);
     } finally { setIsGeneratingWorld(false); aiAbortRef.current = null; }
+  };
+
+  // ── 引导式选择流程完成回调 ──
+  const handleGuidedComplete = (worldDef: WorldDef) => {
+    // 从结果填充表单
+    const entries = worldDef.worldBookEntries || [];
+    const settingEntry = entries.find(e => e.entryType === 'setting');
+    const rulesEntry = entries.find(e => e.entryType === 'rules');
+    const economyEntry = entries.find(e => e.entryType === 'economy');
+    const highlightsEntry = entries.find(e => e.entryType === 'highlights');
+    const loreEntries = entries.filter(e => e.entryType === 'lore');
+    const cultureEntry = entries.find(e => e.entryType === 'culture');
+    const factionEntries = entries.filter(e => e.entryType === 'factions');
+    const allFactions = factionEntries.flatMap(e => e.meta?.factions ?? []);
+    const npcEntries = entries.filter(e => e.entryType === 'npcs');
+    const allNPCs = npcEntries.flatMap(e => e.meta?.npcs ?? []);
+
+    update({
+      name: worldDef.name || '',
+      description: worldDef.description || '',
+      icon: worldDef.icon || '',
+      tags: worldDef.tags?.join(', ') || '',
+      overview: settingEntry?.content || '',
+      timePeriod: settingEntry?.meta?.timePeriod || '',
+      location: settingEntry?.meta?.location || '',
+      atmosphere: settingEntry?.meta?.atmosphere || '',
+      powerSystem: rulesEntry?.meta?.powerSystem || '',
+      socialStructure: rulesEntry?.meta?.socialStructure || '',
+      specialRules: rulesEntry?.meta?.specialRules?.join('\n') || '',
+      currencyName: economyEntry?.meta?.currency?.name || '',
+      currencySymbol: economyEntry?.meta?.currency?.symbol || '',
+      currencyDesc: economyEntry?.meta?.currency?.description || '',
+      priceLevel: economyEntry?.meta?.priceLevel || '',
+      factions: allFactions.map(f => ({
+        name: f.name || '', description: f.description || '',
+        alignment: f.alignment || '中立',
+      })),
+      presetNPCs: allNPCs.map(n => ({
+        name: n.name || '', role: n.role || '',
+        description: n.description || '', personality: n.personality || '',
+      })),
+      highlights: highlightsEntry?.meta?.highlights?.join(', ') || '',
+      locations: loreEntries.map(e => ({ name: e.comment || '', description: (e.content || '').replace(/^【[^】]*】\n?/, '') })),
+      culture: cultureEntry?.content || '',
+      modules: worldDef.modules,
+    });
+
+    // 存储条目，formToWorldDef 会优先使用
+    setRefinedEntries(entries);
+    setShowGuidedChoice(false);
+    setEditorMode('manual');
   };
 
   // 天赋 AI 按需生成（指定大类）
@@ -544,6 +548,23 @@ export default function WorldEditorForm({
       });
     }
 
+    // lore 条目（地理区域）
+    const validLocations = form.locations.filter(l => l.name.trim());
+    for (const loc of validLocations) {
+      entries.push({
+        uid: uid++, key: [loc.name.trim()], constant: false, comment: loc.name.trim(),
+        content: loc.description.trim(), order: 7, position: 'before_char', entryType: 'lore',
+      });
+    }
+
+    // culture 条目（文化风俗）
+    if (form.culture.trim()) {
+      entries.push({
+        uid: uid++, key: ['文化', '风俗', '传统'], constant: false, comment: '文化风俗',
+        content: form.culture.trim(), order: 8, position: 'before_char', entryType: 'culture',
+      });
+    }
+
     // 保留已有的非叙事 worldBookEntries（如模块规则条目）
     const existingEntries = initialWorld?.worldBookEntries?.filter(e => e.entryType === 'module_rule' || !e.entryType) ?? [];
 
@@ -618,6 +639,7 @@ export default function WorldEditorForm({
   useBodyScrollLock(true);
 
   return (
+    <>
     <div className="world-editor-overlay">
       <div className="world-editor-panel" onClick={e => e.stopPropagation()}>
         <div className="world-editor-header">
@@ -725,6 +747,28 @@ export default function WorldEditorForm({
                   <div className="world-form-group"><label>地理位置</label><input type="text" value={form.location} onChange={e => update({ location: e.target.value })} placeholder="东北工业城市" /></div>
                   <div className="world-form-group"><label>氛围</label><input type="text" value={form.atmosphere} onChange={e => update({ atmosphere: e.target.value })} placeholder="温暖怀旧" /></div>
                 </div>
+              </div>
+
+              <div className="world-form-section"><h4><Map size={15} style={{ marginRight: 4, flexShrink: 0 }} /> 地理区域</h4>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  定义世界中的关键区域/地点（对应世界书的 lore 条目）
+                </p>
+                <div className="world-dynamic-list">
+                  {form.locations.map((loc, i) => (
+                    <div key={i} className="world-dynamic-item">
+                      <button className="remove-btn" onClick={() => removeLocation(i)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+                      <div className="world-form-row" style={{ marginBottom: 0 }}>
+                        <div className="world-form-group" style={{ marginBottom: 0 }}><label>区域名称</label><input type="text" value={loc.name} onChange={e => updateLocation(i, { name: e.target.value })} placeholder="东域·天剑城" /></div>
+                        <div className="world-form-group" style={{ marginBottom: 0 }}><label>描述</label><input type="text" value={loc.description} onChange={e => updateLocation(i, { description: e.target.value })} placeholder="灵气充沛的修仙重地..." /></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn-ghost" onClick={addLocation} style={{ marginTop: 8, fontSize: 'var(--font-size-base)' }}>+ 添加区域</button>
+              </div>
+
+              <div className="world-form-section"><h4><BookMarked size={15} style={{ marginRight: 4, flexShrink: 0 }} /> 文化风俗</h4>
+                <div className="world-form-group"><label>文化描述</label><textarea value={form.culture} onChange={e => update({ culture: e.target.value })} placeholder="描述这个世界的信仰、习俗、禁忌、语言特色..." rows={3} /></div>
               </div>
 
               <div className="world-form-section"><h4><Swords size={15} style={{ marginRight: 4, flexShrink: 0 }} /> 世界规则</h4>
@@ -865,6 +909,19 @@ export default function WorldEditorForm({
         </div>
       </div>
     </div>
+
+    {/* 引导式选择世界创建覆盖层 */}
+    {showGuidedChoice && (
+      <GuidedChoiceOverlay
+        visible={showGuidedChoice}
+        userDesc={aiGenName}
+        selectedModules={[...selectedModules]}
+        apiConfig={apiConfig}
+        onComplete={handleGuidedComplete}
+        onClose={() => setShowGuidedChoice(false)}
+      />
+    )}
+    </>
   );
 }
 

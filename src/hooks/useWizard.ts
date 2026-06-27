@@ -100,9 +100,17 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
     });
   }, [view, selectedWorld, worldBookLoaded]);
 
-  // 一次性清理旧版自建世界
+  // 一次性清理旧版自建世界（备份后清除，避免用户数据丢失）
   useEffect(() => {
     if (!localStorage.getItem('chuanye_worlds_migrated')) {
+      // 先备份旧版自建世界，用户可手动恢复
+      try {
+        const oldWorlds = localStorage.getItem(CREATED_WORLDS_KEY);
+        if (oldWorlds && oldWorlds !== '[]') {
+          localStorage.setItem('world_travel_guide_custom_worlds_backup', oldWorlds);
+          console.info('[迁移] 旧版自建世界已备份到 world_travel_guide_custom_worlds_backup');
+        }
+      } catch { /* localStorage 不可用时静默 */ }
       localStorage.removeItem(CREATED_WORLDS_KEY);
       localStorage.setItem('chuanye_worlds_migrated', '1');
       setCreatedWorlds([]);

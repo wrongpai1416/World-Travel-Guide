@@ -373,10 +373,14 @@ function synthesizeResult(ctx: BuildContext): Record<string, unknown> {
     result.数值属性 = ctx.statData;
   }
 
-  // 成长体系：只有配置（状态在变量系统中）
+  // 成长体系：配置 + 初始状态
   if (ctx.progressionConfig) {
     result.成长体系 = {
       config: ctx.progressionConfig,
+      initialState: {
+        currentTierIndex: 0,
+        currentXP: 0,
+      },
     };
   } else if (ctx.progressionData) {
     // 兼容旧格式：直接使用原始数据

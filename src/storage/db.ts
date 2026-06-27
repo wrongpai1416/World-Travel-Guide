@@ -339,6 +339,7 @@ export async function exportSave(saveId: string): Promise<Blob> {
       characterHistory: save.characterHistory,
       memoryRuntime: save.memoryRuntime ? slimMemoryRuntimeForSave(save.memoryRuntime) : undefined,
       memoryConfig: save.memoryConfig,
+      vectorMemory: save.vectorMemory,
       customWorld: save.customWorld,
     },
   };

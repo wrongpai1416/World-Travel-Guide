@@ -127,3 +127,57 @@ export function createDefaultTalentModule(): TalentModuleSchema {
 export function createDefaultWorldSystem(): WorldSystemData {
   return {};
 }
+
+/**
+ * 创建兜底模块（模块生成失败时使用，确保 UI 卡片能正常显示）
+ * 返回完整的 WorldModule，包含 moduleConfig/data/initialState
+ */
+export function createFallbackModule(moduleId: string, name: string): import('../data/worlds-schema').WorldModule {
+  const base: import('../data/worlds-schema').WorldModule = { moduleId, name, description: '', enabled: true };
+  switch (moduleId) {
+    case 'stat': {
+      const ds = createDefaultStatModule();
+      return {
+        ...base,
+        moduleConfig: {
+          attrA: { name: ds.attrA.name, max: ds.attrA.max },
+          attrB: { name: ds.attrB.name, max: ds.attrB.max },
+          dim1: { name: ds.dim1.name, range: ds.dim1.range },
+          dim2: { name: ds.dim2.name, range: ds.dim2.range },
+          dim3: { name: ds.dim3.name, range: ds.dim3.range },
+          dim4: { name: ds.dim4.name, range: ds.dim4.range },
+          dim5: { name: ds.dim5.name, range: ds.dim5.range },
+          dim6: { name: ds.dim6.name, range: ds.dim6.range },
+          special: [],
+        },
+        initialState: {
+          attrA: ds.attrA.current,
+          attrB: ds.attrB.current,
+          dim1: ds.dim1.value, dim2: ds.dim2.value, dim3: ds.dim3.value,
+          dim4: ds.dim4.value, dim5: ds.dim5.value, dim6: ds.dim6.value,
+          special: {},
+        },
+        data: ds,
+      };
+    }
+    case 'progression': {
+      const dp = createDefaultProgressionModule();
+      return {
+        ...base,
+        moduleConfig: { mode: dp.mode, xpFormula: dp.xpFormula, tiers: dp.tiers },
+        initialState: { currentTierIndex: dp.currentTierIndex, currentXP: dp.currentXP },
+        data: dp,
+      };
+    }
+    case 'survival':
+      return { ...base, data: createDefaultSurvivalModule() };
+    case 'business':
+      return { ...base, data: createDefaultBusinessModule() };
+    case 'dice':
+      return { ...base, data: createDefaultDiceModule() };
+    case 'talent':
+      return { ...base, data: createDefaultTalentModule() };
+    default:
+      return base;
+  }
+}

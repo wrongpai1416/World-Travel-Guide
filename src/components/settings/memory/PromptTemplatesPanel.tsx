@@ -53,8 +53,11 @@ export function PromptTemplatesPanel({ templates, expanded, onToggle, onChange, 
               overflow: 'hidden',
               transition: 'border-color 0.15s',
             }}>
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => onToggle(section.key)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(section.key); } }}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 16px', cursor: 'pointer', gap: '12px',
@@ -81,7 +84,7 @@ export function PromptTemplatesPanel({ templates, expanded, onToggle, onChange, 
                     transition: 'transform 0.15s, color 0.15s',
                   }} />
                 </div>
-              </button>
+              </div>
               {isOpen && (
                 <div style={{ padding: '0 16px 16px' }}>
                   <TextArea

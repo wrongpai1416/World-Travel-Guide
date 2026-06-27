@@ -315,7 +315,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
           padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
           borderRadius: isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
           background: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
-          color: isUser ? '#fff' : 'var(--text-primary)',
+          color: isUser ? 'var(--color-on-accent)' : 'var(--text-primary)',
           border: isUser ? 'none' : '1px solid var(--border)',
           position: 'relative',
           wordBreak: 'break-word',
@@ -379,7 +379,7 @@ export default function MessageBubble({ message, onDelete, onEdit, onResend, onR
                   borderRadius: '4px',
                   border: 'none',
                   background: 'var(--accent)',
-                  color: '#fff',
+                  color: 'var(--color-on-accent)',
                   fontSize: 'var(--font-size-sm)',
                   cursor: 'pointer',
                 }}
