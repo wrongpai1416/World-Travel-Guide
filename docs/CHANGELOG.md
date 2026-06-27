@@ -1,5 +1,23 @@
 # 更新日志
 
+## v1.7.1 — 死代码清理 + 结构优化 (2026-06-26)
+
+### 🔧 改进
+
+- **统一 `findWorldDef`**：删除 `useGameEngine.ts` 中的重复定义，统一使用 `worldLoader.ts` 导出
+- **提取管线降级工厂函数**：消除 `useGameEngine.ts` 中 12 处重复的降级检测代码
+- **修复硬编码 key**：`worldLoader.ts` 中 `localStorage.getItem('world_travel_guide_custom_worlds')` 改为 `STORAGE_KEYS.CUSTOM_WORLDS`
+
+### 🗑️ 清理
+
+- 删除死文件：`src/types/api.ts`、`src/types/engine.ts`、`src/utils/moduleToWorldBook.ts`
+- 删除死函数：`assembleSystemPromptLegacy`、`updateLastCallTime`、`createRoleCognitionFirewallPresetEntry`、`useMediaQuery`
+- 删除死常量：`DEFAULT_TEXT_COLORIZATION_RULE_IDS`
+
+### 🐛 修复
+
+- 修复 `MessageBubble` 中 `getActivePreset()` 作为 Zustand selector 每次返回新对象引用导致的无限重渲染
+
 ## v1.7.0 — 天赋体系模块 + 记忆管线并行化 + 内置世界重构 (2026-06-21)
 
 ### ✨ 新功能
