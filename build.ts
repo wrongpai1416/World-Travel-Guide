@@ -66,17 +66,7 @@ const prodHtml = htmlTemplate
 writeFileSync(join(DIST, 'index.html'), prodHtml);
 console.log('   ✅ index.html');
 
-// 5. 复制角色卡 JSON
-console.log('📋 复制角色卡数据...');
-const cardFile = './世界漫游指南.json';
-if (existsSync(cardFile)) {
-  copyFileSync(cardFile, join(DIST, 'card.json'));
-  console.log('   ✅ card.json');
-} else {
-  console.warn('   ⚠️  未找到 世界漫游指南.json，跳过');
-}
-
-// 6. 复制 PWA 资源
+// 5. 复制 PWA 资源
 console.log('📱 复制 PWA 资源...');
 if (existsSync('./manifest.json')) {
   copyFileSync('./manifest.json', join(DIST, 'manifest.json'));
@@ -92,7 +82,6 @@ console.log('   dist/');
 console.log('   ├── index.html');
 console.log('   ├── main.js');
 console.log('   ├── main.css');
-console.log('   ├── card.json (角色卡)');
 console.log('   ├── manifest.json (PWA 配置)');
 console.log('   ├── sw.js (Service Worker)');
 console.log('   └── icon.png (应用图标)');

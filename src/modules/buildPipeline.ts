@@ -421,7 +421,7 @@ function synthesizeResult(ctx: BuildContext): Record<string, unknown> {
  * 蓝灯：底层架构，常驻注入
  * 绿灯：详细规则，关键词触发（使用该世界自定义的名称）
  */
-function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
+export function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[] {
   const entries: WorldBookEntryDef[] = [];
 
   // ─── 数值属性模块（绿灯：关键词触发）───

@@ -6,7 +6,7 @@ import { useConfigStore } from '../../stores/configStore';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, BusinessModuleSchema, TalentModuleSchema } from '../../modules/schema';
 import { createBuildContext } from '../../modules/buildContext';
-import { executeBuildPipeline } from '../../modules/buildPipeline';
+import { generateWorldBookEntries } from '../../modules/buildPipeline';
 import GuidedChoiceOverlay from './GuidedChoiceOverlay';
 
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
@@ -580,12 +580,12 @@ export default function WorldEditorForm({
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!form.name.trim()) return;
 
     const world = formToWorldDef();
 
-    // 手动编辑模式：如果有模块但没有模块规则条目，补充生成
+    // 手动编辑模式：如果有模块但没有模块规则条目，直接生成（不调AI，不触发限流）
     if (refinedEntries.length === 0 && world.modules?.some(m => m.enabled)) {
       try {
         const enabledModules = world.modules.filter(m => m.enabled).map(m => m.moduleId);
@@ -603,13 +603,10 @@ export default function WorldEditorForm({
           if (mod.moduleId === 'talent') buildCtx.talentData = mc;
         }
 
-        await executeBuildPipeline(buildCtx, {
-          callAI: async () => '{}',  // 不需要 AI 调用，只用阶段3生成条目
-          onProgress: () => {},
-        });
+        // 直接生成世界书条目，跳过 executeBuildPipeline 的限流等待
+        buildCtx.worldBookEntries = generateWorldBookEntries(buildCtx);
 
         if (buildCtx.worldBookEntries?.length) {
-          // 合并模块条目，用负数 uid 避免冲突
           const moduleEntries = buildCtx.worldBookEntries.map((e, i) => ({
             ...e,
             uid: -5000 - i,
