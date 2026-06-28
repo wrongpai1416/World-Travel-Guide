@@ -454,9 +454,8 @@ function ModuleInitEditor({ worldModules, initData, onChange }: {
 
   const statMod = worldModules.find(m => m.moduleId === 'stat' && m.enabled);
   const progMod = worldModules.find(m => m.moduleId === 'progression' && m.enabled);
-  // 兼容新格式（moduleConfig）和旧格式（data）
-  const statData = (statMod?.moduleConfig || statMod?.data) as any;
-  const progData = (progMod?.moduleConfig || progMod?.data) as any;
+  const statData = statMod?.moduleConfig as any;
+  const progData = progMod?.moduleConfig as any;
 
   const set = (path: string, value: unknown) => {
     const next = { ...initData };

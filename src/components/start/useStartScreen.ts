@@ -76,19 +76,17 @@ export function useStartScreen() {
       for (const mod of selectedWorldDef.modules) {
         if (!mod.enabled) continue;
 
-        // 新格式：从 initialState 初始化
+        // 从 initialState 初始化（新格式，优先）
         if (mod.initialState && Object.keys(mod.initialState).length > 0) {
           if (mod.moduleId === 'stat') {
             const initState = mod.initialState as any;
             const cfg = (mod.moduleConfig || {}) as any;
             if (initState.attrA != null) gs.玩家.生存状态.血量 = initState.attrA;
             if (initState.attrB != null) gs.玩家.生存状态.体力值 = initState.attrB;
-            // 六维属性写入生存状态
             for (let i = 1; i <= 6; i++) {
               const val = initState[`dim${i}Value`];
               if (val != null) gs.玩家.生存状态[`dim${i}`] = val;
             }
-            // 特色属性写入生存状态
             if (Array.isArray(cfg.special)) {
               for (const sp of cfg.special) {
                 const val = initState.special?.[sp.id];
@@ -103,34 +101,9 @@ export function useStartScreen() {
           }
         }
 
-        // 旧格式兼容：从 data 初始化
-        if (mod.data && Object.keys(mod.data).length > 0) {
+        // 从 moduleConfig 初始化（无 initialState 时的兜底，兼容纯配置的 JSON 世界文件）
+        if (!mod.initialState && mod.moduleConfig) {
           if (mod.moduleId === 'stat') {
-            const statData = mod.data as any;
-            if (statData.attrA?.current != null) gs.玩家.生存状态.血量 = statData.attrA.current;
-            if (statData.attrB?.current != null) gs.玩家.生存状态.体力值 = statData.attrB.current;
-            // 六维
-            for (let i = 1; i <= 6; i++) {
-              const dim = statData[`dim${i}`];
-              if (dim?.value != null) gs.玩家.生存状态[`dim${i}`] = dim.value;
-            }
-            // 特色属性
-            if (Array.isArray(statData.special)) {
-              for (const sp of statData.special) {
-                if (sp.id && sp.value != null) gs.玩家.生存状态[sp.id] = sp.value;
-              }
-            }
-          }
-          if (mod.moduleId === 'progression') {
-            const progData = mod.data as any;
-            gs.玩家.当前段位索引 = progData.currentTierIndex ?? 0;
-            gs.玩家.当前经验值 = progData.currentXP ?? 0;
-          }
-        }
-
-        // 只有 moduleConfig（无 data/initialState）时，从配置初始化
-        if (!mod.data && !mod.initialState) {
-          if (mod.moduleId === 'stat' && mod.moduleConfig) {
             const cfg = mod.moduleConfig as any;
             if (cfg.attrA?.current != null) gs.玩家.生存状态.血量 = cfg.attrA.current;
             if (cfg.attrB?.current != null) gs.玩家.生存状态.体力值 = cfg.attrB.current;
@@ -144,7 +117,7 @@ export function useStartScreen() {
               }
             }
           }
-          if (mod.moduleId === 'progression' && mod.moduleConfig) {
+          if (mod.moduleId === 'progression') {
             const cfg = mod.moduleConfig as any;
             gs.玩家.当前段位索引 = cfg.currentTierIndex ?? 0;
             gs.玩家.当前经验值 = cfg.currentXP ?? 0;

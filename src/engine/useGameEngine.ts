@@ -801,7 +801,7 @@ ${perspectiveInstruction}
 
         // 数值属性：全部写入 生存状态
         if (mod.moduleId === 'stat') {
-          const src = (mod.initialState || mod.data || {}) as any;
+          const src = (mod.initialState || mod.moduleConfig || {}) as any;
           // attrA/attrB → 血量/体力值
           if (src.attrA != null) ss.血量 = typeof src.attrA === 'object' ? src.attrA.current ?? 80 : src.attrA;
           if (src.attrB != null) ss.体力值 = typeof src.attrB === 'object' ? src.attrB.current ?? 60 : src.attrB;
@@ -821,7 +821,7 @@ ${perspectiveInstruction}
 
         // 成长体系
         if (mod.moduleId === 'progression') {
-          const src = (mod.initialState || mod.data || {}) as any;
+          const src = (mod.initialState || mod.moduleConfig || {}) as any;
           state.玩家.当前段位索引 = src.currentTierIndex ?? 0;
           state.玩家.当前经验值 = src.currentXP ?? 0;
         }

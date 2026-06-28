@@ -8,6 +8,7 @@ import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, B
 import { createBuildContext } from '../../modules/buildContext';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
 import GuidedChoiceOverlay from './GuidedChoiceOverlay';
+import { normalizeModules } from '../../modules/normalizeModule';
 
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
@@ -434,7 +435,7 @@ export default function WorldEditorForm({
         tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
         difficulty: (form.difficulty as any) || undefined,
         worldBookEntries: refinedEntries,
-        modules: form.modules,
+        modules: normalizeModules(form.modules || []),
         author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
       };
     }
@@ -575,7 +576,7 @@ export default function WorldEditorForm({
       tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
       difficulty: (form.difficulty as any) || undefined,
       worldBookEntries: [...entries, ...existingEntries],
-      modules: form.modules,
+      modules: normalizeModules(form.modules || []),
       author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
     };
   };
@@ -594,11 +595,13 @@ export default function WorldEditorForm({
 
         // 把模块数据注入 buildCtx 供 generateWorldBookEntries 使用
         for (const mod of world.modules.filter(m => m.enabled)) {
-          if (mod.moduleId === 'stat' && mod.data) buildCtx.statData = mod.data as any;
-          if (mod.moduleId === 'progression' && mod.data) buildCtx.progressionData = mod.data as any;
-          if (mod.moduleId === 'survival' && mod.data) buildCtx.survivalData = mod.data as any;
-          if (mod.moduleId === 'business' && mod.data) buildCtx.businessData = mod.data as any;
-          if (mod.moduleId === 'talent' && mod.data) buildCtx.talentData = mod.data as any;
+          const mc = mod.moduleConfig as any;
+          if (!mc) continue;
+          if (mod.moduleId === 'stat') buildCtx.statData = mc;
+          if (mod.moduleId === 'progression') buildCtx.progressionData = mc;
+          if (mod.moduleId === 'survival') buildCtx.survivalData = mc;
+          if (mod.moduleId === 'business') buildCtx.businessData = mc;
+          if (mod.moduleId === 'talent') buildCtx.talentData = mc;
         }
 
         await executeBuildPipeline(buildCtx, {

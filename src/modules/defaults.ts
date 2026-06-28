@@ -157,7 +157,6 @@ export function createFallbackModule(moduleId: string, name: string): import('..
           dim4: ds.dim4.value, dim5: ds.dim5.value, dim6: ds.dim6.value,
           special: {},
         },
-        data: ds,
       };
     }
     case 'progression': {
@@ -166,17 +165,16 @@ export function createFallbackModule(moduleId: string, name: string): import('..
         ...base,
         moduleConfig: { mode: dp.mode, xpFormula: dp.xpFormula, tiers: dp.tiers },
         initialState: { currentTierIndex: dp.currentTierIndex, currentXP: dp.currentXP },
-        data: dp,
       };
     }
     case 'survival':
-      return { ...base, data: createDefaultSurvivalModule() };
+      return { ...base, moduleConfig: createDefaultSurvivalModule() };
     case 'business':
-      return { ...base, data: createDefaultBusinessModule() };
+      return { ...base, moduleConfig: createDefaultBusinessModule() };
     case 'dice':
-      return { ...base, data: createDefaultDiceModule() };
+      return { ...base, moduleConfig: createDefaultDiceModule() };
     case 'talent':
-      return { ...base, data: createDefaultTalentModule() };
+      return { ...base, moduleConfig: createDefaultTalentModule() };
     default:
       return base;
   }

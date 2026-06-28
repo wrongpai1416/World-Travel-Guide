@@ -4,6 +4,7 @@ import type { PlayerProfile } from '../storage/db';
 import type { WorldBookEntry } from '../worldbook/index';
 import { loadWorldBook } from '../engine/worldPersonality';
 import { STORAGE_KEYS } from '@/config/storageKeys';
+import { normalizeModules } from '../modules/normalizeModule';
 
 const CREATED_WORLDS_KEY = STORAGE_KEYS.CUSTOM_WORLDS;
 
@@ -57,7 +58,14 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
 
   // ─── 用户创建的世界 ───
   const [createdWorlds, setCreatedWorlds] = useState<WorldDef[]>(() => {
-    try { return JSON.parse(localStorage.getItem(CREATED_WORLDS_KEY) || '[]'); } catch { return []; }
+    try {
+      const worlds: WorldDef[] = JSON.parse(localStorage.getItem(CREATED_WORLDS_KEY) || '[]');
+      // 统一模块数据格式（旧 data → moduleConfig + initialState）
+      for (const w of worlds) {
+        if (w.modules) w.modules = normalizeModules(w.modules);
+      }
+      return worlds;
+    } catch { return []; }
   });
   const allWorlds = useMemo(() => [...WORLDS, ...createdWorlds], [createdWorlds]);
 

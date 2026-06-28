@@ -58,7 +58,7 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
   // 从世界定义获取成长体系配置（静态配置，不存入 GameState）
   const worldDef = worldId ? findWorldDef(worldId) : null;
   const progMod = worldDef?.modules?.find(m => m.moduleId === 'progression' && m.enabled);
-  const progressionConfig = (progMod?.moduleConfig || progMod?.data) as ProgressionConfig | undefined;
+  const progressionConfig = progMod?.moduleConfig as ProgressionConfig | undefined;
 
   // 从世界定义构建 WorldSystemData（用于 UI 卡片展示）
   const keyMap: Record<string, string> = {
@@ -71,8 +71,8 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
     for (const mod of worldDef.modules) {
       if (!mod.enabled) continue;
       const key = keyMap[mod.moduleId];
-      if (key && mod.data) {
-        (worldSystem as any)[key] = mod.data;
+      if (key && mod.moduleConfig) {
+        (worldSystem as any)[key] = mod.moduleConfig;
         if (mod.name) moduleNames[key] = mod.name;
       }
     }
@@ -80,7 +80,7 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
 
   // 从世界定义获取数值属性配置（用于显示属性中文名称）
   const statMod = worldDef?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
-  const statModuleData = (statMod?.moduleConfig || statMod?.data) as any;
+  const statModuleData = statMod?.moduleConfig as any;
   const statConfig = statModuleData ? {
     attrA: { name: statModuleData.attrA?.name || '生命' },
     attrB: { name: statModuleData.attrB?.name || '能量' },
@@ -152,7 +152,7 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
         const cfg = statConfig;
         const ss = player.生存状态;
         const getVal = (key: string, fallback: number) => typeof ss[key] === 'number' ? ss[key] as number : fallback;
-        const statModData = statMod?.data as any;
+        const statModData = statMod?.moduleConfig as any;
         // 从世界定义读取特色属性配置，从生存状态读取当前值
         const specialFromConfig = Array.isArray(statModData?.special) ? statModData.special : [];
         const special = specialFromConfig.map((sp: any) => ({

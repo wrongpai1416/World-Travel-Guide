@@ -561,37 +561,9 @@ function assembleModules(
       moduleConfig: config.moduleConfig,
     };
 
-    // 对于 progression 模块，合并 initialState 到 data
-    if (id === 'progression' && config.initialState) {
-      module.data = {
-        ...config.moduleConfig,
-        currentTierIndex: config.initialState.currentTierIndex ?? 0,
-        currentXP: config.initialState.currentXP ?? 0,
-      };
-    } else if (id === 'stat' && config.initialState) {
-      const s = config.initialState as Record<string, unknown>;
-      const mc = config.moduleConfig as Record<string, unknown>;
-      const specialArr = Array.isArray(mc.special)
-        ? (mc.special as Array<Record<string, unknown>>).map(sp => ({
-            ...sp,
-            value: (s.special as Record<string, unknown>)?.[sp.id as string] ?? sp.value ?? 0,
-          }))
-        : [];
-      module.data = {
-        attrA: { name: (mc.attrA as Record<string, unknown>)?.name || '生命', current: s.attrA ?? 80, max: (mc.attrA as Record<string, unknown>)?.max ?? 100 },
-        attrB: { name: (mc.attrB as Record<string, unknown>)?.name || '能量', current: s.attrB ?? 60, max: (mc.attrB as Record<string, unknown>)?.max ?? 100 },
-        dim1: { name: (mc.dim1 as Record<string, unknown>)?.name || '属性1', value: s.dim1Value ?? 50, range: (mc.dim1 as Record<string, unknown>)?.range ?? [0, 100] },
-        dim2: { name: (mc.dim2 as Record<string, unknown>)?.name || '属性2', value: s.dim2Value ?? 50, range: (mc.dim2 as Record<string, unknown>)?.range ?? [0, 100] },
-        dim3: { name: (mc.dim3 as Record<string, unknown>)?.name || '属性3', value: s.dim3Value ?? 50, range: (mc.dim3 as Record<string, unknown>)?.range ?? [0, 100] },
-        dim4: { name: (mc.dim4 as Record<string, unknown>)?.name || '属性4', value: s.dim4Value ?? 50, range: (mc.dim4 as Record<string, unknown>)?.range ?? [0, 100] },
-        dim5: { name: (mc.dim5 as Record<string, unknown>)?.name || '属性5', value: s.dim5Value ?? 50, range: (mc.dim5 as Record<string, unknown>)?.range ?? [0, 100] },
-        dim6: { name: (mc.dim6 as Record<string, unknown>)?.name || '属性6', value: s.dim6Value ?? 50, range: (mc.dim6 as Record<string, unknown>)?.range ?? [0, 100] },
-        special: specialArr,
-      };
-    } else if (config.initialState) {
-      module.data = { ...config.moduleConfig, ...config.initialState };
-    } else {
-      module.data = config.moduleConfig;
+    // initialState 单独存放（不合并到 data）
+    if (config.initialState) {
+      module.initialState = config.initialState;
     }
 
     return module;

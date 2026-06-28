@@ -43,7 +43,7 @@ export function useAiFill({
 
     // 提取世界的数值属性模块配置（用于生成角色初始属性）
     const statMod = worldData?.modules?.find(m => m.moduleId === 'stat' && m.enabled);
-    const statRaw = (statMod?.moduleConfig || statMod?.data) as any;
+    const statRaw = statMod?.moduleConfig as any;
     const statModule = statRaw ? {
       attrA: { name: statRaw.attrA?.name || '生命', max: statRaw.attrA?.max || 100 },
       attrB: { name: statRaw.attrB?.name || '能量', max: statRaw.attrB?.max || 100 },

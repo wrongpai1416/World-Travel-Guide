@@ -216,7 +216,11 @@ export interface WorldModule {
   enabled: boolean;
   /** 模块特定配置（如自定义提示词内容等） */
   config?: Record<string, unknown>;
-  /** 模块运行时初始数据（旧格式，兼容用） */
+  /**
+   * @deprecated 已废弃，请使用 moduleConfig + initialState
+   * 模块运行时初始数据（旧格式，兼容用）
+   * normalizeModule() 会自动将 data 拆分到 moduleConfig 和 initialState
+   */
   data?: Record<string, unknown>;
 
   // ── 新格式：分离配置和状态 ──
