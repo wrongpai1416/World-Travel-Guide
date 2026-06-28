@@ -146,7 +146,17 @@ export async function generateWorldFromSelections(
 用户已做出以下选择：
 ${selectionSummary}
 
-请根据以上信息生成一个完整的世界设定。返回严格的JSON格式，不要有任何其他文字：
+请根据以上信息生成一个完整的世界设定。
+
+【数量要求】
+- locations：必须生成 3-5 个地理区域，覆盖世界的不同地形特征（如：主城、荒野、山脉、海域、特殊区域等）
+- factions：必须生成 3-4 个势力，alignment 分布至少包含1个 friendly、1个 neutral、1个 hostile
+- npcs：必须生成 4-5 个关键NPC，角色定位覆盖：导师/盟友/对手/神秘人/商人/信息提供者等
+
+【字数要求】
+- 区域/势力/NPC 的 description 字段：60-100字，内容要详细具体
+
+返回严格的JSON格式，不要有任何其他文字：
 
 {
   "name": "世界名称（2-6个字，有创意）",
@@ -158,13 +168,13 @@ ${selectionSummary}
   "atmosphere": "氛围关键词（如 阴暗压抑、轻松明快、史诗壮阔）",
   "timePeriod": "时代背景（如 远古、中世纪、近未来）",
   "locations": [
-    { "name": "区域名", "description": "区域描述（50-80字，包含地理特征、重要地标、氛围特点）" }
+    { "name": "区域名", "description": "60-100字：地理特征、重要地标、居民特点、氛围、潜在危险或机遇" }
   ],
   "factions": [
-    { "name": "势力名", "description": "势力描述（50-80字，包含势力背景、核心理念、行事风格、与其他势力的关系）", "alignment": "friendly/neutral/hostile" }
+    { "name": "势力名", "description": "60-100字：势力背景历史、核心理念、行事风格、势力范围、与其他势力的关系", "alignment": "friendly/neutral/hostile" }
   ],
   "npcs": [
-    { "name": "NPC名", "role": "角色定位", "description": "角色描述（50-80字，包含外貌特征、性格特点、背景故事、与玩家的潜在关系）", "personality": "性格标签" }
+    { "name": "NPC名", "role": "角色定位", "description": "60-100字：外貌特征、性格特点、背景故事、能力专长、与玩家的潜在关系", "personality": "2-4个性格标签" }
   ],
   "culture": "文化风俗描述（80-120字，包含信仰体系、重要习俗、社会禁忌、节日庆典等）",
   "economy": {
