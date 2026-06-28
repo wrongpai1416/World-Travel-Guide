@@ -200,6 +200,7 @@ ${selectionSummary}
   // 1. setting entry
   const worldTypeSel = selections.find(s => s.dimensionKey === 'worldType');
   const toneSel = selections.find(s => s.dimensionKey === 'tone');
+  const conflictSel = selections.find(s => s.dimensionKey === 'conflict');
   entries.push({
     uid: uid++, key: [], constant: true, comment: '世界设定',
     content: data.overview || '',
@@ -208,6 +209,10 @@ ${selectionSummary}
       genre: worldTypeSel?.choice.title,
       atmosphere: data.atmosphere || toneSel?.choice.title,
       timePeriod: data.timePeriod,
+      // 将核心冲突信息添加到 meta 中，确保不丢失
+      conflict: conflictSel?.choices && conflictSel.choices.length > 1
+        ? conflictSel.choices.map(c => `${c.title}：${c.subtitle}`).join('；')
+        : conflictSel ? `${conflictSel.choice.title}：${conflictSel.choice.subtitle}` : undefined,
     },
   });
 

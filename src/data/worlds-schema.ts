@@ -128,6 +128,7 @@ export interface WorldBookEntryMeta {
   location?: string;
   timePeriod?: string;
   atmosphere?: string;
+  conflict?: string;            // 核心冲突（如"正邪对立：正义与邪恶的永恒较量"）
 
   // factions 类型用
   factions?: FactionDef[];

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef, WorldModule } from '../../data/worlds-schema';
 import type { DimensionChoice, DimensionGeneration, DimensionSelection } from '../../worldgen/choice';
-import { generateAllOptions, generateWorldFromSelections, generateModuleEntries } from '../../worldgen/choice';
+import { generateWorldFromSelections, generateModuleEntries } from '../../worldgen/choice';
 import { requestStreamWithRetry } from '../../api/client';
 
 // ── 维度配置（8 步，比原 ChoiceFlowOverlay 多 worldType） ──
@@ -92,6 +92,8 @@ export default function GuidedChoiceOverlay({
 
   // ── 创建 callAI ──
   const createCallAI = useCallback(() => {
+    // 中止之前的请求，防止泄漏
+    abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     return async (messages: Array<{ role: string; content: string }>): Promise<string> => {
@@ -138,11 +140,17 @@ export default function GuidedChoiceOverlay({
     // 点击自定义选项 E
     if (choiceId === 'E') {
       setIsEditingCustom(true);
-      // 如果之前有自定义选择，恢复内容
-      const existingCustom = selections.find(s => s.dimensionKey === currentDim.key && s.choiceId === 'E');
+      // 如果之前有自定义选择，恢复内容（支持多选模式下的 choiceId 逗号拼接）
+      const existingCustom = selections.find(s =>
+        s.dimensionKey === currentDim.key && (
+          s.choiceId === 'E' || s.choiceIds?.split(',').includes('E')
+        )
+      );
       if (existingCustom) {
-        setCustomTitle(existingCustom.choice.title);
-        setCustomSubtitle(existingCustom.choice.subtitle);
+        // 优先从 choices 数组中找自定义选项
+        const customChoice = existingCustom.choices?.find(c => c.id === 'E');
+        setCustomTitle(customChoice?.title || existingCustom.choice.title);
+        setCustomSubtitle(customChoice?.subtitle || existingCustom.choice.subtitle);
       } else {
         setCustomTitle('');
         setCustomSubtitle('');
@@ -156,29 +164,31 @@ export default function GuidedChoiceOverlay({
     // 点击其他选项时退出自定义编辑
     setIsEditingCustom(false);
 
-    // 多选模式
+    // 多选模式 - 把所有逻辑移到 updater 内部，避免 stale closure
     if (currentDim.multiSelect) {
       const maxSelect = currentDim.maxSelect || 3;
-      const existingSelection = selections.find(s => s.dimensionKey === currentDim.key);
+      setSelections(prev => {
+        const existingSelection = prev.find(s => s.dimensionKey === currentDim.key);
 
-      if (existingSelection && existingSelection.choices) {
-        // 已有选择，检查是否已选中
-        const isSelected = existingSelection.choices.some(c => c.id === choiceId);
-        let newChoices: DimensionChoice[];
+        if (existingSelection && existingSelection.choices) {
+          // 已有选择，检查是否已选中
+          const isSelected = existingSelection.choices.some(c => c.id === choiceId);
 
-        if (isSelected) {
-          // 取消选中
-          newChoices = existingSelection.choices.filter(c => c.id !== choiceId);
-        } else {
-          // 添加选中（检查上限）
-          if (existingSelection.choices.length >= maxSelect) return;
-          newChoices = [...existingSelection.choices, choice];
-        }
+          let newChoices: DimensionChoice[];
+          if (isSelected) {
+            // 取消选中
+            newChoices = existingSelection.choices.filter(c => c.id !== choiceId);
+          } else {
+            // 添加选中（检查上限）
+            if (existingSelection.choices.length >= maxSelect) return prev;
+            newChoices = [...existingSelection.choices, choice];
+          }
 
-        if (newChoices.length === 0) {
-          // 取消所有选择
-          setSelections(prev => prev.filter(s => s.dimensionKey !== currentDim.key));
-        } else {
+          if (newChoices.length === 0) {
+            // 取消所有选择
+            return prev.filter(s => s.dimensionKey !== currentDim.key);
+          }
+
           // 更新选择
           const newSelection: DimensionSelection = {
             dimensionKey: currentDim.key,
@@ -188,26 +198,22 @@ export default function GuidedChoiceOverlay({
             choiceIds: newChoices.map(c => c.id).join(','),
             choices: newChoices,
           };
-          setSelections(prev => {
-            const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
-            return [...filtered, newSelection];
-          });
-        }
-      } else {
-        // 新选择
-        const newSelection: DimensionSelection = {
-          dimensionKey: currentDim.key,
-          dimensionLabel: currentDim.label,
-          choiceId,
-          choice,
-          choiceIds: choiceId,
-          choices: [choice],
-        };
-        setSelections(prev => {
           const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
           return [...filtered, newSelection];
-        });
-      }
+        } else {
+          // 新选择
+          const newSelection: DimensionSelection = {
+            dimensionKey: currentDim.key,
+            dimensionLabel: currentDim.label,
+            choiceId,
+            choice,
+            choiceIds: choiceId,
+            choices: [choice],
+          };
+          const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+          return [...filtered, newSelection];
+        }
+      });
     } else {
       // 单选模式
       const newSelection: DimensionSelection = {
@@ -228,22 +234,51 @@ export default function GuidedChoiceOverlay({
   const handleSaveCustom = () => {
     if (!currentDim || !customTitle.trim()) return;
 
-    const newSelection: DimensionSelection = {
-      dimensionKey: currentDim.key,
-      dimensionLabel: currentDim.label,
-      choiceId: 'E',
-      choice: {
-        id: 'E',
-        title: customTitle.trim(),
-        subtitle: customSubtitle.trim(),
-        isCustom: true,
-      },
+    const customChoice: DimensionChoice = {
+      id: 'E',
+      title: customTitle.trim(),
+      subtitle: customSubtitle.trim(),
+      isCustom: true,
     };
 
-    setSelections(prev => {
-      const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
-      return [...filtered, newSelection];
-    });
+    // 多选模式 - 追加到现有选择
+    if (currentDim.multiSelect) {
+      setSelections(prev => {
+        const existingSelection = prev.find(s => s.dimensionKey === currentDim.key);
+        const existingChoices = existingSelection?.choices || [];
+
+        // 检查是否已包含自定义选项
+        const hasCustom = existingChoices.some(c => c.id === 'E');
+        const newChoices = hasCustom
+          ? existingChoices.map(c => c.id === 'E' ? customChoice : c) // 更新已有自定义选项
+          : [...existingChoices, customChoice]; // 追加新自定义选项
+
+        const newSelection: DimensionSelection = {
+          dimensionKey: currentDim.key,
+          dimensionLabel: currentDim.label,
+          choiceId: newChoices.map(c => c.id).join(','),
+          choice: newChoices[0],
+          choiceIds: newChoices.map(c => c.id).join(','),
+          choices: newChoices,
+        };
+
+        const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+        return [...filtered, newSelection];
+      });
+    } else {
+      // 单选模式
+      const newSelection: DimensionSelection = {
+        dimensionKey: currentDim.key,
+        dimensionLabel: currentDim.label,
+        choiceId: 'E',
+        choice: customChoice,
+      };
+
+      setSelections(prev => {
+        const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+        return [...filtered, newSelection];
+      });
+    }
 
     setIsEditingCustom(false);
   };
@@ -626,10 +661,19 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
 
                 {/* E 卡片：自定义选项 */}
                 {(() => {
-                  const isCustomSelected = currentSelection?.choiceId === 'E';
-                  const customSelection = selections.find(s => s.dimensionKey === currentDim?.key && s.choiceId === 'E');
-                  const displayTitle = customSelection?.choice.title || '自定义';
-                  const displaySubtitle = customSelection?.choice.subtitle || '自己填写内容';
+                  // 支持多选模式下的选择检查
+                  const isCustomSelected = currentDim.multiSelect
+                    ? currentSelection?.choices?.some(c => c.id === 'E')
+                    : currentSelection?.choiceId === 'E';
+                  // 支持多选模式下的自定义选项查找
+                  const customSelection = selections.find(s =>
+                    s.dimensionKey === currentDim?.key && (
+                      s.choiceId === 'E' || s.choiceIds?.split(',').includes('E')
+                    )
+                  );
+                  const customChoice = customSelection?.choices?.find(c => c.id === 'E');
+                  const displayTitle = customChoice?.title || customSelection?.choice.title || '自定义';
+                  const displaySubtitle = customChoice?.subtitle || customSelection?.choice.subtitle || '自己填写内容';
 
                   return (
                     <button

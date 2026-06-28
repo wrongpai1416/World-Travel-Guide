@@ -18,11 +18,23 @@ export function assembleFromChoices(
 
   const getSelection = (key: string) => selections.find(s => s.dimensionKey === key);
 
+  /**
+   * 获取维度的所有选择（支持多选）
+   * 如果有 choices 数组则返回所有选择，否则返回 [choice]
+   */
+  const getChoices = (sel: DimensionSelection | undefined) => {
+    if (!sel) return [];
+    return sel.choices && sel.choices.length > 0 ? sel.choices : [sel.choice];
+  };
+
   // ── 1. setting 条目（基调 + 骨架概述）──
   const tone = getSelection('tone');
+  const toneChoices = getChoices(tone);
   const settingContent = [
     skeleton.overview,
-    tone ? `\n【基调】${tone.choice.title}：${tone.choice.subtitle}` : '',
+    toneChoices.length > 0
+      ? `\n【基调】${toneChoices.map(c => `${c.title}：${c.subtitle}`).join('、')}`
+      : '',
   ].filter(Boolean).join('');
   entries.push({
     uid: uid++, key: [], constant: true, comment: '世界设定',
@@ -33,39 +45,43 @@ export function assembleFromChoices(
     },
   });
 
-  // ── 2. lore 条目（地理选择）──
+  // ── 2. lore 条目（地理选择，支持多选）──
   const geo = getSelection('geography');
-  if (geo) {
+  const geoChoices = getChoices(geo);
+  for (const choice of geoChoices) {
     entries.push({
-      uid: uid++, key: [geo.choice.title], constant: false,
-      comment: geo.choice.title, content: geo.choice.subtitle,
+      uid: uid++, key: [choice.title], constant: false,
+      comment: choice.title, content: choice.subtitle,
       order: 2, position: 'before_char', entryType: 'lore',
     });
   }
 
-  // ── 3. factions 条目（势力选择，关键词触发）──
+  // ── 3. factions 条目（势力选择，支持多选，关键词触发）──
   const factions = getSelection('factions');
-  if (factions) {
+  const factionsChoices = getChoices(factions);
+  for (const choice of factionsChoices) {
     entries.push({
-      uid: uid++, key: [factions.choice.title], constant: false, comment: factions.choice.title,
-      content: `${factions.choice.title}：${factions.choice.subtitle}`,
+      uid: uid++, key: [choice.title], constant: false, comment: choice.title,
+      content: `${choice.title}：${choice.subtitle}`,
       order: 3, position: 'before_char', entryType: 'factions',
       meta: {
         factions: [{
-          name: factions.choice.title,
-          description: factions.choice.subtitle,
+          name: choice.title,
+          description: choice.subtitle,
           alignment: '中立',
         }],
       },
     });
   }
 
-  // ── 4. culture 条目（文化选择）──
+  // ── 4. culture 条目（文化选择，支持多选）──
   const culture = getSelection('culture');
-  if (culture) {
+  const cultureChoices = getChoices(culture);
+  if (cultureChoices.length > 0) {
     entries.push({
       uid: uid++, key: ['文化', '风俗'], constant: false,
-      comment: '文化风俗', content: `${culture.choice.title}：${culture.choice.subtitle}`,
+      comment: '文化风俗',
+      content: cultureChoices.map(c => `${c.title}：${c.subtitle}`).join('\n'),
       order: 4, position: 'before_char', entryType: 'culture',
     });
   }
@@ -80,18 +96,19 @@ export function assembleFromChoices(
     });
   }
 
-  // ── 6. npcs 条目（NPC选择，关键词触发）──
+  // ── 6. npcs 条目（NPC选择，支持多选，关键词触发）──
   const npcs = getSelection('npcs');
-  if (npcs) {
+  const npcsChoices = getChoices(npcs);
+  for (const choice of npcsChoices) {
     entries.push({
-      uid: uid++, key: [npcs.choice.title], constant: false, comment: npcs.choice.title,
-      content: `${npcs.choice.title}：${npcs.choice.subtitle}`,
+      uid: uid++, key: [choice.title], constant: false, comment: choice.title,
+      content: `${choice.title}：${choice.subtitle}`,
       order: 6, position: 'before_char', entryType: 'npcs',
       meta: {
         npcs: [{
-          name: npcs.choice.title,
+          name: choice.title,
           role: '关键人物',
-          description: npcs.choice.subtitle,
+          description: choice.subtitle,
         }],
       },
     });
