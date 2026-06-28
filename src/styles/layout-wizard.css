@@ -963,21 +963,23 @@
 
 /* 移动端 Tab 栏：只显示图标 */
 .world-tabs-icon-only {
-  padding: 0 var(--space-2);
+  padding: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  justify-content: space-around;
 }
 .world-tabs-icon-only::-webkit-scrollbar {
   display: none;
 }
 .world-tabs-icon-only .world-tab {
-  padding: var(--space-2) var(--space-2);
+  padding: var(--space-2) 0;
   gap: 0;
+  flex: 1;
   flex-shrink: 0;
   justify-content: center;
-  min-width: 36px;
+  min-width: 0;
 }
 .world-tabs-icon-only .world-tab[title] {
   position: relative;

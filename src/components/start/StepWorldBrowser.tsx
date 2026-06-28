@@ -159,7 +159,15 @@ export default function StepWorldBrowser({
             })()}
 
             <div className={`world-tabs${isMobile ? ' world-tabs-icon-only' : ''}`}>
-              {TABS.filter(tab => tab.key !== 'systems' || (selected.modules && selected.modules.some(m => m.enabled))).map(tab => {
+              {TABS.filter(tab => {
+                // "系统" tab 只在有模块时显示（支持新旧两种格式）
+                if (tab.key !== 'systems') return true;
+                if (!selected.modules || !Array.isArray(selected.modules) || selected.modules.length === 0) return false;
+                // 旧格式：对象数组，有 enabled 属性
+                if (typeof selected.modules[0] === 'object') return selected.modules.some((m: any) => m.enabled);
+                // 新格式：字符串数组
+                return true;
+              }).map(tab => {
                 const Icon = tab.icon;
                 return (
                   <button
