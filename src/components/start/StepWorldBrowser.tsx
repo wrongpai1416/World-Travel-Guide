@@ -794,38 +794,6 @@ function SystemsTab({ world }: { world: WorldDef }) {
         </div>
       )}
 
-      {/* 地理地点 (lore) */}
-      {(() => {
-        const loreEntries = world.worldBookEntries?.filter(e => e.entryType === 'lore') ?? [];
-        if (loreEntries.length === 0) return null;
-        return (
-          <div className="detail-block">
-            <div className="detail-block-title"><Landmark size={15} />地理 ({loreEntries.length})</div>
-            <div className="detail-block-body">
-              {loreEntries.map(entry => (
-                <div key={entry.uid} style={{ marginBottom: 8 }}>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.comment}</div>
-                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    {entry.content.length > 200 ? entry.content.substring(0, 200) + '...' : entry.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 文化风俗 (culture) */}
-      {(() => {
-        const cultureEntry = world.worldBookEntries?.find(e => e.entryType === 'culture');
-        if (!cultureEntry) return null;
-        return (
-          <div className="detail-block">
-            <div className="detail-block-title"><Scroll size={15} />文化风俗</div>
-            <div className="detail-block-body">{cultureEntry.content}</div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
