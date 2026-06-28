@@ -158,7 +158,7 @@ export default function StepWorldBrowser({
               );
             })()}
 
-            <div className="world-tabs">
+            <div className={`world-tabs${isMobile ? ' world-tabs-icon-only' : ''}`}>
               {TABS.filter(tab => tab.key !== 'systems' || (selected.modules && selected.modules.some(m => m.enabled))).map(tab => {
                 const Icon = tab.icon;
                 return (
@@ -166,9 +166,10 @@ export default function StepWorldBrowser({
                     key={tab.key}
                     className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
                     onClick={() => setActiveTab(tab.key)}
+                    title={isMobile ? tab.label : undefined}
                   >
-                    <Icon size={14} strokeWidth={2} />
-                    {tab.label}
+                    <Icon size={isMobile ? 18 : 14} strokeWidth={2} />
+                    {!isMobile && tab.label}
                   </button>
                 );
               })}
@@ -278,7 +279,7 @@ export default function StepWorldBrowser({
               })()}
 
               {/* Tab 栏 */}
-              <div className="world-tabs">
+              <div className={`world-tabs${isMobile ? ' world-tabs-icon-only' : ''}`}>
                 {TABS.filter(tab => tab.key !== 'systems' || (selected.modules && selected.modules.some(m => m.enabled))).map(tab => {
                   const Icon = tab.icon;
                   return (
@@ -286,9 +287,10 @@ export default function StepWorldBrowser({
                       key={tab.key}
                       className={`world-tab${activeTab === tab.key ? ' active' : ''}`}
                       onClick={() => setActiveTab(tab.key)}
+                      title={isMobile ? tab.label : undefined}
                     >
-                      <Icon size={14} strokeWidth={2} />
-                      {tab.label}
+                      <Icon size={isMobile ? 18 : 14} strokeWidth={2} />
+                      {!isMobile && tab.label}
                     </button>
                   );
                 })}

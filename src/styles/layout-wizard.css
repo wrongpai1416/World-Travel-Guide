@@ -961,6 +961,51 @@
 .world-tab:hover { color: var(--text-primary); }
 .world-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+/* 移动端 Tab 栏：只显示图标 */
+.world-tabs-icon-only {
+  padding: 0 var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.world-tabs-icon-only::-webkit-scrollbar {
+  display: none;
+}
+.world-tabs-icon-only .world-tab {
+  padding: var(--space-2) var(--space-2);
+  gap: 0;
+  flex-shrink: 0;
+  justify-content: center;
+  min-width: 36px;
+}
+.world-tabs-icon-only .world-tab[title] {
+  position: relative;
+}
+/* 移动端选中 tab 的 tooltip 提示 */
+.world-tabs-icon-only .world-tab.active::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: var(--bg-secondary, #333);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  animation: tab-tooltip-fade 1.5s ease forwards;
+}
+@keyframes tab-tooltip-fade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Tab 内容 */
 .world-tab-content { flex: 1; overflow-y: auto; padding: var(--space-4); min-height: 0; }
 .tab-section { display: flex; flex-direction: column; gap: var(--space-4); }
