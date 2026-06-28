@@ -579,18 +579,18 @@ function SystemsTab({ world }: { world: WorldDef }) {
   const progMod = world.modules?.find(m => m.moduleId === 'progression' && m.enabled);
   const survMod = world.modules?.find(m => m.moduleId === 'survival' && m.enabled);
 
-  const statData = statMod?.moduleConfig as any;
+  const statData = (statMod?.moduleConfig || statMod?.data) as any;
   const hasNewStat = !!statData?.attrA;
   const dims = hasNewStat
     ? ['dim1','dim2','dim3','dim4','dim5','dim6'].filter(k => statData[k]).map(k => ({ key: k, name: statData[k].name, range: statData[k].range }))
     : [];
   const specials: Array<{ id: string; name: string; value: number; range: [number,number]; description: string }> = statData?.special || [];
 
-  const progData = progMod?.moduleConfig as any;
+  const progData = (progMod?.moduleConfig || progMod?.data) as any;
   const tiers: Array<{ name: string; description?: string }> = progData?.tiers || [];
   const progDesc = progData ? (progData.mode === 'tiered' ? '段位制' : '等级制') : '';
 
-  const survData = survMod?.moduleConfig as any;
+  const survData = (survMod?.moduleConfig || survMod?.data) as any;
   const resources = survData?.resources || [];
   const resDesc = survData?.description;
 
