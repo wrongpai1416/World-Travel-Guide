@@ -18,5 +18,3 @@ export {
   generateModuleEntries,
   getDimensions,
 } from './choicePipeline';
-
-export { generateRichWorldFromSelections } from './enrichedPipeline';

@@ -13,8 +13,7 @@ import {
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef, WorldModule } from '../../data/worlds-schema';
 import type { DimensionGeneration, DimensionSelection } from '../../worldgen/choice';
-import { generateAllOptions } from '../../worldgen/choice';
-import { generateRichWorldFromSelections, generateRichModules } from '../../worldgen/choice/enrichedPipeline';
+import { generateAllOptions, generateWorldFromSelections, generateModuleEntries } from '../../worldgen/choice';
 import { requestStreamWithRetry } from '../../api/client';
 
 // ── 维度配置（8 步，比原 ChoiceFlowOverlay 多 worldType） ──
@@ -268,24 +267,24 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
     try {
       const callAI = createCallAI();
 
-      // 使用增强版生成函数，产出丰富粒度的 entries
-      const { worldDef, worldBookEntries } = await generateRichWorldFromSelections(
+      // 生成世界
+      const { worldDef, worldBookEntries } = await generateWorldFromSelections(
         userDesc,
         selections,
         callAI,
       );
 
-      // 模块数据（如果有）— 使用 generateRichModules 获取完整模块配置
+      // 模块数据（如果有）
       let modules: WorldModule[] = [];
       let moduleWorldBookEntries: WorldBookEntryDef[] = [];
       if (selectedModules.length > 0) {
-        const result = await generateRichModules(
+        const result = await generateModuleEntries(
           worldDef.description || userDesc,
           selectedModules,
           callAI,
         );
         modules = result.modules;
-        moduleWorldBookEntries = result.moduleWorldBookEntries;
+        moduleWorldBookEntries = result.worldBookEntries;
       }
 
       const finalEntries = [...worldBookEntries, ...moduleWorldBookEntries];

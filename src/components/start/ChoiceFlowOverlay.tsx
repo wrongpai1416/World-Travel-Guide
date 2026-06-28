@@ -11,8 +11,7 @@ import {
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef, WorldModule } from '../../data/worlds-schema';
 import type { DimensionGeneration, DimensionSelection } from '../../worldgen/choice';
-import { DIMENSIONS, generateAllOptions, generateWorldFromSelections } from '../../worldgen/choice';
-import { generateRichModules } from '../../worldgen/choice/enrichedPipeline';
+import { DIMENSIONS, generateAllOptions, generateWorldFromSelections, generateModuleEntries } from '../../worldgen/choice';
 import { requestStreamWithRetry } from '../../api/client';
 
 // ── 维度图标映射 ──
@@ -245,17 +244,17 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
         callAI,
       );
 
-      // 模块数据（如果有）— 使用 generateRichModules 获取完整模块配置
+      // 模块数据（如果有）
       let modules: WorldModule[] = [];
       let moduleWorldBookEntries: WorldBookEntryDef[] = [];
       if (selectedModules.length > 0) {
-        const result = await generateRichModules(
+        const result = await generateModuleEntries(
           worldDef.description || userDesc,
           selectedModules,
           callAI,
         );
         modules = result.modules;
-        moduleWorldBookEntries = result.moduleWorldBookEntries;
+        moduleWorldBookEntries = result.worldBookEntries;
       }
 
       const finalEntries = [...worldBookEntries, ...moduleWorldBookEntries];
