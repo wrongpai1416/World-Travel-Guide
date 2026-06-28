@@ -8,7 +8,6 @@ import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, B
 import { createBuildContext } from '../../modules/buildContext';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
 import GuidedChoiceOverlay from './GuidedChoiceOverlay';
-import { normalizeModules } from '../../modules/normalizeModule';
 
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
@@ -245,11 +244,11 @@ export default function WorldEditorForm({
 
   const update = (patch: Partial<FormState>) => setForm(f => ({ ...f, ...patch }));
 
-  /** 更新 modules[idx].data */
+  /** 更新 modules[idx].moduleConfig */
   const updateModuleData = (idx: number, data: Record<string, unknown>) => {
     setForm(f => ({
       ...f,
-      modules: f.modules?.map((mod, i) => i === idx ? { ...mod, data } : mod),
+      modules: f.modules?.map((mod, i) => i === idx ? { ...mod, moduleConfig: data } : mod),
     }));
   };
 
@@ -379,7 +378,7 @@ export default function WorldEditorForm({
       const modules = f.modules ? [...f.modules] : [];
       const idx = modules.findIndex(m => m.moduleId === moduleId);
       if (idx >= 0) {
-        modules[idx] = { ...modules[idx], data };
+        modules[idx] = { ...modules[idx], moduleConfig: data };
       }
       return { ...f, modules };
     });
@@ -420,7 +419,7 @@ export default function WorldEditorForm({
   };
 
   // 获取天赋模块数据
-  const talentData = form.modules?.find(m => m.moduleId === 'talent')?.data as TalentModuleSchema | undefined;
+  const talentData = form.modules?.find(m => m.moduleId === 'talent')?.moduleConfig as TalentModuleSchema | undefined;
 
   // 将当前表单转换为 WorldDef 对象（供导出和保存共用）
   // 叙事内容全部存为 worldBookEntries
@@ -435,7 +434,7 @@ export default function WorldEditorForm({
         tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
         difficulty: (form.difficulty as any) || undefined,
         worldBookEntries: refinedEntries,
-        modules: normalizeModules(form.modules || []),
+        modules: form.modules,
         author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
       };
     }
@@ -576,7 +575,7 @@ export default function WorldEditorForm({
       tags: form.tags ? form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : undefined,
       difficulty: (form.difficulty as any) || undefined,
       worldBookEntries: [...entries, ...existingEntries],
-      modules: normalizeModules(form.modules || []),
+      modules: form.modules,
       author: initialWorld?.author, createdAt: initialWorld?.createdAt || new Date().toISOString(),
     };
   };
@@ -850,35 +849,36 @@ export default function WorldEditorForm({
                   </p>
                   {form.modules.map((mod, modIdx) => {
                     if (!mod.enabled) return null;
+                    const modData = mod.moduleConfig;
                     return (
                       <div key={mod.moduleId} style={{ marginBottom: 16, padding: '10px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)' }}>
                         <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: 'var(--accent)' }}>
                           {mod.name} ({mod.moduleId})
                         </div>
-                        {mod.moduleId === 'stat' && mod.data && (
-                          <StatModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'stat' && modData && (
+                          <StatModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'progression' && mod.data && (
-                          <ProgressionModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'progression' && modData && (
+                          <ProgressionModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'survival' && mod.data && (
-                          <SurvivalModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'survival' && modData && (
+                          <SurvivalModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'business' && mod.data && (
-                          <BusinessModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'business' && modData && (
+                          <BusinessModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
                         {mod.moduleId === 'dice' && (
                           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>骰子检定无需初始数据，运行时自动计算</div>
                         )}
                         {mod.moduleId === 'talent' && (
                           <TalentModuleEditor
-                            data={(mod.data as any) || { categories: [] }}
+                            data={(modData as any) || { categories: [] }}
                             onChange={(d) => updateModuleData(modIdx, d)}
                             onAiGenerate={handleTalentAiGenerate}
                             isGenerating={isGeneratingTalent}
                           />
                         )}
-                        {!mod.data && mod.moduleId !== 'dice' && mod.moduleId !== 'talent' && (
+                        {!modData && mod.moduleId !== 'dice' && mod.moduleId !== 'talent' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>暂无数据</span>
                             <button

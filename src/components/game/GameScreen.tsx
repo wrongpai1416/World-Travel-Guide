@@ -197,7 +197,7 @@ export default function GameScreen() {
     for (const mod of worldDef.modules) {
       if (!mod.enabled) continue;
       const key = keyMap[mod.moduleId];
-      if (key && mod.data) (result as any)[key] = mod.data;
+      if (key && mod.moduleConfig) (result as any)[key] = mod.moduleConfig;
     }
     return result;
   }, [worldDef]);
@@ -287,7 +287,7 @@ export default function GameScreen() {
   // ── 经营资产：自动结算（每轮变量更新后，纯机械计算） ──
   useEffect(() => {
     const handler = () => {
-      const biz = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.data as BusinessModuleSchema | undefined;
+      const biz = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.moduleConfig as BusinessModuleSchema | undefined;
       if (!biz?.assets?.length) return;
 
       let totalIncome = 0;
@@ -695,7 +695,7 @@ export default function GameScreen() {
 
       {/* 经营管理覆盖层（纯展示） */}
       {(() => {
-        const bizData = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.data as BusinessModuleSchema | undefined;
+        const bizData = worldDef?.modules?.find(m => m.moduleId === 'business' && m.enabled)?.moduleConfig as BusinessModuleSchema | undefined;
         if (!bizData) return null;
         return (
           <BusinessOverlay

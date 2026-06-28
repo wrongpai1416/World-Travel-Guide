@@ -267,7 +267,7 @@ export interface TalentModuleSchema {
 
 /**
  * 世界系统聚合类型 — 用于模块数据传递（UI 卡片、prompt 生成等）
- * 不再存放在 GameState 中，数据来源为 worldDef.modules[].data
+ * 不再存放在 GameState 中，数据来源为 worldDef.modules[].moduleConfig
  */
 export interface WorldSystemData {
   数值属性?: StatModuleSchema;
