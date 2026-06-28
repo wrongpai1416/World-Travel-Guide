@@ -42,19 +42,61 @@ ${dimensionList}
   "worldType": {
     "narrative": "关于世界类型的2-3句描述",
     "choices": [
-      { "id": "A", "title": "类型名", "subtitle": "一句话描述" },
-      { "id": "B", "title": "类型名", "subtitle": "一句话描述" },
-      { "id": "C", "title": "类型名", "subtitle": "一句话描述" },
-      { "id": "D", "title": "类型名", "subtitle": "一句话描述" }
+      { "id": "A", "title": "类型名", "subtitle": "30-50字的详细描述，包含该类型的核心特点、氛围和玩法倾向" },
+      { "id": "B", "title": "类型名", "subtitle": "30-50字的详细描述" },
+      { "id": "C", "title": "类型名", "subtitle": "30-50字的详细描述" },
+      { "id": "D", "title": "类型名", "subtitle": "30-50字的详细描述" }
     ]
   },
-  "tone": { "narrative": "...", "choices": [...] },
-  "geography": { "narrative": "...", "choices": [...] },
-  "factions": { "narrative": "...", "choices": [...] },
-  "culture": { "narrative": "...", "choices": [...] },
-  "economy": { "narrative": "...", "choices": [...] },
-  "npcs": { "narrative": "...", "choices": [...] },
-  "rules": { "narrative": "...", "choices": [...] }
+  "tone": {
+    "narrative": "关于基调的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "基调名", "subtitle": "30-50字的详细描述，包含叙事风格、情感基调、适合的故事类型" },
+      ...
+    ]
+  },
+  "geography": {
+    "narrative": "关于地理的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "地理格局名", "subtitle": "30-50字的详细描述，包含地形特征、重要区域、对势力分布的影响" },
+      ...
+    ]
+  },
+  "factions": {
+    "narrative": "关于势力的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "势力格局名", "subtitle": "30-50字的详细描述，包含主要势力、势力关系、冲突焦点" },
+      ...
+    ]
+  },
+  "culture": {
+    "narrative": "关于文化的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "文化类型名", "subtitle": "30-50字的详细描述，包含社会结构、信仰体系、重要习俗" },
+      ...
+    ]
+  },
+  "economy": {
+    "narrative": "关于经济的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "经济体系名", "subtitle": "30-50字的详细描述，包含货币形式、贸易方式、资源分配特点" },
+      ...
+    ]
+  },
+  "npcs": {
+    "narrative": "关于关键人物的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "人物群体特征", "subtitle": "30-50字的详细描述，包含典型角色类型、背景设定、与玩家的潜在关系" },
+      ...
+    ]
+  },
+  "rules": {
+    "narrative": "关于规则的2-3句描述",
+    "choices": [
+      { "id": "A", "title": "规则体系名", "subtitle": "30-50字的详细描述，包含核心机制、进阶方式、特殊限制" },
+      ...
+    ]
+  }
 }`;
 
   const raw = await callAI([{ role: 'user', content: prompt }]);
@@ -116,27 +158,27 @@ ${selectionSummary}
   "atmosphere": "氛围关键词（如 阴暗压抑、轻松明快、史诗壮阔）",
   "timePeriod": "时代背景（如 远古、中世纪、近未来）",
   "locations": [
-    { "name": "区域名", "description": "区域描述（30-60字）" }
+    { "name": "区域名", "description": "区域描述（50-80字，包含地理特征、重要地标、氛围特点）" }
   ],
   "factions": [
-    { "name": "势力名", "description": "势力描述（30-60字）", "alignment": "friendly/neutral/hostile" }
+    { "name": "势力名", "description": "势力描述（50-80字，包含势力背景、核心理念、行事风格、与其他势力的关系）", "alignment": "friendly/neutral/hostile" }
   ],
   "npcs": [
-    { "name": "NPC名", "role": "角色定位", "description": "简要描述", "personality": "性格标签" }
+    { "name": "NPC名", "role": "角色定位", "description": "角色描述（50-80字，包含外貌特征、性格特点、背景故事、与玩家的潜在关系）", "personality": "性格标签" }
   ],
-  "culture": "文化风俗描述（50-100字，包含信仰、习俗、禁忌等）",
+  "culture": "文化风俗描述（80-120字，包含信仰体系、重要习俗、社会禁忌、节日庆典等）",
   "economy": {
     "currencyName": "货币名",
     "currencySymbol": "货币符号",
-    "currencyDesc": "货币描述",
-    "priceLevel": "物价水平描述"
+    "currencyDesc": "货币描述（30-50字，包含货币来源、流通范围、价值特点）",
+    "priceLevel": "物价水平描述（30-50字，包含不同阶层的消费水平、稀缺物资价格）"
   },
   "rules": {
     "powerSystem": "力量/权力体系名称",
-    "socialStructure": "社会结构描述",
-    "specialRules": ["特殊规则1", "特殊规则2"]
+    "socialStructure": "社会结构描述（50-80字，包含阶层划分、晋升途径、社会流动性）",
+    "specialRules": ["特殊规则1（30-50字）", "特殊规则2（30-50字）"]
   },
-  "highlights": ["核心特色1", "核心特色2", "核心特色3"]
+  "highlights": ["核心特色1（20-30字）", "核心特色2（20-30字）", "核心特色3（20-30字）"]
 }`;
 
   const raw = await callAI([{ role: 'user', content: prompt }]);
@@ -180,14 +222,16 @@ ${selectionSummary}
     }
   }
 
-  // 3. factions entry
+  // 3. factions entries（每个势力独立条目，关键词触发）
   if (Array.isArray(data.factions) && data.factions.length > 0) {
-    entries.push({
-      uid: uid++, key: [], constant: true, comment: '势力格局',
-      content: data.factions.map((f: any) => `${f.name}：${f.description}`).join('\n'),
-      order: 3, position: 'before_char', entryType: 'factions',
-      meta: { factions: data.factions },
-    });
+    for (const faction of data.factions) {
+      entries.push({
+        uid: uid++, key: [faction.name], constant: false, comment: faction.name,
+        content: `${faction.name}：${faction.description}`,
+        order: 3, position: 'before_char', entryType: 'factions',
+        meta: { factions: [faction] },
+      });
+    }
   }
 
   // 4. culture entry
@@ -214,14 +258,16 @@ ${selectionSummary}
     });
   }
 
-  // 6. npcs entry
+  // 6. npcs entries（每个NPC独立条目，关键词触发）
   if (Array.isArray(data.npcs) && data.npcs.length > 0) {
-    entries.push({
-      uid: uid++, key: [], constant: true, comment: '关键人物',
-      content: data.npcs.map((n: any) => `${n.name}（${n.role}）：${n.description}`).join('\n'),
-      order: 6, position: 'before_char', entryType: 'npcs',
-      meta: { npcs: data.npcs },
-    });
+    for (const npc of data.npcs) {
+      entries.push({
+        uid: uid++, key: [npc.name], constant: false, comment: npc.name,
+        content: `${npc.name}（${npc.role}）：${npc.description}`,
+        order: 6, position: 'before_char', entryType: 'npcs',
+        meta: { npcs: [npc] },
+      });
+    }
   }
 
   // 7. rules entry

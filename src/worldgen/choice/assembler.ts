@@ -43,11 +43,11 @@ export function assembleFromChoices(
     });
   }
 
-  // ── 3. factions 条目（势力选择）──
+  // ── 3. factions 条目（势力选择，关键词触发）──
   const factions = getSelection('factions');
   if (factions) {
     entries.push({
-      uid: uid++, key: [], constant: true, comment: '势力格局',
+      uid: uid++, key: [factions.choice.title], constant: false, comment: factions.choice.title,
       content: `${factions.choice.title}：${factions.choice.subtitle}`,
       order: 3, position: 'before_char', entryType: 'factions',
       meta: {
@@ -80,11 +80,11 @@ export function assembleFromChoices(
     });
   }
 
-  // ── 6. npcs 条目（NPC选择）──
+  // ── 6. npcs 条目（NPC选择，关键词触发）──
   const npcs = getSelection('npcs');
   if (npcs) {
     entries.push({
-      uid: uid++, key: [], constant: true, comment: '关键人物',
+      uid: uid++, key: [npcs.choice.title], constant: false, comment: npcs.choice.title,
       content: `${npcs.choice.title}：${npcs.choice.subtitle}`,
       order: 6, position: 'before_char', entryType: 'npcs',
       meta: {
