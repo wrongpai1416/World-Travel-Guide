@@ -8,7 +8,7 @@ import type { StatModuleSchema, ProgressionModuleSchema, SurvivalModuleSchema, B
 import { createBuildContext } from '../../modules/buildContext';
 import { executeBuildPipeline } from '../../modules/buildPipeline';
 import GuidedChoiceOverlay from './GuidedChoiceOverlay';
-import { normalizeModules, denormalizeModules } from '../../modules/normalizeModule';
+import { normalizeModules } from '../../modules/normalizeModule';
 
 import { createDefaultStatModule, createDefaultProgressionModule, createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../../modules/defaults';
 import { buildStatGenPrompt, buildProgressionGenPrompt, buildSurvivalGenPrompt, buildBusinessGenPrompt } from '../../modules/prompts';
@@ -135,7 +135,7 @@ function worldToForm(w: WorldDef): FormState {
     highlights: highlightsMeta?.highlights?.join(', ') || '',
     locations: loreEntries.map(e => ({ name: e.comment || '', description: e.content || '' })),
     culture: cultureEntry?.content || '',
-    modules: w.modules ? denormalizeModules(w.modules) : w.modules,
+    modules: w.modules,
   };
 }
 
@@ -327,7 +327,7 @@ export default function WorldEditorForm({
       highlights: highlightsEntry?.meta?.highlights?.join(', ') || '',
       locations: loreEntries.map(e => ({ name: e.comment || '', description: (e.content || '').replace(/^【[^】]*】\n?/, '') })),
       culture: cultureEntry?.content || '',
-      modules: worldDef.modules ? denormalizeModules(worldDef.modules) : worldDef.modules,
+      modules: worldDef.modules,
     });
 
     // 存储条目，formToWorldDef 会优先使用
@@ -420,8 +420,7 @@ export default function WorldEditorForm({
   };
 
   // 获取天赋模块数据
-  const talentMod = form.modules?.find(m => m.moduleId === 'talent');
-  const talentData = (talentMod?.data || talentMod?.moduleConfig) as TalentModuleSchema | undefined;
+  const talentData = form.modules?.find(m => m.moduleId === 'talent')?.data as TalentModuleSchema | undefined;
 
   // 将当前表单转换为 WorldDef 对象（供导出和保存共用）
   // 叙事内容全部存为 worldBookEntries
@@ -851,37 +850,35 @@ export default function WorldEditorForm({
                   </p>
                   {form.modules.map((mod, modIdx) => {
                     if (!mod.enabled) return null;
-                    // 优先读 data（旧格式），其次 moduleConfig（新格式）
-                    const modData = mod.data || mod.moduleConfig;
                     return (
                       <div key={mod.moduleId} style={{ marginBottom: 16, padding: '10px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)' }}>
                         <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: 'var(--accent)' }}>
                           {mod.name} ({mod.moduleId})
                         </div>
-                        {mod.moduleId === 'stat' && modData && (
-                          <StatModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'stat' && mod.data && (
+                          <StatModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'progression' && modData && (
-                          <ProgressionModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'progression' && mod.data && (
+                          <ProgressionModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'survival' && modData && (
-                          <SurvivalModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'survival' && mod.data && (
+                          <SurvivalModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
-                        {mod.moduleId === 'business' && modData && (
-                          <BusinessModuleEditor data={modData as any} onChange={(d) => updateModuleData(modIdx, d)} />
+                        {mod.moduleId === 'business' && mod.data && (
+                          <BusinessModuleEditor data={mod.data as any} onChange={(d) => updateModuleData(modIdx, d)} />
                         )}
                         {mod.moduleId === 'dice' && (
                           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>骰子检定无需初始数据，运行时自动计算</div>
                         )}
                         {mod.moduleId === 'talent' && (
                           <TalentModuleEditor
-                            data={(modData as any) || { categories: [] }}
+                            data={(mod.data as any) || { categories: [] }}
                             onChange={(d) => updateModuleData(modIdx, d)}
                             onAiGenerate={handleTalentAiGenerate}
                             isGenerating={isGeneratingTalent}
                           />
                         )}
-                        {!modData && mod.moduleId !== 'dice' && mod.moduleId !== 'talent' && (
+                        {!mod.data && mod.moduleId !== 'dice' && mod.moduleId !== 'talent' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>暂无数据</span>
                             <button
