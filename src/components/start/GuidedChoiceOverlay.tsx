@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef, WorldModule } from '../../data/worlds-schema';
-import type { DimensionGeneration, DimensionSelection } from '../../worldgen/choice';
+import type { DimensionChoice, DimensionGeneration, DimensionSelection } from '../../worldgen/choice';
 import { generateAllOptions, generateWorldFromSelections, generateModuleEntries } from '../../worldgen/choice';
 import { requestStreamWithRetry } from '../../api/client';
 
@@ -24,16 +24,18 @@ interface GuidedDimConfig {
   icon: LucideIcon;
   required: boolean;
   color: string;
+  multiSelect?: boolean;  // 是否支持多选
+  maxSelect?: number;     // 多选时最大选择数量
 }
 
 const GUIDED_DIMENSIONS: GuidedDimConfig[] = [
   { key: 'worldType', label: '世界类型', description: '选择一个世界类型，决定整体框架', icon: Globe, required: true, color: '#6366f1' },
   { key: 'tone',      label: '叙事基调', description: '基调决定了 AI 叙述故事时的风格和氛围', icon: ScrollText, required: true, color: '#f59e0b' },
   { key: 'conflict',  label: '核心冲突', description: '核心冲突是驱动故事前进的引擎', icon: Swords, required: true, color: '#ef4444' },
-  { key: 'geography', label: '地理格局', description: '世界的地理分布和区域特征', icon: Map, required: true, color: '#10b981' },
-  { key: 'factions',  label: '势力结构', description: '各方势力的关系和格局', icon: Flag, required: true, color: '#8b5cf6' },
-  { key: 'npcs',      label: '关键人物', description: '这个世界中的重要角色', icon: User, required: true, color: '#ec4899' },
-  { key: 'culture',   label: '文化风俗', description: '信仰、习俗、日常生活', icon: BookMarked, required: false, color: '#14b8a6' },
+  { key: 'geography', label: '地理格局', description: '世界的地理分布和区域特征', icon: Map, required: true, color: '#10b981', multiSelect: true, maxSelect: 3 },
+  { key: 'factions',  label: '势力结构', description: '各方势力的关系和格局', icon: Flag, required: true, color: '#8b5cf6', multiSelect: true, maxSelect: 3 },
+  { key: 'npcs',      label: '关键人物', description: '这个世界中的重要角色', icon: User, required: true, color: '#ec4899', multiSelect: true, maxSelect: 3 },
+  { key: 'culture',   label: '文化风俗', description: '信仰、习俗、日常生活', icon: BookMarked, required: false, color: '#14b8a6', multiSelect: true, maxSelect: 2 },
   { key: 'rules',     label: '世界规则', description: '力量体系、社会结构、特殊规则', icon: ScrollText, required: true, color: '#f97316' },
 ];
 
@@ -154,17 +156,72 @@ export default function GuidedChoiceOverlay({
     // 点击其他选项时退出自定义编辑
     setIsEditingCustom(false);
 
-    const newSelection: DimensionSelection = {
-      dimensionKey: currentDim.key,
-      dimensionLabel: currentDim.label,
-      choiceId,
-      choice,
-    };
+    // 多选模式
+    if (currentDim.multiSelect) {
+      const maxSelect = currentDim.maxSelect || 3;
+      const existingSelection = selections.find(s => s.dimensionKey === currentDim.key);
 
-    setSelections(prev => {
-      const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
-      return [...filtered, newSelection];
-    });
+      if (existingSelection && existingSelection.choices) {
+        // 已有选择，检查是否已选中
+        const isSelected = existingSelection.choices.some(c => c.id === choiceId);
+        let newChoices: DimensionChoice[];
+
+        if (isSelected) {
+          // 取消选中
+          newChoices = existingSelection.choices.filter(c => c.id !== choiceId);
+        } else {
+          // 添加选中（检查上限）
+          if (existingSelection.choices.length >= maxSelect) return;
+          newChoices = [...existingSelection.choices, choice];
+        }
+
+        if (newChoices.length === 0) {
+          // 取消所有选择
+          setSelections(prev => prev.filter(s => s.dimensionKey !== currentDim.key));
+        } else {
+          // 更新选择
+          const newSelection: DimensionSelection = {
+            dimensionKey: currentDim.key,
+            dimensionLabel: currentDim.label,
+            choiceId: newChoices.map(c => c.id).join(','),
+            choice: newChoices[0], // 主选择
+            choiceIds: newChoices.map(c => c.id).join(','),
+            choices: newChoices,
+          };
+          setSelections(prev => {
+            const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+            return [...filtered, newSelection];
+          });
+        }
+      } else {
+        // 新选择
+        const newSelection: DimensionSelection = {
+          dimensionKey: currentDim.key,
+          dimensionLabel: currentDim.label,
+          choiceId,
+          choice,
+          choiceIds: choiceId,
+          choices: [choice],
+        };
+        setSelections(prev => {
+          const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+          return [...filtered, newSelection];
+        });
+      }
+    } else {
+      // 单选模式
+      const newSelection: DimensionSelection = {
+        dimensionKey: currentDim.key,
+        dimensionLabel: currentDim.label,
+        choiceId,
+        choice,
+      };
+
+      setSelections(prev => {
+        const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+        return [...filtered, newSelection];
+      });
+    }
   };
 
   // ── 保存自定义选项 ──
@@ -474,6 +531,11 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)', marginTop: '0.4rem' }}>
                 {currentDim.description}
+                {currentDim.multiSelect && (
+                  <span style={{ marginLeft: '8px', color: 'var(--accent)' }}>
+                    （可多选，最多{currentDim.maxSelect || 3}个）
+                  </span>
+                )}
               </p>
             </div>
           )}
@@ -483,7 +545,9 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
             <>
               <div style={cardGridStyle}>
                 {currentGeneration.choices.map((choice) => {
-                  const isSelected = currentSelection?.choiceId === choice.id;
+                  const isSelected = currentDim.multiSelect
+                    ? currentSelection?.choices?.some(c => c.id === choice.id)
+                    : currentSelection?.choiceId === choice.id;
                   return (
                     <button
                       key={choice.id}
