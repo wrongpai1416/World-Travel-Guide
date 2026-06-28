@@ -42,12 +42,22 @@ export default function ImageGenSettingsTab() {
   const handleComfyConnect = useCallback(async () => {
     setConnectingComfy(true);
     try {
-      await loadComfyUIData(config.comfyUrl);
+      const data = await loadComfyUIData(config.comfyUrl);
+      // 连接成功后，如果当前未选择模型/采样器/调度器，自动选第一个
+      if (data?.models?.length && !config.comfyModel) {
+        updateConfig('comfyModel', data.models[0]);
+      }
+      if (data?.samplers?.length && !config.comfySampler) {
+        updateConfig('comfySampler', data.samplers[0]);
+      }
+      if (data?.schedulers?.length && !config.comfyScheduler) {
+        updateConfig('comfyScheduler', data.schedulers[0]);
+      }
     } catch {
       // error logged in hook
     }
     setConnectingComfy(false);
-  }, [config.comfyUrl, loadComfyUIData]);
+  }, [config.comfyUrl, config.comfyModel, config.comfySampler, config.comfyScheduler, loadComfyUIData, updateConfig]);
 
   const naiModelOptions = Object.entries(NAI_MODELS).map(([value, info]) => ({
     label: info.label + (info.recommended ? ' ★' : ''),
