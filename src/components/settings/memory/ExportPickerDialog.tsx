@@ -4,6 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import { FileText, Image } from 'lucide-react';
+import { useDialog } from '../../shared/Dialog';
 import type { NarrativeMemoryRuntime, VectorMemoryItem } from '../../../memory/types';
 import { createMemoryDataPngBlob, getMemoryExportFileName } from '../../../memory/narrativePng';
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ExportPickerDialog({ onClose, store, vectorMemory, memoryRuntime }: Props) {
+  const { DialogUI, alert: dlgAlert } = useDialog();
   const [exporting, setExporting] = useState(false);
 
   const handleExport = useCallback(async (format: 'json' | 'png') => {
@@ -39,7 +41,7 @@ export function ExportPickerDialog({ onClose, store, vectorMemory, memoryRuntime
       }
       onClose();
     } catch (err) {
-      alert(`导出失败：${err instanceof Error ? err.message : String(err)}`);
+      dlgAlert(`导出失败：${err instanceof Error ? err.message : String(err)}`, { title: '导出失败' });
     } finally {
       setExporting(false);
     }
@@ -54,6 +56,7 @@ export function ExportPickerDialog({ onClose, store, vectorMemory, memoryRuntime
       }}
       onClick={() => !exporting && onClose()}
     >
+      {DialogUI}
       <div
         style={{
           width: '90%', maxWidth: 560, borderRadius: 'var(--radius-xl)',

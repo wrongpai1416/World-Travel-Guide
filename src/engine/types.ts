@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { VariableManager } from './variableManager';
 import type { WorldBookManager } from '../worldbook/index';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
@@ -39,4 +40,5 @@ export interface GameEngine {
   addMessage: (msg: ChatMessage) => void;
   retryPipeline: () => Promise<void>;
   retrySingleStage: (taskId: PipelineTaskId) => Promise<void>;
+  DialogUI: ReactNode;
 }

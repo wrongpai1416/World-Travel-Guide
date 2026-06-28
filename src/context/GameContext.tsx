@@ -243,6 +243,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return (
     <GameContext.Provider value={contextValue}>
       {children}
+      {engine.DialogUI}
     </GameContext.Provider>
   );
 }

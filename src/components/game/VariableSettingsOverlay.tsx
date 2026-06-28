@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useDialog } from '../shared/Dialog';
 import {
   X, Layers, List, Download, Upload, RefreshCw,
   ChevronDown, ChevronRight, RotateCcw, Save,
@@ -68,6 +69,7 @@ const SNAPSHOT_PAGE_SIZE = 20;
 export function VariableSettingsOverlay({
   visible, onClose, messages, varMgr, onRestoreSnapshot, onSave,
 }: Props) {
+  const { DialogUI, alert: dlgAlert } = useDialog();
   const [activeTab, setActiveTab] = useState<'snapshots' | 'variables'>('snapshots');
   const [snapshotPage, setSnapshotPage] = useState(0);
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
@@ -161,9 +163,9 @@ export function VariableSettingsOverlay({
         onSave?.();
       }
     } catch {
-      alert('JSON 格式错误，请检查后重试');
+      dlgAlert('JSON 格式错误，请检查后重试', { title: '格式错误' });
     }
-  }, [varMgr, getLayerEditText, onSave]);
+  }, [varMgr, getLayerEditText, onSave, dlgAlert]);
 
   // ─── 回滚到指定层 ───
   const handleRollback = useCallback((layer: SnapshotLayer) => {
@@ -206,7 +208,7 @@ export function VariableSettingsOverlay({
         onSave?.();
       }
     } catch {
-      alert('导入失败：文件格式不正确');
+      dlgAlert('导入失败：文件格式不正确', { title: '导入失败' });
     }
     if (importRef.current) importRef.current.value = '';
   }, [varMgr, onSave]);
@@ -235,7 +237,7 @@ export function VariableSettingsOverlay({
       setEditingVar(null);
       onSave?.();
     } catch {
-      alert('值格式错误');
+      dlgAlert('值格式错误', { title: '格式错误' });
     }
   }, [editValue, varMgr, onSave]);
 
@@ -280,6 +282,7 @@ export function VariableSettingsOverlay({
       position: 'fixed', inset: 0, zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
+      {DialogUI}
       {/* 背景 */}
       <div
         onClick={onClose}

@@ -12,9 +12,11 @@ import type { RegexScript } from '@/utils/regexScripts';
 import { exportPresetJSON, parsePresetJSON, downloadJSON, parseRegexScriptsJSON } from '@/utils/presetIO';
 import { v4 as uuid } from 'uuid';
 import { Button, Toggle, Field } from './SettingsUIComponents';
+import { useDialog } from '../shared/Dialog';
 
 export default function PresetSettingsTab() {
   const { userPresets, activePresetId, builtinOverrides, savePreset, deletePreset, setActivePreset, resetToDefault, saveBuiltinOverride, restoreBuiltinDefaults } = usePresetStore();
+  const { DialogUI, confirm: dlgConfirm } = useDialog();
   const [editingPreset, setEditingPreset] = useState<PresetPack | null>(null);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,16 +50,17 @@ export default function PresetSettingsTab() {
     downloadJSON(json, `preset_${pack.name || 'unnamed'}.json`);
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    if (!confirm('确定要删除这个预设吗？')) return;
+  const handleDelete = useCallback(async (id: string) => {
+    if (!await dlgConfirm('确定要删除这个预设吗？', { danger: true, confirmText: '删除' })) return;
     deletePreset(id);
     if (editingPreset?.id === id) setEditingPreset(null);
-  }, [deletePreset, editingPreset]);
+  }, [deletePreset, editingPreset, dlgConfirm]);
 
   // ─── 主列表视图 ───
   if (!editingPreset) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {DialogUI}
         <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -224,14 +227,15 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
   onClose: () => void; onSave: (p: PresetPack) => void;
   onRestoreDefaults?: () => void;
 }) {
+  const { DialogUI, confirm: dlgConfirm } = useDialog();
   const [tab, setTab] = useState<'prompts' | 'regex'>('prompts');
   const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
   const [expandedRegex, setExpandedRegex] = useState<number | null>(null);
   const regexFileRef = useRef<HTMLInputElement>(null);
 
   // 恢复内置预设默认值
-  const handleRestoreDefaults = useCallback(() => {
-    if (!confirm('确定要恢复默认设置吗？所有条目将重置为初始状态。')) return;
+  const handleRestoreDefaults = useCallback(async () => {
+    if (!await dlgConfirm('确定要恢复默认设置吗？所有条目将重置为初始状态。', { confirmText: '恢复默认' })) return;
     if (onRestoreDefaults) {
       onRestoreDefaults();
     } else {
@@ -254,6 +258,27 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
     );
     onSave({ ...preset, prompts });
   }, [preset, onSave]);
+
+  const addPrompt = useCallback(() => {
+    const id = `custom_${uuid().slice(0, 8)}`;
+    const maxOrder = preset.prompts.reduce((max, p) => Math.max(max, p.order), 0);
+    const newEntry: PresetPromptEntry = {
+      identifier: id,
+      name: '新条目',
+      role: 'system',
+      content: '',
+      enabled: true,
+      triggerMode: 'blue',
+      order: maxOrder + 1,
+    };
+    onSave({ ...preset, prompts: [...preset.prompts, newEntry] });
+    setExpandedPrompt(id);
+  }, [preset, onSave]);
+
+  const deletePrompt = useCallback((identifier: string) => {
+    onSave({ ...preset, prompts: preset.prompts.filter(p => p.identifier !== identifier) });
+    if (expandedPrompt === identifier) setExpandedPrompt(null);
+  }, [preset, onSave, expandedPrompt]);
 
   // ─── 正则操作 ───
   const addRegex = useCallback(() => {
@@ -298,6 +323,7 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
       display: 'flex', justifyContent: 'center',
       background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
     }} onClick={onClose}>
+      {DialogUI}
       <div style={{
         width: '90vw', maxWidth: '720px', height: '90vh',
         background: 'var(--bg-primary)', borderRadius: '12px',
@@ -359,6 +385,11 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
           {/* === 条目 Tab === */}
           {tab === 'prompts' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {!builtin && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <Button onClick={addPrompt} icon={<Plus size={14} />}>新增条目</Button>
+                </div>
+              )}
               {sortedPrompts.map(p => (
                 <div key={p.identifier} style={{
                   borderRadius: '8px',
@@ -387,6 +418,11 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
                     <button onClick={(e) => { e.stopPropagation(); togglePrompt(p.identifier); }} style={iconBtnStyle}>
                       {p.enabled ? <ToggleRight size={16} color="var(--accent)" /> : <ToggleLeft size={16} />}
                     </button>
+                    {!builtin && (
+                      <button onClick={(e) => { e.stopPropagation(); deletePrompt(p.identifier); }} style={{ ...iconBtnStyle, color: 'var(--danger)' }} title="删除条目">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
 
                   {/* 条目展开 */}
@@ -398,6 +434,23 @@ function PresetEditorOverlay({ preset, builtin, onClose, onSave, onRestoreDefaul
                       <Field label="显示名称">
                         <input className="input-field" style={inputStyle} value={p.name} disabled={builtin} onChange={e => updatePrompt(p.identifier, { name: e.target.value })} />
                       </Field>
+
+                      {/* 角色 */}
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>角色：</span>
+                        {(['system', 'user', 'assistant'] as const).map(r => (
+                          <button
+                            key={r}
+                            disabled={builtin}
+                            onClick={() => updatePrompt(p.identifier, { role: r })}
+                            style={{
+                              ...chipStyle,
+                              background: p.role === r ? 'var(--accent)' : 'var(--bg-tertiary)',
+                              color: p.role === r ? '#fff' : 'var(--text-secondary)',
+                            }}
+                          >{r}</button>
+                        ))}
+                      </div>
 
                       {/* 触发模式 */}
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

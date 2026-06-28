@@ -1,5 +1,6 @@
 // 游戏引擎 - 管线化消息发送、流式响应、变量更新
 import { useCallback, useRef, useState, useEffect } from 'react';
+import { useDialog } from '../components/shared/Dialog';
 import type { ApiConfig, Message } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
 import { setRateLimitInterval } from '../api/rateLimiter';
@@ -109,6 +110,7 @@ export function useGameEngine(
   characterHistory?: string,
   onAutoSave?: () => void,
 ): GameEngine {
+  const { DialogUI, alert: dlgAlert } = useDialog();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
   const sendMessageRef = useRef<((text: string) => Promise<void>) | null>(null);
@@ -721,14 +723,14 @@ ${perspectiveInstruction}
     if (!apiConfig || !ctx || !executor) {
       const reason = !apiConfig ? 'API 配置缺失' : '管线上下文或执行器已丢失（可能页面刷新过）';
       console.warn('[单步重试] 无法重试：', reason);
-      alert(`无法重试：${reason}`);
+      dlgAlert(`无法重试：${reason}`, { title: '重试失败' });
       return;
     }
 
     const aiMsg = messagesRef.current.find(m => m.id === ctx.aiMsgId);
     if (!aiMsg || !aiMsg.rawText || aiMsg.rawText.startsWith('[错误]')) {
       console.warn('[单步重试] 无法重试：AI 消息不存在或正文为空');
-      alert('无法重试：AI 消息不存在或正文为空');
+      dlgAlert('无法重试：AI 消息不存在或正文为空', { title: '重试失败' });
       return;
     }
 
@@ -952,5 +954,6 @@ ${perspectiveInstruction}
     deleteSingleMessage, editMessage, resendFromMessage, resendFromAssistantMessage,
     loadSave, reset, setPlayerProfile, applyModuleInitData, setInitialNPCs, addMessage,
     retryPipeline, retrySingleStage,
+    DialogUI,
   };
 }

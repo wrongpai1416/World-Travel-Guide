@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useState, useMemo, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useDialog } from '../shared/Dialog';
 import {
   BarChart3, Cpu, Layers, Download, Upload,
   ChevronDown, ChevronRight, RotateCcw, Save,
@@ -46,6 +47,7 @@ const PAGE_SIZE = 20;
 
 const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
   ({ variableManager, presets, initialAuxPresetId, messages }, ref) => {
+    const { DialogUI, alert: dlgAlert } = useDialog();
     // ─── 设置状态 ───
     const [variableEnabled, setVariableEnabled] = useState(() => {
       try { return localStorage.getItem(VARIABLE_ENABLED_KEY) !== 'false'; } catch { return true; }
@@ -123,7 +125,7 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
           setModified(prev => { const n = new Set(prev); n.delete(layer.id); return n; });
           setRefreshKey(k => k + 1);
         }
-      } catch { alert('JSON 格式错误'); }
+      } catch { dlgAlert('JSON 格式错误', { title: '格式错误' }); }
     }, [variableManager, getEditText]);
 
     const handleRollback = useCallback((layer: SnapshotLayer) => {
@@ -145,7 +147,7 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
         const data = JSON.parse(await file.text());
         const snap = data.current || data.snapshot || data;
         if (typeof snap === 'object' && snap !== null) { variableManager.restoreSnapshot(snap); setRefreshKey(k => k + 1); }
-      } catch { alert('导入失败'); }
+      } catch { dlgAlert('导入失败', { title: '导入失败' }); }
       if (importRef.current) importRef.current.value = '';
     }, [variableManager]);
 
@@ -153,6 +155,7 @@ const VariableSettingsTab = forwardRef<VariableSettingsRef, Props>(
 
     return (
       <div style={{ maxWidth: '720px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {DialogUI}
         {/* 基础设置 */}
         <Section icon={<BarChart3 size={15} />} title="变量系统">
           <SettingRow label="启用变量系统" desc="AI 回复后自动提取并更新游戏变量">

@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronRight, RotateCcw, Save,
   ChevronLeft, ChevronRight as ChevronRightNav,
 } from 'lucide-react';
+import { useDialog } from '../../shared/Dialog';
 import type { GameState } from '../../../schema/variables';
 import type { VariableManager } from '../../../engine/variableManager';
 import type { ChatMessage } from '../../../engine/types';
@@ -46,6 +47,7 @@ const SNAPSHOT_PAGE_SIZE = 20;
 export default function VariableSnapshotPanel({
   messages, varMgr, onRestoreSnapshot, onSave,
 }: Props) {
+  const { DialogUI, alert: dlgAlert } = useDialog();
   const [snapshotPage, setSnapshotPage] = useState(0);
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
   const [layerEditTexts, setLayerEditTexts] = useState<Record<string, string>>({});
@@ -145,9 +147,9 @@ export default function VariableSnapshotPanel({
         onSave?.();
       }
     } catch {
-      alert('JSON 格式错误，请检查后重试');
+      dlgAlert('JSON 格式错误，请检查后重试', { title: '格式错误' });
     }
-  }, [varMgr, getLayerEditText, onSave]);
+  }, [varMgr, getLayerEditText, onSave, dlgAlert]);
 
   // ─── 回滚到指定层 ───
   const handleRollback = useCallback((layer: SnapshotLayer) => {
@@ -190,7 +192,7 @@ export default function VariableSnapshotPanel({
         onSave?.();
       }
     } catch {
-      alert('导入失败：文件格式不正确');
+      dlgAlert('导入失败：文件格式不正确', { title: '导入失败' });
     }
     if (importRef.current) importRef.current.value = '';
   }, [varMgr, onSave]);
@@ -209,6 +211,7 @@ export default function VariableSnapshotPanel({
       height: '100%',
       background: 'var(--bg-primary)',
     }}>
+      {DialogUI}
       {/* 头部工具栏 */}
       <div style={{
         display: 'flex',
