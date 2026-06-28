@@ -139,6 +139,41 @@ export default function GuidedChoiceOverlay({
 
     // 点击自定义选项 E
     if (choiceId === 'E') {
+      // 检查 E 是否已经选中
+      const isCustomSelected = currentDim.multiSelect
+        ? currentSelection?.choices?.some(c => c.id === 'E')
+        : currentSelection?.choiceId === 'E';
+
+      // 如果 E 已经选中，先取消选择
+      if (isCustomSelected) {
+        if (currentDim.multiSelect) {
+          setSelections(prev => {
+            const existingSelection = prev.find(s => s.dimensionKey === currentDim.key);
+            if (existingSelection && existingSelection.choices) {
+              const newChoices = existingSelection.choices.filter(c => c.id !== 'E');
+              if (newChoices.length === 0) {
+                return prev.filter(s => s.dimensionKey !== currentDim.key);
+              }
+              const newSelection: DimensionSelection = {
+                dimensionKey: currentDim.key,
+                dimensionLabel: currentDim.label,
+                choiceId: newChoices.map(c => c.id).join(','),
+                choice: newChoices[0],
+                choiceIds: newChoices.map(c => c.id).join(','),
+                choices: newChoices,
+              };
+              return [...prev.filter(s => s.dimensionKey !== currentDim.key), newSelection];
+            }
+            return prev;
+          });
+        } else {
+          setSelections(prev => prev.filter(s => s.dimensionKey !== currentDim.key));
+        }
+        setIsEditingCustom(false);
+        return;
+      }
+
+      // 如果 E 没有选中，打开编辑模式
       setIsEditingCustom(true);
       // 如果之前有自定义选择，恢复内容（支持多选模式下的 choiceId 逗号拼接）
       const existingCustom = selections.find(s =>
