@@ -369,25 +369,15 @@ src/
 │   ├── index.ts                # 世界书管理器（v2 扫描注入）
 │   ├── worldInfoEngine.ts      # SillyTavern 兼容扫描引擎
 │   └── npcWorldbook.ts         # NPC 世界书去重
-└── worldgen/                   # 世界生成管线
-    ├── pipeline.ts             # 7 阶段生成管线
+└── worldgen/                   # 世界生成管线（选择式）
     ├── types.ts                # 世界生成类型定义
     ├── index.ts                # 导出
-    ├── prompts/                # 各阶段 Prompt
-    │   ├── seed.ts             # 种子分析 Prompt
-    │   ├── skeleton.ts         # 骨架生成 Prompt
-    │   ├── dimensions.ts       # 维度展开 Prompt
-    │   ├── consistency.ts      # 一致性校验 Prompt
-    │   ├── deep-detail.ts      # 深度描写 Prompt
-    │   └── worldbook-synth.ts  # 世界书合成 Prompt
-    └── stages/                 # 各阶段实现
-        ├── stage0-seed.ts      # 阶段 0：种子分析
-        ├── stage1-skeleton.ts  # 阶段 1：骨架生成
-        ├── stage2-dimensions.ts# 阶段 2：维度展开
-        ├── stage3-consistency.ts# 阶段 3：一致性校验
-        ├── stage4-deep-detail.ts# 阶段 4：深度描写
-        ├── stage5-worldbook.ts # 阶段 5：世界书条目生成
-        └── stage6-modules.ts   # 阶段 6：模块数据生成
+    └── choice/                 # 选择式世界生成
+        ├── choicePipeline.ts   # 主流程（选项生成 + 世界生成）
+        ├── assembler.ts        # 世界书条目组装器
+        ├── prompts.ts          # 维度选项生成 Prompt
+        ├── types.ts            # 选择式流程类型定义
+        └── index.ts            # 导出
 ```
 
 ---

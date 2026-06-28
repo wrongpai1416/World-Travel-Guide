@@ -24,6 +24,10 @@ export interface DimensionSelection {
   dimensionLabel: string;
   choiceId: string;
   choice: DimensionChoice;
+  /** 多选时的所有选择ID（逗号分隔） */
+  choiceIds?: string;
+  /** 多选时的所有选择 */
+  choices?: DimensionChoice[];
 }
 
 /** 维度定义 */
@@ -31,6 +35,8 @@ export interface DimensionConfig {
   key: string;          // 'tone' | 'geography' | 'factions' | ...
   label: string;        // '基调' | '地理' | '势力' | ...
   required: boolean;    // 是否必选
+  multiSelect?: boolean; // 是否支持多选（默认false）
+  maxSelect?: number;    // 多选时最大选择数量（默认3）
   entryType: WorldBookEntryType;  // 对应的世界书条目类型
 }
 

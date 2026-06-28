@@ -6,11 +6,11 @@ import type { DimensionConfig, DimensionSelection } from './types';
 /** 维度配置列表 */
 export const DIMENSIONS: DimensionConfig[] = [
   { key: 'tone',      label: '基调', required: true,  entryType: 'setting' },
-  { key: 'geography', label: '地理', required: true,  entryType: 'lore' },
-  { key: 'factions',  label: '势力', required: true,  entryType: 'factions' },
-  { key: 'culture',   label: '文化', required: false, entryType: 'culture' },
-  { key: 'economy',   label: '经济', required: false, entryType: 'economy' },
-  { key: 'npcs',      label: 'NPC',  required: true,  entryType: 'npcs' },
+  { key: 'geography', label: '地理', required: true,  multiSelect: true, maxSelect: 3, entryType: 'lore' },
+  { key: 'factions',  label: '势力', required: true,  multiSelect: true, maxSelect: 3, entryType: 'factions' },
+  { key: 'culture',   label: '文化', required: false, multiSelect: true, maxSelect: 2, entryType: 'culture' },
+  { key: 'economy',   label: '经济', required: false, multiSelect: true, maxSelect: 2, entryType: 'economy' },
+  { key: 'npcs',      label: 'NPC',  required: true,  multiSelect: true, maxSelect: 3, entryType: 'npcs' },
   { key: 'rules',     label: '规则', required: true,  entryType: 'rules' },
 ];
 

@@ -87,7 +87,15 @@ export async function generateWorldFromSelections(
   callAI: CallAI,
 ): Promise<{ worldDef: Partial<WorldDef>; worldBookEntries: WorldBookEntryDef[] }> {
   const selectionSummary = selections
-    .map(s => `【${s.dimensionLabel}】${s.choice.title}：${s.choice.subtitle}`)
+    .map(s => {
+      if (s.choices && s.choices.length > 1) {
+        // 多选维度，显示所有选择
+        const choicesDesc = s.choices.map(c => `${c.title}（${c.subtitle}）`).join('、');
+        return `【${s.dimensionLabel}】${choicesDesc}`;
+      }
+      // 单选维度
+      return `【${s.dimensionLabel}】${s.choice.title}：${s.choice.subtitle}`;
+    })
     .join('\n');
 
   const prompt = `你是一个世界构建专家。用户想要创建一个世界：

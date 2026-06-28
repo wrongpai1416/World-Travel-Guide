@@ -125,17 +125,71 @@ export default function ChoiceFlowOverlay({
 
     setIsEditingCustom(false);
 
-    const newSelection: DimensionSelection = {
-      dimensionKey: currentDim.key,
-      dimensionLabel: currentDim.label,
-      choiceId,
-      choice,
-    };
+    // 多选模式
+    if (currentDim.multiSelect) {
+      const maxSelect = currentDim.maxSelect || 3;
+      const existingSelection = selections.find(s => s.dimensionKey === currentDim.key);
 
-    setSelections(prev => {
-      const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
-      return [...filtered, newSelection];
-    });
+      if (existingSelection && existingSelection.choices) {
+        // 已有选择，检查是否已选中
+        const isSelected = existingSelection.choices.some(c => c.id === choiceId);
+        let newChoices: DimensionChoice[];
+
+        if (isSelected) {
+          // 取消选中
+          newChoices = existingSelection.choices.filter(c => c.id !== choiceId);
+        } else {
+          // 添加选中（检查上限）
+          if (existingSelection.choices.length >= maxSelect) return;
+          newChoices = [...existingSelection.choices, choice];
+        }
+
+        if (newChoices.length === 0) {
+          // 取消所有选择
+          setSelections(prev => prev.filter(s => s.dimensionKey !== currentDim.key));
+        } else {
+          // 更新选择
+          const newSelection: DimensionSelection = {
+            dimensionKey: currentDim.key,
+            dimensionLabel: currentDim.label,
+            choiceId: newChoices.map(c => c.id).join(','),
+            choice: newChoices[0], // 主选择
+            choiceIds: newChoices.map(c => c.id).join(','),
+            choices: newChoices,
+          };
+          setSelections(prev => {
+            const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+            return [...filtered, newSelection];
+          });
+        }
+      } else {
+        // 新选择
+        const newSelection: DimensionSelection = {
+          dimensionKey: currentDim.key,
+          dimensionLabel: currentDim.label,
+          choiceId,
+          choice,
+          choiceIds: choiceId,
+          choices: [choice],
+        };
+        setSelections(prev => {
+          const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+          return [...filtered, newSelection];
+        });
+      }
+    } else {
+      // 单选模式
+      const newSelection: DimensionSelection = {
+        dimensionKey: currentDim.key,
+        dimensionLabel: currentDim.label,
+        choiceId,
+        choice,
+      };
+      setSelections(prev => {
+        const filtered = prev.filter(s => s.dimensionKey !== currentDim.key);
+        return [...filtered, newSelection];
+      });
+    }
   };
 
   // ── 保存自定义选项 ──
@@ -376,19 +430,29 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
           <>
             <div className="choice-flow-narrative">
               {currentGeneration.narrative}
+              {currentDim.multiSelect && (
+                <span className="choice-flow-multi-hint">
+                  （可多选，最多{currentDim.maxSelect || 3}个）
+                </span>
+              )}
             </div>
             <div className="choice-flow-options">
-              {currentGeneration.choices.map((choice) => (
-                <button
-                  key={choice.id}
-                  className={`choice-card ${currentSelection?.choiceId === choice.id ? 'selected' : ''}`}
-                  onClick={() => handleSelect(choice.id)}
-                >
-                  <div className="choice-card-id">{choice.id}</div>
-                  <div className="choice-card-title">{choice.title}</div>
-                  <div className="choice-card-subtitle">{choice.subtitle}</div>
-                </button>
-              ))}
+              {currentGeneration.choices.map((choice) => {
+                const isSelected = currentDim.multiSelect
+                  ? currentSelection?.choices?.some(c => c.id === choice.id)
+                  : currentSelection?.choiceId === choice.id;
+                return (
+                  <button
+                    key={choice.id}
+                    className={`choice-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleSelect(choice.id)}
+                  >
+                    <div className="choice-card-id">{choice.id}</div>
+                    <div className="choice-card-title">{choice.title}</div>
+                    <div className="choice-card-subtitle">{choice.subtitle}</div>
+                  </button>
+                );
+              })}
 
               {/* E 卡片：自定义选项 */}
               {(() => {
