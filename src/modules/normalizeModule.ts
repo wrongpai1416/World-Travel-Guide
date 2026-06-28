@@ -113,3 +113,77 @@ function normalizeGenericModule(mod: WorldModule, data: Record<string, unknown>)
 export function normalizeModules(modules: WorldModule[]): WorldModule[] {
   return modules.map(normalizeModule);
 }
+
+// ─── 反向转换：供编辑器使用 ───
+// 编辑器的模块编辑组件读写 mod.data，需要从 moduleConfig + initialState 重建 data
+
+/**
+ * 将新格式（moduleConfig + initialState）反向转换为旧格式（data）
+ * 供编辑器内部使用，保存时再通过 normalizeModules 转回新格式
+ */
+export function denormalizeModule(mod: WorldModule): WorldModule {
+  // 已有 data，无需转换
+  if (mod.data) return mod;
+
+  const mc = mod.moduleConfig as Record<string, unknown> | undefined;
+  const is = mod.initialState as Record<string, unknown> | undefined;
+  if (!mc) return mod;
+
+  let data: Record<string, unknown>;
+
+  switch (mod.moduleId) {
+    case 'stat': {
+      data = {};
+      // attrA / attrB
+      for (const key of ['attrA', 'attrB']) {
+        const cfg = mc[key] as Record<string, unknown> | undefined;
+        if (cfg) {
+          data[key] = {
+            name: cfg.name,
+            current: is?.[key] ?? 80,
+            max: cfg.max,
+          };
+        }
+      }
+      // dim1~dim6
+      for (let i = 1; i <= 6; i++) {
+        const dimKey = `dim${i}`;
+        const cfg = mc[dimKey] as Record<string, unknown> | undefined;
+        if (cfg) {
+          data[dimKey] = {
+            name: cfg.name,
+            value: is?.[`${dimKey}Value`] ?? 50,
+            range: cfg.range,
+          };
+        }
+      }
+      // special
+      if (Array.isArray(mc.special)) {
+        const specialState = (is?.special || {}) as Record<string, number>;
+        data.special = (mc.special as Array<Record<string, unknown>>).map(sp => ({
+          ...sp,
+          value: specialState[sp.id as string] ?? sp.value ?? 0,
+        }));
+      }
+      break;
+    }
+    case 'progression': {
+      data = { ...mc };
+      if (is) {
+        data.currentTierIndex = is.currentTierIndex ?? 0;
+        data.currentXP = is.currentXP ?? 0;
+      }
+      break;
+    }
+    default:
+      data = { ...mc };
+      break;
+  }
+
+  return { ...mod, data };
+}
+
+/** 批量反向转换 */
+export function denormalizeModules(modules: WorldModule[]): WorldModule[] {
+  return modules.map(denormalizeModule);
+}
