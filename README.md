@@ -72,6 +72,15 @@
 - **存档系统**：存档列表、加载、删除，本地 IndexedDB 持久化
 - **角色档案**：ProfilePanel 展示角色信息，NotebookPanel 记录冒险笔记
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/message-square.svg" width="16" height="16" /> 游戏主界面与多媒体
+
+- **游戏界面**：聊天、面板、覆盖层一体化游戏主界面
+- **聊天组件**：消息列表、输入框、Markdown 渲染、代码高亮
+- **移动端适配**：MobileOverlay 移动端专属 UI 覆盖
+- **经营系统**：BusinessOverlay 经营系统覆盖界面
+- **图片生成**：useImageGen Hook，队列化异步生成，ComfyUI 集成
+- **图片画廊**：生成图片展示与管理
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责

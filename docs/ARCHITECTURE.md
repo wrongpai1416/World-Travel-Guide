@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.6.0
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.7.0
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)
 
@@ -94,6 +94,44 @@
 6. **APIRequest** — 发送 SSE 流式请求
 7. **ResponseExtract** — 从响应中提取结构化数据
 8. **VariableUpdate** — 更新变量状态
+
+---
+
+## 游戏主界面与多媒体
+
+### 游戏界面架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   游戏层 (components/game/*)                 │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ GameScreen    │  │ MobileOverlay │  │ chat/         │   │
+│  │ 游戏主界面     │  │ 移动端覆盖     │  │ 聊天组件       │   │
+│  └───────┬───────┘  └───────────────┘  └───────────────┘   │
+│          │                                                  │
+│  ┌───────▼───────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ panels/       │  │ BusinessOver  │  │ ImageGallery  │   │
+│  │ 游戏面板       │  │ 经营覆盖层     │  │ 图片画廊       │   │
+│  └───────────────┘  └───────────────┘  └───────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 路由更新
+
+```typescript
+// App.tsx
+switch (state.currentScreen) {
+  case 'settings': return <SettingsScreen />;
+  case 'game': return <GameScreen />;
+  default: return <StartScreen />;
+}
+```
+
+### 生图系统
+
+```
+用户输入 → useImageGen → 队列化 → API 请求 → 图片存储 → ImageGallery
+```
 
 ---
 

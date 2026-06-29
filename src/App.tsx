@@ -3,6 +3,7 @@ import { UISettingsProvider } from './context/UISettingsContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import SettingsScreen from './components/SettingsScreen';
 import StartScreen from './components/start/StartScreen';
+import GameScreen from './components/game/GameScreen';
 
 function AppContent() {
   const { state } = useGame();
@@ -10,6 +11,8 @@ function AppContent() {
   switch (state.currentScreen) {
     case 'settings':
       return <SettingsScreen />;
+    case 'game':
+      return <GameScreen />;
     default:
       return <StartScreen />;
   }

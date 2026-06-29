@@ -1,5 +1,23 @@
 # 更新日志
 
+## v1.7.0 — 游戏主界面与多媒体
+
+### ✨ 新增功能
+
+- **游戏界面** (`components/game/GameScreen`)：游戏主界面，聊天、面板、覆盖层
+- **移动端覆盖层** (`components/game/MobileOverlay`)：移动端专属 UI 覆盖
+- **聊天组件** (`components/game/chat/`)：消息列表、输入框、消息渲染
+- **经营覆盖层** (`components/game/panels/BusinessOverlay`)：经营系统覆盖界面
+- **图片画廊** (`components/game/panels/ImageGallery`)：生成图片展示与管理
+- **生图 Hook** (`hooks/useImageGen`)：图片生成队列、ComfyUI 集成
+- **生图设置** (`components/settings/ImageGenSettingsTab`)：生图配置界面
+
+### 🏗️ 架构
+
+- App.tsx 更新：加入 GameScreen 路由
+- 聊天组件支持 Markdown 渲染、代码高亮
+- 生图系统支持队列化、异步生成
+
 ## v1.6.0 — 启动流程与角色创建
 
 ### ✨ 新增功能
