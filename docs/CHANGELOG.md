@@ -1,5 +1,25 @@
 # 更新日志
 
+## v1.4.0 — 世界模块化系统
+
+### ✨ 新增功能
+
+- **模块注入器** (`modules/injector`)：applyModulesV2 将模块注入提示词
+- **模块运行时** (`modules/runtime`)：模块运行时状态管理
+- **模块 Schema** (`modules/schema`)：模块数据结构定义
+- **模块默认值** (`modules/defaults`)：生存、经营、骰子、天赋模块默认配置
+- **经验算法** (`modules/xpAlgorithm`)：模块升级经验计算
+- **模块归一化** (`modules/normalizeModule`)：模块数据归一化
+- **内置模块数据** (`data/modules.ts`)：预定义模块配置
+- **编译格式化器** (`memory/compileFormatter`)：记忆编译输出格式化
+- **模块卡片** (`components/game/panels/ModuleCard`)：模块展示卡片
+- **模块面板** (`components/game/panels/modules/`)：模块管理界面
+
+### 🏗️ 架构
+
+- 模块化系统支持热插拔，通过 injector 注入提示词
+- 模块间独立，通过统一 Schema 管理
+
 ## v1.3.0 — NPC 系统与世界书
 
 ### ✨ 新增功能

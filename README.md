@@ -48,6 +48,13 @@
 - **世界书面板**：游戏内世界书条目管理
 - **角色网格**：NPC 角色展示与管理
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/package.svg" width="16" height="16" /> 世界模块化系统
+
+- **模块注入器**：applyModulesV2 将模块配置注入 AI 提示词
+- **内置模块**：生存（生命/饥饿/疲劳）、经营（资源/贸易）、骰子（随机/检定）、天赋（技能树）
+- **模块运行时**：独立运行时状态管理，支持热插拔
+- **经验算法**：模块升级经验计算与等级系统
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责
