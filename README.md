@@ -30,6 +30,16 @@
 - **API 客户端**：OpenAI-compatible SSE 流式接口，支持重试与速率限制
 - **预设系统**：内置预设包 + 用户自定义预设，支持 JSON 导入/导出
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/brain.svg" width="16" height="16" /> 叙事记忆系统
+
+- **编译式记忆管线**：写入→摘要→向量化→检索→重排→编译，六阶段全自动
+- **叙事图谱**：Mermaid 可视化叙事节点关系图
+- **变量系统**：结构化变量定义 + 变量设置覆盖层
+- **向量检索**：支持向量相似度检索与重排序
+- **正则脚本**：可配置的标签清理与内容过滤
+
+> **致谢**：叙事记忆系统移植自 [lucklyjkop](https://github.com/lucklyjkop) 的项目，经原作者授权使用。特此感谢。
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责

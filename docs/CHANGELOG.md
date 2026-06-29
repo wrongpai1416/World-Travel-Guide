@@ -1,5 +1,27 @@
 # 更新日志
 
+## v1.2.0 — 叙事记忆系统
+
+### ✨ 新增功能
+
+- **编译式记忆管线** (`memory/memoryPipeline`)：六阶段全自动记忆处理（写入→摘要→向量化→检索→重排→编译）
+- **叙事图谱** (`memory/narrativeGraph`)：Mermaid 可视化叙事节点关系图
+- **叙事解析器** (`memory/narrativeParsers`)：从对话中提取叙事片段
+- **向量工具** (`memory/vectorUtils`)：向量相似度计算与检索
+- **记忆配置** (`memory/memoryConfig`)：记忆系统参数配置
+- **记忆提示词** (`memory/memoryPrompts`)：记忆相关提示词模板
+- **变量系统** (`schema/variables`)：结构化变量定义
+- **设置界面**：记忆设置 Tab、变量设置 Tab、记忆设置覆盖层
+- **Mermaid 图表面板** (`components/shared/MermaidGraphPanel`)：叙事图谱可视化
+
+### 📄 文档
+
+- 新增 `docs/reference-memory-system.md` 记忆系统参考文档
+
+### 🙏 致谢
+
+- 叙事记忆系统移植自 [lucklyjkop](https://github.com/lucklyjkop) 的项目，经原作者授权使用
+
 ## v1.1.0 — AI 引擎核心
 
 ### ✨ 新增功能
