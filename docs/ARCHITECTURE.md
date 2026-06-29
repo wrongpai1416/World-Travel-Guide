@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.4.0
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.5.0
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)
 
@@ -94,6 +94,52 @@
 6. **APIRequest** — 发送 SSE 流式请求
 7. **ResponseExtract** — 从响应中提取结构化数据
 8. **VariableUpdate** — 更新变量状态
+
+---
+
+## 世界生成与内置世界
+
+### 世界数据架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   数据层 (data/*)                            │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ worlds-schema │  │ worldLoader   │  │ worlds/       │   │
+│  │ 世界定义 Schema│  │ 世界加载器     │  │ 内置世界数据   │   │
+│  └───────────────┘  └───────────────┘  └───────────────┘   │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ worldTemplates│  │ builtinPresets │  │ modules       │   │
+│  │ 世界模板       │  │ 内置预设       │  │ 模块配置       │   │
+│  └───────────────┘  └───────────────┘  └───────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   生成层 (worldgen/*)                        │
+│  ┌───────────────┐                                         │
+│  │ worldPersonality│                                        │
+│  │ 世界书加载与配置 │                                        │
+│  └───────────────┘                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### WorldDef 结构
+
+```typescript
+interface WorldDef {
+  id: string;
+  name: string;
+  description: string;
+  genre: string;
+  tags: string[];
+  modules?: string[];
+  worldBookEntries?: WorldBookEntry[];
+  playerProfile?: PlayerProfile;
+  npcs?: NpcDef[];
+  variables?: Record<string, unknown>;
+}
+```
 
 ---
 

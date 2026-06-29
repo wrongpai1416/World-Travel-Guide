@@ -55,6 +55,15 @@
 - **模块运行时**：独立运行时状态管理，支持热插拔
 - **经验算法**：模块升级经验计算与等级系统
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/globe-2.svg" width="16" height="16" /> 世界生成与内置世界
+
+- **世界定义 Schema**：WorldDef 统一数据结构，支持模块、世界书、NPC、变量
+- **世界加载器**：世界查找、世界书条目获取
+- **内置世界**：预定义世界观配置，开箱即用
+- **世界模板**：世界创建模板，快速构建新世界
+- **世界生成器**：程序化世界生成
+- **世界配置应用**：世界书条目加载、启用/禁用、模块注入
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责

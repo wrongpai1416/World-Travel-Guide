@@ -1,5 +1,25 @@
 # 更新日志
 
+## v1.5.0 — 世界生成与内置世界
+
+### ✨ 新增功能
+
+- **世界定义 Schema** (`data/worlds-schema`)：WorldDef 数据结构定义
+- **世界加载器** (`data/worldLoader`)：世界加载、查找、世界书条目获取
+- **内置世界数据** (`data/worlds/`)：预定义世界观配置
+- **世界模板** (`data/worldTemplates/`)：世界创建模板
+- **世界生成器** (`worldgen/`)：程序化世界生成
+- **世界配置应用** (`engine/worldPersonality`)：世界书条目加载、启用/禁用、模块注入
+- **内置预设** (`data/builtinPresets`)：系统内置预设包
+- **世界选择步骤** (`components/start/StepWorld*.tsx`)：世界选择向导步骤
+- **世界卡片** (`components/start/WorldCard`)：世界展示卡片
+- **世界编辑表单** (`components/start/WorldEditorForm`)：世界编辑界面
+
+### 🏗️ 架构
+
+- 世界定义与模块系统解耦，通过 WorldDef 统一管理
+- 支持 JSON 格式世界数据导入导出
+
 ## v1.4.0 — 世界模块化系统
 
 ### ✨ 新增功能
