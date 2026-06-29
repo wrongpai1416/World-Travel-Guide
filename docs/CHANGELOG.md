@@ -1,5 +1,24 @@
 # 更新日志
 
+## v1.3.0 — NPC 系统与世界书
+
+### ✨ 新增功能
+
+- **世界书管理器** (`worldbook/index`)：支持 SillyTavern 级别的扫描引擎，正则关键词、选择逻辑、排除关键词、递归扫描、分组互斥、概率触发
+- **NPC 辅助工具** (`utils/npcHelpers`)：NPC 创建、分类默认值、结构验证、快照格式化
+- **NPC 创建 Hook** (`hooks/useNpcCreate`)：NPC 创建流程管理
+- **NPC 填充 Hook** (`hooks/useNpcFill`)：NPC 数据自动填充
+- **NPC 编辑器** (`components/start/NpcEditorModal`)：NPC 编辑弹窗
+- **模块选择器** (`components/start/ModuleSelector`)：世界模块选择界面
+- **世界书面板** (`components/game/panels/WorldBookPanel`)：世界书条目管理
+- **角色网格** (`components/game/panels/CharacterGrid`)：NPC 角色展示网格
+- **变量快照面板** (`components/game/panels/VariableSnapshotPanel`)：变量状态查看
+
+### 🏗️ 架构
+
+- 世界书支持 v2 扫描引擎，兼容 SillyTavern 格式
+- NPC 系统与变量系统深度集成
+
 ## v1.2.0 — 叙事记忆系统
 
 ### ✨ 新增功能

@@ -1,6 +1,19 @@
 // ═══════════════════════════════════════════════════════════════
-//  世界书管理器 v2 — 最小 stub（v1.3 替换为完整实现）
+//  世界书管理器 v2 — 支持 SillyTavern 级别的扫描引擎
 // ═══════════════════════════════════════════════════════════════
+
+import {
+  scanWorldInfo,
+  compareWorldInfoEntriesBySendOrder,
+  world_info_position,
+  type WorldInfoEntry,
+  type WorldInfoScanOptions,
+} from './worldInfoEngine';
+import {
+  shouldSuppressCharacterWorldBookEntry,
+} from './npcWorldbook';
+
+// ─── 条目类型 ─────────────────────────
 
 export interface WorldBookEntry {
   id: number;
@@ -13,28 +26,54 @@ export interface WorldBookEntry {
   secondaryKeys: string[];
   position: 'before_char' | 'after_char';
   insertionOrder: number;
-  disable?: boolean;
-  excludeRecursion?: boolean;
-  preventRecursion?: boolean;
-  delayUntilRecursion?: boolean;
-  group?: string;
-  groupOverride?: boolean;
-  groupWeight?: number;
+
+  // ── v2 新增字段 ──
+  /** 唯一标识（回退到 id） */
+  uid?: string;
+  /** 排除关键词 */
+  excludeKeys?: string[];
+  /** 选择逻辑: 0=AND_ANY, 1=NOT_ALL, 2=NOT_ANY, 3=AND_ALL */
+  selectiveLogic?: number;
+  /** 扫描深度（只扫最近 N 条消息） */
   scanDepth?: number;
+  /** 大小写敏感 */
   caseSensitive?: boolean;
+  /** 全词匹配 */
   matchWholeWords?: boolean;
-  useRegex?: boolean;
-  automationId?: string;
-  triggerChance?: number;
-  tags?: string[];
+  /** 概率触发 0~100 */
+  probability?: number;
+  /** 是否启用概率 */
+  useProbability?: boolean;
+  /** 排除递归（不参与链式触发） */
+  excludeRecursion?: boolean;
+  /** 阻止递归（激活后终止下一轮扫描） */
+  preventRecursion?: boolean;
+  /** 分组名（同组互斥） */
+  group?: string;
+  /** 使用分组评分 */
+  useGroupScoring?: boolean;
+  /** 分组权重 */
+  groupWeight?: number;
+  /** 排序权重 */
+  order?: number;
+  /** atDepth 的深度值 */
+  depth?: number;
 }
 
+// ─── 扫描注入结果 ─────────────────────────────────────
+
 export interface ScanInjectionResult {
+  /** Before Char Def 区块 */
   beforeChar: string;
+  /** After Char Def 区块 */
   afterChar: string;
+  /** At Depth 条目列表（按 depth 排序） */
   atDepthEntries: Array<{ depth: number; content: string }>;
+  /** 所有激活的条目（按发送顺序） */
   activatedEntries: WorldBookEntry[];
 }
+
+// ─── WorldBookManager 接口 ─────────────────────────────
 
 export interface WorldBookManager {
   entries: WorldBookEntry[];
@@ -49,53 +88,222 @@ export interface WorldBookManager {
   enableOnlyEntry(prefix: string, targetId: number): void;
   getEntriesByPrefix(prefix: string): WorldBookEntry[];
   addEntries(newEntries: WorldBookEntry[]): void;
+
+  /**
+   * v2 扫描注入（使用 SillyTavern 级别的扫描引擎）
+   * 支持：正则关键词、选择逻辑、排除关键词、递归扫描、分组互斥、概率触发
+   */
   scanAndBuildInjection(
     chatHistory: Array<{ role?: string; content?: string }>,
     userText: string,
-    options?: { depth?: number; recursionLevel?: number },
+    options?: WorldInfoScanOptions,
   ): ScanInjectionResult;
 }
+
+// ─── 解析 ─────────────────────────────────────────
 
 export function parseWorldBook(cardData: any): WorldBookEntry[] {
   const book = cardData?.data?.character_book;
   if (!book?.entries) return [];
-  return book.entries.map((e: any, i: number) => ({
-    id: e.id ?? i, comment: e.comment ?? '', content: e.content ?? '',
-    constant: e.constant ?? false, enabled: e.enabled ?? true, selective: e.selective ?? false,
-    keys: e.keys ?? [], secondaryKeys: e.secondaryKeys ?? [],
-    position: e.position === 1 ? 'after_char' : 'before_char', insertionOrder: e.insertionOrder ?? 0,
+
+  return book.entries.map((entry: any) => ({
+    id: entry.id,
+    comment: entry.comment || '',
+    content: entry.content || '',
+    constant: entry.constant ?? false,
+    enabled: entry.enabled ?? true,
+    selective: entry.selective ?? false,
+    keys: entry.keys || [],
+    secondaryKeys: entry.secondary_keys || [],
+    position: (entry.position || 'after_char') as 'before_char' | 'after_char',
+    insertionOrder: entry.insertion_order ?? 0,
+    // v2 新增
+    uid: entry.uid,
+    excludeKeys: entry.exclude_key || entry.excludeKeys || [],
+    selectiveLogic: entry.selectiveLogic,
+    scanDepth: entry.scanDepth,
+    caseSensitive: entry.caseSensitive,
+    matchWholeWords: entry.matchWholeWords,
+    probability: entry.probability,
+    useProbability: entry.useProbability,
+    excludeRecursion: entry.excludeRecursion,
+    preventRecursion: entry.preventRecursion,
+    group: entry.group,
+    useGroupScoring: entry.useGroupScoring,
+    groupWeight: entry.groupWeight,
+    order: entry.order,
+    depth: entry.depth,
   }));
 }
 
+// ─── WorldBookEntry → WorldInfoEntry 转换 ─────────────────
+
+function toWorldInfoEntry(entry: WorldBookEntry): WorldInfoEntry {
+  return {
+    id: entry.id,
+    uid: entry.uid ?? String(entry.id),
+    comment: entry.comment,
+    content: entry.content,
+    constant: entry.constant,
+    enabled: entry.enabled,
+    selective: entry.selective,
+    keys: entry.keys,
+    key: entry.keys, // 别名
+    keysecondary: entry.secondaryKeys,
+    secondary_keys: entry.secondaryKeys,
+    exclude_key: entry.excludeKeys ?? [],
+    selectiveLogic: entry.selectiveLogic,
+    scanDepth: entry.scanDepth,
+    caseSensitive: entry.caseSensitive,
+    matchWholeWords: entry.matchWholeWords,
+    probability: entry.probability,
+    useProbability: entry.useProbability,
+    excludeRecursion: entry.excludeRecursion,
+    preventRecursion: entry.preventRecursion,
+    group: entry.group,
+    useGroupScoring: entry.useGroupScoring,
+    groupWeight: entry.groupWeight,
+    order: entry.order ?? entry.insertionOrder,
+    depth: entry.depth,
+    // position 映射: 'before_char' → 0, 'after_char' → 1
+    position: entry.position === 'before_char' ? 0 : 1,
+  };
+}
+
+// ─── 创建管理器 ─────────────────────────────────────────
+
 export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldBookManager {
   let entries = [...initialEntries];
-  const getConstantEntries = () => entries.filter(e => e.constant && e.enabled && !e.disable);
-  const getEnabledEntries = () => entries.filter(e => e.enabled && !e.disable);
-  const getActiveEntries = (userInput: string) => {
-    const lower = userInput.toLowerCase();
-    return entries.filter(e => {
-      if (!e.enabled || e.disable) return false;
-      if (e.constant) return true;
-      return e.keys.some(k => lower.includes(k.toLowerCase()));
-    });
-  };
+
   return {
-    get entries() { return entries; },
-    getConstantEntries, getActiveEntries, getEnabledEntries,
-    toggleEntry: (id) => { entries = entries.map(e => e.id === id ? { ...e, enabled: !e.enabled } : e); },
-    enableEntry: (id) => { entries = entries.map(e => e.id === id ? { ...e, enabled: true } : e); },
-    disableEntry: (id) => { entries = entries.map(e => e.id === id ? { ...e, enabled: false } : e); },
-    enableEntriesByPrefix: (p) => { entries = entries.map(e => e.comment.startsWith(p) ? { ...e, enabled: true } : e); },
-    disableEntriesByPrefix: (p) => { entries = entries.map(e => e.comment.startsWith(p) ? { ...e, enabled: false } : e); },
-    enableOnlyEntry: (p, t) => { entries = entries.map(e => e.comment.startsWith(p) ? { ...e, enabled: e.id === t } : e); },
-    getEntriesByPrefix: (p) => entries.filter(e => e.comment.startsWith(p)),
-    addEntries: (ne) => { entries = [...entries, ...ne]; },
-    scanAndBuildInjection: (_ch, userText) => {
-      const active = getActiveEntries(userText);
+    entries,
+
+    getConstantEntries() {
+      return entries
+        .filter(e => e.constant && e.enabled)
+        .sort((a, b) => a.insertionOrder - b.insertionOrder);
+    },
+
+    getActiveEntries(userInput: string) {
+      const lowerInput = userInput.toLowerCase();
+      return entries
+        .filter(e => {
+          if (!e.enabled) return false;
+          if (e.constant) return false;
+          if (e.selective) {
+            const allKeys = [...e.keys, ...e.secondaryKeys];
+            if (allKeys.length === 0) return false;
+            return allKeys.some(key => lowerInput.includes(key.toLowerCase()));
+          }
+          return true;
+        })
+        .sort((a, b) => a.insertionOrder - b.insertionOrder);
+    },
+
+    getEnabledEntries() {
+      return entries.filter(e => e.enabled);
+    },
+
+    toggleEntry(id: number) {
+      entries = entries.map(e =>
+        e.id === id ? { ...e, enabled: !e.enabled } : e
+      );
+    },
+
+    enableEntry(id: number) {
+      entries = entries.map(e => e.id === id ? { ...e, enabled: true } : e);
+    },
+
+    disableEntry(id: number) {
+      entries = entries.map(e => e.id === id ? { ...e, enabled: false } : e);
+    },
+
+    enableEntriesByPrefix(prefix: string) {
+      entries = entries.map(e =>
+        e.comment.includes(prefix) ? { ...e, enabled: true } : e
+      );
+    },
+
+    disableEntriesByPrefix(prefix: string) {
+      entries = entries.map(e =>
+        e.comment.includes(prefix) ? { ...e, enabled: false } : e
+      );
+    },
+
+    enableOnlyEntry(prefix: string, targetId: number) {
+      entries = entries.map(e => {
+        if (!e.comment.includes(prefix)) return e;
+        return { ...e, enabled: e.id === targetId };
+      });
+    },
+
+    getEntriesByPrefix(prefix: string) {
+      return entries.filter(e => e.comment.includes(prefix));
+    },
+
+    addEntries(newEntries: WorldBookEntry[]) {
+      const minId = entries.length > 0 ? Math.min(...entries.map(e => e.id)) : 0;
+      let nextId = Math.min(minId, 0) - 1;
+      const toAdd = newEntries.map(e => ({
+        ...e,
+        id: e.id < 0 ? e.id : nextId--,
+      }));
+      entries = [...entries, ...toAdd];
+    },
+
+    // ── v2 扫描注入 ──
+    scanAndBuildInjection(
+      chatHistory: Array<{ role?: string; content?: string }>,
+      userText: string,
+      options: WorldInfoScanOptions = {},
+    ): ScanInjectionResult {
+      // 将 WorldBookEntry 转换为 WorldInfoEntry
+      const infoEntries = entries
+        .filter(e => e.enabled)
+        .map(toWorldInfoEntry);
+
+      // 注入 NPC 去重回调（如果用户没提供的话）
+      const mergedOptions: WorldInfoScanOptions = {
+        ...options,
+        suppressCharacterEntry: options.suppressCharacterEntry
+          ?? shouldSuppressCharacterWorldBookEntry,
+      };
+
+      // 执行扫描
+      const activated = scanWorldInfo(
+        chatHistory,
+        { entries: infoEntries },
+        userText,
+        mergedOptions,
+      );
+
+      // 按 position 分组
+      const beforeParts: string[] = [];
+      const afterParts: string[] = [];
+      const atDepthEntries: Array<{ depth: number; content: string }> = [];
+
+      for (const entry of activated) {
+        const pos = entry.position ?? 1;
+        if (pos === world_info_position.before) {
+          beforeParts.push(entry.content);
+        } else if (pos === world_info_position.atDepth) {
+          atDepthEntries.push({
+            depth: Number(entry.depth) || 4,
+            content: entry.content,
+          });
+        } else {
+          afterParts.push(entry.content);
+        }
+      }
+
+      // atDepth 按 depth 排序（浅的先插入）
+      atDepthEntries.sort((a, b) => a.depth - b.depth);
+
       return {
-        beforeChar: active.filter(e => e.position === 'before_char').sort((a,b) => a.insertionOrder - b.insertionOrder).map(e => e.content).join('\n'),
-        afterChar: active.filter(e => e.position === 'after_char').sort((a,b) => a.insertionOrder - b.insertionOrder).map(e => e.content).join('\n'),
-        atDepthEntries: [], activatedEntries: active,
+        beforeChar: beforeParts.join('\n\n'),
+        afterChar: afterParts.join('\n\n'),
+        atDepthEntries,
+        activatedEntries: activated as unknown as WorldBookEntry[],
       };
     },
   };

@@ -40,6 +40,14 @@
 
 > **致谢**：叙事记忆系统移植自 [lucklyjkop](https://github.com/lucklyjkop) 的项目，经原作者授权使用。特此感谢。
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/users.svg" width="16" height="16" /> NPC 系统与世界书
+
+- **世界书管理器**：SillyTavern 级别扫描引擎，支持正则关键词、选择逻辑、递归扫描、分组互斥、概率触发
+- **NPC 创建与填充**：useNpcCreate / useNpcFill Hook，支持结构验证与数据自动填充
+- **NPC 编辑器**：可视化 NPC 编辑弹窗
+- **世界书面板**：游戏内世界书条目管理
+- **角色网格**：NPC 角色展示与管理
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责

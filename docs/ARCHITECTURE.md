@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.2.0
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.3.0
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)
 
@@ -94,6 +94,38 @@
 6. **APIRequest** — 发送 SSE 流式请求
 7. **ResponseExtract** — 从响应中提取结构化数据
 8. **VariableUpdate** — 更新变量状态
+
+---
+
+## NPC 系统与世界书
+
+### 世界书架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   世界书层 (worldbook/*)                      │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ WorldBookMgr  │  │ worldInfoEng  │  │ npcWorldbook  │   │
+│  │ 管理器         │  │ 扫描引擎       │  │ NPC 世界书     │   │
+│  └───────────────┘  └───────────────┘  └───────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 扫描引擎特性
+
+- **正则关键词**：支持正则表达式匹配
+- **选择逻辑**：selective 模式，主关键词 + 次关键词
+- **排除关键词**：excludeRecursion 防止递归
+- **递归扫描**：支持多层级递归扫描
+- **分组互斥**：同组条目互斥激活
+- **概率触发**：triggerChance 概率控制
+
+### NPC 系统
+
+- **创建流程**：useNpcCreate Hook 管理 NPC 创建
+- **数据填充**：useNpcFill Hook 自动填充 NPC 数据
+- **结构验证**：ensureNpcStructureDefaults 确保数据完整性
+- **快照格式化**：formatSnapshotForMainAI 用于 AI 提示词
 
 ---
 
