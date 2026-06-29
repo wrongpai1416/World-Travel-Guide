@@ -130,7 +130,7 @@ function worldToForm(w: WorldDef): FormState {
     startTime: economyMeta?.startTime || '',
     timeSpeed: economyMeta?.timeSpeed || '',
     factions: allFactions.map((f: any) => ({ name: f.name || '', description: f.description || '', alignment: f.alignment || '中立' })),
-    presetNPCs: allNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: n.personality || '' })),
+    presetNPCs: allNPCs.map((n: any) => ({ name: n.name || '', role: n.role || '', description: n.description || '', personality: typeof n.personality === 'string' ? n.personality : '' })),
     highlights: highlightsMeta?.highlights?.join(', ') || '',
     locations: loreEntries.map(e => ({ name: e.comment || '', description: e.content || '' })),
     culture: cultureEntry?.content || '',
@@ -321,7 +321,7 @@ export default function WorldEditorForm({
       })),
       presetNPCs: allNPCs.map(n => ({
         name: n.name || '', role: n.role || '',
-        description: n.description || '', personality: n.personality || '',
+        description: n.description || '', personality: typeof n.personality === 'string' ? n.personality : '',
       })),
       highlights: highlightsEntry?.meta?.highlights?.join(', ') || '',
       locations: loreEntries.map(e => ({ name: e.comment || '', description: (e.content || '').replace(/^【[^】]*】\n?/, '') })),
@@ -474,39 +474,36 @@ export default function WorldEditorForm({
       });
     }
 
-    // factions 条目
+    // factions 条目 —— 每方势力独立触发式条目（key=势力名，mention 时触发）
     const validFactions = form.factions.filter(f => f.name.trim());
-    if (validFactions.length > 0) {
-      const factionsContent = validFactions.map(f =>
-        `【${f.name.trim()}】${f.alignment ? `[${f.alignment}]` : ''} ${f.description.trim()}`
-      ).join('\n');
+    for (const f of validFactions) {
       entries.push({
-        uid: uid++, key: [], constant: true, comment: '势力', content: factionsContent,
+        uid: uid++, key: [f.name.trim()], constant: false, comment: f.name.trim(),
+        content: `${f.alignment ? `[${f.alignment}] ` : ''}${f.description.trim()}`,
         order: 3, position: 'before_char', entryType: 'factions',
         meta: {
-          factions: validFactions.map(f => ({
+          factions: [{
             name: f.name.trim(), description: f.description.trim(),
             alignment: f.alignment || undefined,
-          })),
+          }],
         },
       });
     }
 
-    // npcs 条目
+    // npcs 条目 —— 每人独立触发式条目（key=人名，mention 时触发）
     const validNPCs = form.presetNPCs.filter(n => n.name.trim());
-    if (validNPCs.length > 0) {
-      const npcsContent = validNPCs.map(n =>
-        `【${n.name.trim()}】${n.role.trim()} — ${n.description.trim()}${n.personality.trim() ? `（性格：${n.personality.trim()}）` : ''}`
-      ).join('\n');
+    for (const n of validNPCs) {
+      const personalitySuffix = (n.personality || '').trim() ? `（性格：${(n.personality || '').trim()}）` : '';
       entries.push({
-        uid: uid++, key: [], constant: true, comment: '关键人物', content: npcsContent,
+        uid: uid++, key: [n.name.trim()], constant: false, comment: n.name.trim(),
+        content: `${n.role.trim()} — ${n.description.trim()}${personalitySuffix}`,
         order: 4, position: 'before_char', entryType: 'npcs',
         meta: {
-          npcs: validNPCs.map(n => ({
+          npcs: [{
             name: n.name.trim(), role: n.role.trim(),
             description: n.description.trim(),
-            personality: n.personality.trim() || undefined,
-          })),
+            personality: (n.personality || '').trim() || undefined,
+          }],
         },
       });
     }
@@ -565,8 +562,8 @@ export default function WorldEditorForm({
       });
     }
 
-    // 保留已有的非叙事 worldBookEntries（如模块规则条目）
-    const existingEntries = initialWorld?.worldBookEntries?.filter(e => e.entryType === 'module_rule' || !e.entryType) ?? [];
+    // 保留已有的非叙事 worldBookEntries（如高亮条目等，但不保留 module_rule 因为 handleSave 会重新生成）
+    const existingEntries = initialWorld?.worldBookEntries?.filter(e => e.entryType && e.entryType !== 'module_rule' && e.entryType !== 'setting' && e.entryType !== 'factions' && e.entryType !== 'npcs' && e.entryType !== 'lore' && e.entryType !== 'culture' && e.entryType !== 'economy' && e.entryType !== 'rules' && e.entryType !== 'highlights') ?? [];
 
     return {
       id: initialWorld?.id || `custom_${Date.now()}`,
@@ -580,51 +577,59 @@ export default function WorldEditorForm({
     };
   };
 
+  /** 为 world 生成 module_rule 世界书条目（供 handleSave / handleExport 共用） */
+  const injectModuleRuleEntries = (world: WorldDef) => {
+    if (refinedEntries.length > 0 || !world.modules?.some(m => m.enabled)) return;
+    try {
+      const enabledModules = world.modules.filter(m => m.enabled).map(m => m.moduleId);
+      const worldDesc = form.overview || form.name;
+      const buildCtx = createBuildContext(worldDesc, enabledModules);
+
+      for (const mod of world.modules.filter(m => m.enabled)) {
+        // 兼容两种格式：新格式 moduleConfig / 旧格式 data
+        const mc = (mod.moduleConfig || mod.data) as any;
+        if (!mc) continue;
+        if (mod.moduleId === 'stat') buildCtx.statData = mc;
+        if (mod.moduleId === 'progression') buildCtx.progressionData = mc;
+        if (mod.moduleId === 'survival') buildCtx.survivalData = mc;
+        if (mod.moduleId === 'business') buildCtx.businessData = mc;
+        if (mod.moduleId === 'talent') buildCtx.talentData = mc;
+      }
+
+      buildCtx.worldBookEntries = generateWorldBookEntries(buildCtx);
+
+      if (buildCtx.worldBookEntries?.length) {
+        const kept = (world.worldBookEntries ?? []).filter(e => e.entryType !== 'module_rule');
+        const minUid = kept.reduce((min, e) => (e.uid != null && e.uid < min ? e.uid : min), -1);
+        const moduleEntries = buildCtx.worldBookEntries.map((e, i) => ({
+          ...e,
+          uid: minUid - 1 - i,
+          entryType: 'module_rule' as const,
+        }));
+        world.worldBookEntries = [...kept, ...moduleEntries];
+      }
+    } catch (err) {
+      console.warn('[injectModuleRuleEntries] 生成模块世界书条目失败:', err);
+    }
+  };
+
   const handleSave = () => {
     if (!form.name.trim()) return;
 
     const world = formToWorldDef();
 
     // 手动编辑模式：如果有模块但没有模块规则条目，直接生成（不调AI，不触发限流）
-    if (refinedEntries.length === 0 && world.modules?.some(m => m.enabled)) {
-      try {
-        const enabledModules = world.modules.filter(m => m.enabled).map(m => m.moduleId);
-        const worldDesc = form.overview || form.name;
-        const buildCtx = createBuildContext(worldDesc, enabledModules);
+    injectModuleRuleEntries(world);
 
-        // 把模块数据注入 buildCtx 供 generateWorldBookEntries 使用
-        for (const mod of world.modules.filter(m => m.enabled)) {
-          const mc = mod.moduleConfig as any;
-          if (!mc) continue;
-          if (mod.moduleId === 'stat') buildCtx.statData = mc;
-          if (mod.moduleId === 'progression') buildCtx.progressionData = mc;
-          if (mod.moduleId === 'survival') buildCtx.survivalData = mc;
-          if (mod.moduleId === 'business') buildCtx.businessData = mc;
-          if (mod.moduleId === 'talent') buildCtx.talentData = mc;
-        }
-
-        // 直接生成世界书条目，跳过 executeBuildPipeline 的限流等待
-        buildCtx.worldBookEntries = generateWorldBookEntries(buildCtx);
-
-        if (buildCtx.worldBookEntries?.length) {
-          const moduleEntries = buildCtx.worldBookEntries.map((e, i) => ({
-            ...e,
-            uid: -5000 - i,
-            entryType: 'module_rule' as const,
-          }));
-          world.worldBookEntries = [...(world.worldBookEntries ?? []), ...moduleEntries];
-        }
-      } catch (err) {
-        console.warn('[handleSave] 生成模块世界书条目失败:', err);
-      }
-    }
-
+    // 保留旧逻辑去重（module_rule 按 entryType 去重已在 injectModuleRuleEntries 内处理）
     onSave(world);
   };
 
   // 导出世界为 JSON 文件
   const handleExport = () => {
     const world = formToWorldDef();
+    // 导出时同样注入 module_rule 条目，确保导出的 JSON 与保存到 localStorage 的一致性
+    injectModuleRuleEntries(world);
     const json = JSON.stringify(world, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

@@ -343,7 +343,8 @@ export function useStartScreen() {
     handleLoadPreset: charHistory.loadPreset,
     buildInitialState,
     // handlers
-    handleStartGame, handleLoadSave, handleDeleteSave, handleForceDeleteSave,
+    handleStartGame,
+    handleLoadSave, handleDeleteSave, handleForceDeleteSave,
     handleRenameSave, handleImportSave, handleExportSave,
     // saves
     allSaves: savesMeta, currentSaveId,

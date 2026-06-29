@@ -264,4 +264,8 @@ export interface WorldDef {
   // ─── 模块系统 ───
   /** 世界启用的模块列表 */
   modules?: WorldModule[];
+
+  // ─── 导入来源（v3：区分外部导入 vs 内部世界） ───
+  /** 导入来源：'external' = 外部世界书 → 用条目编辑器；undefined = 内部世界 → 用 9-tab 详情 */
+  source?: 'external';
 }

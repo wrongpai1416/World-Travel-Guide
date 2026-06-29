@@ -363,9 +363,10 @@ export async function generateModuleEntries(
     }) as WorldModule[];
 
     // 提取模块生成的世界书条目
+    // 叙事条目用正数 uid (1, 2, 3...)，模块规则用负数 uid，从 -1 开始递减避免冲突
     const worldBookEntries = (buildCtx.worldBookEntries ?? []).map((e, i) => ({
       ...e,
-      uid: -5000 - i,
+      uid: -1 - i,
       entryType: 'module_rule' as const,
     }));
 

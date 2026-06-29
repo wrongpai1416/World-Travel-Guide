@@ -828,12 +828,12 @@ ${perspectiveInstruction}
       }
 
       varMgrRef.current.setState(state);
+    }
 
-      // ★ 重新注入世界书条目（因为变量系统已更新）
-      // 使用 worldDef.id 而不是闭包中的 selectedWorld，避免时序问题
-      if (worldBookRef.current && worldDef?.id) {
-        applyWorldAndModules(worldBookRef.current, worldDef.id);
-      }
+    // ★ 无论是否有模块，都必须重新注入世界书条目
+    // 否则无模块的世界（如外部导入世界）的 worldBookEntries 永远不会被加载
+    if (worldBookRef.current && worldDef?.id) {
+      applyWorldAndModules(worldBookRef.current, worldDef.id);
     }
   }, [selectedWorld]);
 

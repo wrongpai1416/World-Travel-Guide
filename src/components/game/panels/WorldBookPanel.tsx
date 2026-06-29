@@ -2,27 +2,31 @@
 import { useState, useMemo } from 'react';
 import {
   BookOpen, ChevronDown, ChevronRight, Search,
-  Eye, EyeOff, MapPin, Layers, Lock,
+  Eye, EyeOff, MapPin, Layers, Lock, Pencil,
 } from 'lucide-react';
 import { findWorldDef } from '../../../data/worldLoader';
 import type { WorldBookEntryDef } from '../../../data/worlds-schema';
+import type { GameEngine } from '../../../engine/types';
+import InGameWorldBookEditor from './InGameWorldBookEditor';
 
 interface Props {
   worldId: string;
+  engine?: GameEngine;
 }
 
-export default function WorldBookPanel({ worldId }: Props) {
+export default function WorldBookPanel({ worldId, engine }: Props) {
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showDisabled, setShowDisabled] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   // 从当前世界的 worldBookEntries 读取
   const entries = useMemo(() => {
     const world = findWorldDef(worldId);
     const wbEntries = world?.worldBookEntries ?? [];
 
-    return wbEntries.map((e: WorldBookEntryDef) => ({
-      id: String(e.uid),
+    return wbEntries.map((e: WorldBookEntryDef, i) => ({
+      id: e.uid != null ? `${e.uid}-${i}` : `entry-${i}`,
       comment: e.comment,
       content: e.content,
       constant: e.constant,
@@ -70,6 +74,7 @@ export default function WorldBookPanel({ worldId }: Props) {
   };
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* 头部 */}
       <div style={{
@@ -82,6 +87,25 @@ export default function WorldBookPanel({ worldId }: Props) {
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           {worldId} · {entries.length} 条
         </span>
+        <div style={{ flex: 1 }} />
+        {engine && (
+          <button
+            onClick={() => setEditorOpen(true)}
+            title="编辑世界书条目"
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--bg-secondary)',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              display: 'flex', alignItems: 'center', gap: '5px',
+              fontSize: 'var(--font-size-sm)',
+            }}
+          >
+            <Pencil size={14} /> 编辑
+          </button>
+        )}
       </div>
 
       {/* 搜索 + 筛选 */}
@@ -149,6 +173,15 @@ export default function WorldBookPanel({ worldId }: Props) {
         )}
       </div>
     </div>
+    {/* 编辑器覆盖层（仅在 engine 存在时可用） */}
+    {engine && editorOpen && (
+      <InGameWorldBookEditor
+        engine={engine}
+        worldId={worldId}
+        onClose={() => setEditorOpen(false)}
+      />
+    )}
+    </>
   );
 }
 

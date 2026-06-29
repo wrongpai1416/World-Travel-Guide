@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, ExternalLink } from 'lucide-react';
 import type { WorldDef } from '../../data/worldLoader';
 import { resolveWorldIcon } from '../shared/worldIcons';
 
@@ -37,7 +37,12 @@ export default function WorldCard({ world, selected, onSelect, onEdit, onDelete,
         <Icon size={20} strokeWidth={2} />
       </div>
       <div className="world-card-body">
-        <span className="world-card-name">{world.name}</span>
+        <span className="world-card-name">
+          {world.name}
+          {world.source === 'external' && (
+            <span className="world-card-external-badge"><ExternalLink size={9} /> 外部</span>
+          )}
+        </span>
         <div className="world-card-meta">
           {hasActions && (
             <div className="world-card-actions">

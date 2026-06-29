@@ -1,5 +1,5 @@
 // 轻量宏引擎 —— 支持 {{variable}}, {{random::}}, {{#if::}}, {{roll}} 等宏语法
-// 宏引擎
+// 参考 yijiekkk 的 MacroEngine，精简为约 200 行
 
 /** 宏引擎配置 */
 export interface MacroEngineOptions {

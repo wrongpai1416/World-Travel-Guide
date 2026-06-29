@@ -88,6 +88,12 @@ export interface WorldBookManager {
   enableOnlyEntry(prefix: string, targetId: number): void;
   getEntriesByPrefix(prefix: string): WorldBookEntry[];
   addEntries(newEntries: WorldBookEntry[]): void;
+  /** 返回当前所有条目（实时快照，非初始数组） */
+  getAllEntries(): WorldBookEntry[];
+  /** 替换所有 non‑constant 条目，保留 constant 条目不变（游戏内编辑用） */
+  replaceNonConstantEntries(newEntries: WorldBookEntry[]): void;
+  /** 清除所有世界专属条目（负 ID），保留 card.json 通用条目（正 ID） */
+  clearWorldEntries(): void;
 
   /**
    * v2 扫描注入（使用 SillyTavern 级别的扫描引擎）
@@ -244,11 +250,28 @@ export function createWorldBookManager(initialEntries: WorldBookEntry[]): WorldB
     addEntries(newEntries: WorldBookEntry[]) {
       const minId = entries.length > 0 ? Math.min(...entries.map(e => e.id)) : 0;
       let nextId = Math.min(minId, 0) - 1;
-      const toAdd = newEntries.map(e => ({
-        ...e,
-        id: e.id < 0 ? e.id : nextId--,
-      }));
+      const existingIds = new Set(entries.map(e => e.id));
+      const toAdd = newEntries
+        .map(e => ({
+          ...e,
+          id: e.id < 0 ? e.id : nextId--,
+        }))
+        .filter(e => !existingIds.has(e.id)); // 去重：相同 ID 不重复添加
       entries = [...entries, ...toAdd];
+    },
+
+    getAllEntries(): WorldBookEntry[] {
+      return [...entries];
+    },
+
+    replaceNonConstantEntries(newEntries: WorldBookEntry[]): void {
+      const constantOnes = entries.filter(e => e.constant);
+      entries = [...constantOnes, ...newEntries];
+    },
+
+    clearWorldEntries(): void {
+      // 保留 card.json 通用条目（正 ID），清除世界专属条目（负 ID）
+      entries = entries.filter(e => e.id >= 0);
     },
 
     // ── v2 扫描注入 ──

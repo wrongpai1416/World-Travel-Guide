@@ -76,6 +76,10 @@ if (existsSync('./icon.png')) {
   copyFileSync('./icon.png', join(DIST, 'icon.png'));
   console.log('   ✅ icon.png');
 }
+if (existsSync('./scarborough-fair.mp3')) {
+  copyFileSync('./scarborough-fair.mp3', join(DIST, 'scarborough-fair.mp3'));
+  console.log('   ✅ scarborough-fair.mp3');
+}
 
 console.log('\n✨ 构建完成！dist/ 目录结构：');
 console.log('   dist/');

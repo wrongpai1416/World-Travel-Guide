@@ -1,15 +1,18 @@
 import { type WorldBookManager, type WorldBookEntry, createWorldBookManager, parseWorldBook } from '../worldbook/index';
-import { WORLDS, getWorldBookEntriesForWorld } from '../data/worldLoader';
+import { WORLDS, findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { applyModulesV2 } from '../modules/injector';
 
-export async function loadWorldBook(): Promise<WorldBookManager | null> {
+export async function loadWorldBook(): Promise<WorldBookManager> {
   try {
     const resp = await fetch('/card.json');
-    if (!resp.ok) return null;
-    const cardData = await resp.json();
-    return createWorldBookManager(parseWorldBook(cardData));
-  } catch { return null; }
+    if (resp.ok) {
+      const cardData = await resp.json();
+      return createWorldBookManager(parseWorldBook(cardData));
+    }
+  } catch { /* fall through */ }
+  // 没有 card.json 时返回空管理器，applyWorld() 会注入世界专属条目
+  return createWorldBookManager([]);
 }
 
 /**
@@ -19,18 +22,21 @@ export async function loadWorldBook(): Promise<WorldBookManager | null> {
  * - 如果世界有 worldBookEntries，将它们添加到管理器（v2.0 新模式）
  */
 export function applyWorld(wb: WorldBookManager, worldId: string) {
+  // 先清除上一轮的世界专属条目（负 ID），避免切换世界时旧条目残留
+  wb.clearWorldEntries();
   wb.disableEntriesByPrefix('[WB]');
 
   if (worldId !== 'default') {
-    const world = WORLDS.find(w => w.id === worldId);
+    // 使用 findWorldDef 同时涵盖内置 + localStorage 自建/外部世界
+    const world = findWorldDef(worldId);
 
     // 旧模式兼容：通过 entryId 启用
     if (world?.entryId != null) {
       wb.enableEntry(world.entryId);
     }
 
-    // v2.0 新模式：加载嵌入式世界书条目
-    const worldBookEntries = getWorldBookEntriesForWorld(worldId);
+    // v2.0 新模式：加载嵌入式世界书条目（内置 + 自建 + 外部导入均支持）
+    const worldBookEntries = world?.worldBookEntries ?? [];
     if (worldBookEntries.length > 0) {
       const converted: WorldBookEntry[] = worldBookEntries.map((e, idx) => ({
         id: -(idx + 1),  // 负数 ID 避免与 card.json 条目冲突

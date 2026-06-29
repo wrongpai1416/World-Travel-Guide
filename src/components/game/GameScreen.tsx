@@ -363,7 +363,7 @@ export default function GameScreen() {
       case 'characters': return <CharacterGrid gameState={gameState} onUpdateChronicles={handleUpdateChronicles} onMergeChronicles={handleMergeChronicles} />;
       case 'notebook': return <NotebookPanel gameState={gameState} />;
       case 'variables': return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
-      case 'worldbook': return <WorldBookPanel worldId={state.selectedWorld} />;
+      case 'worldbook': return <WorldBookPanel worldId={state.selectedWorld} engine={engine} />;
       case 'memory': return <MemorySettingsOverlay visible={true} onClose={() => setOverlay(null)} onSave={() => {}} mode="inline" />;
       default: return null;
     }
@@ -393,7 +393,7 @@ export default function GameScreen() {
       case 'variables':
         return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
       case 'worldbook':
-        return <WorldBookPanel worldId={state.selectedWorld} />;
+        return <WorldBookPanel worldId={state.selectedWorld} engine={engine} />;
       case 'memory':
         return <MemorySettingsOverlay visible={true} onClose={() => setMobileActivePanel(null)} onSave={() => {}} mode="inline" />;
       default:

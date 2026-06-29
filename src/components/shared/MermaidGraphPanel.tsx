@@ -1,11 +1,19 @@
 // ============================================================
-// Mermaid 图谱面板
+// Mermaid 图谱面板 — 完全照搬 yijiekkk 项目实现
 // 支持平移、缩放、节点交互
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import mermaid from 'mermaid';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+
+// ─── Mermaid 动态导入（~1.5MB，仅在需要渲染时加载） ───
+let _mermaidModule: typeof import('mermaid') | null = null;
+async function getMermaid() {
+  if (!_mermaidModule) {
+    _mermaidModule = await import('mermaid');
+  }
+  return _mermaidModule;
+}
 
 // ============================================================
 //  类型定义
@@ -41,14 +49,15 @@ const SURFACE_PADDING = 40;
 const DRAG_THRESHOLD = 4;
 
 // ============================================================
-//  Mermaid 初始化
+//  Mermaid 初始化（完全照搬 yijiekkk 项目）
 // ============================================================
 
 let mermaidInitialized = false;
 
-function ensureMermaidInit() {
+async function ensureMermaidInit() {
   if (mermaidInitialized) return;
-  mermaid.initialize({
+  const mermaid = await getMermaid();
+  mermaid.default.initialize({
     startOnLoad: false,
     securityLevel: 'loose',
     theme: 'base',
@@ -149,7 +158,7 @@ export function MermaidGraphPanel({
 
   const activePointers = useRef(new Map<number, { x: number; y: number }>());
 
-  // ─── 获取 SVG 实际尺寸 ───
+  // ─── 获取 SVG 实际尺寸（照搬 yijiekkk） ───
   const getGraphMetrics = useCallback(() => {
     const svgEl = svgContainerRef.current?.querySelector('svg');
     if (!svgEl) return { width: 0, height: 0 };
@@ -210,7 +219,7 @@ export function MermaidGraphPanel({
     setTranslateY(nextY);
   }, [graphSize]);
 
-  // ─── Mermaid 渲染 ───
+  // ─── Mermaid 渲染（照搬 yijiekkk） ───
   const renderId = useRef(0);
 
   useEffect(() => {
@@ -228,10 +237,11 @@ export function MermaidGraphPanel({
       setIsRendering(true);
       setRenderError('');
       try {
-        ensureMermaidInit();
+        await ensureMermaidInit();
+        const mermaid = await getMermaid();
         const id = `mermaid-graph-${currentId}-${Date.now()}`;
         console.log('[MermaidGraphPanel] 开始渲染, id:', id);
-        const { svg } = await mermaid.render(id, graphDefinition);
+        const { svg } = await mermaid.default.render(id, graphDefinition);
 
         if (!cancelled) {
           setRenderedSvg(svg || '');
@@ -242,7 +252,7 @@ export function MermaidGraphPanel({
           if (!cancelled && svgContainerRef.current) {
             const svgEl = svgContainerRef.current.querySelector('svg');
             if (svgEl) {
-              // SVG 后处理
+              // 照搬 yijiekkk 的 SVG 后处理
               svgEl.removeAttribute('width');
               svgEl.removeAttribute('height');
               svgEl.style.maxWidth = 'none';
@@ -582,7 +592,7 @@ export function MermaidGraphPanel({
           50% { transform: translate(-50%, -100%) scale(1.3); opacity: 0.7; }
         }
 
-        /* SVG 渲染质量 */
+        /* SVG 渲染质量（照搬 yijiekkk） */
         [data-mermaid-container] svg {
           display: block;
           width: 100%;
@@ -595,7 +605,7 @@ export function MermaidGraphPanel({
           image-rendering: optimizeQuality;
         }
 
-        /* 字体强制覆盖 */
+        /* 字体强制覆盖（照搬 yijiekkk） */
         [data-mermaid-container] .edgeLabel,
         [data-mermaid-container] .label,
         [data-mermaid-container] foreignObject,
@@ -604,7 +614,7 @@ export function MermaidGraphPanel({
           font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif !important;
         }
 
-        /* 可交互节点悬停效果 */
+        /* 可交互节点悬停效果（照搬 yijiekkk） */
         [data-mermaid-container] g.node.interactive-node {
           cursor: pointer;
           pointer-events: auto;

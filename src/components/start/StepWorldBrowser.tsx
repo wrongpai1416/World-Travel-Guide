@@ -5,13 +5,14 @@ import {
   Swords, AlertTriangle, DollarSign, Flag, User,
   Sparkles, ChevronRight, Layers, Shield, Users,
   Calendar, Heart, Zap, Target, BarChart3,
-  Compass, BookOpen, Star, Upload, ArrowLeft,
+  Compass, BookOpen, Star, Upload, ArrowLeft, Download,
   Briefcase, TrendingUp, TrendingDown, Landmark, Scroll,
-  Map, BookMarked,
+  Map, BookMarked, ExternalLink,
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
 import type { WorldBookEntry } from '../../worldbook/index';
 import WorldCard, { CreateWorldCard, getWorldIcon } from './WorldCard';
+import WorldBookEditor from './WorldBookEditor';
 import { useIsPhone } from '../../hooks/useIsMobile';
 
 // ── 从 worldBookEntries 按 entryType 查找 ──
@@ -53,12 +54,13 @@ interface StepWorldBrowserProps {
   onDeleteWorld: (worldId: string) => void;
   onCreateWorld: () => void;
   onImportWorld: (world: WorldDef) => void;
+  onSaveWorld?: (world: WorldDef) => void;
 }
 
 export default function StepWorldBrowser({
   selectedWorld, setSelectedWorld,
   createdWorlds, allWorlds, worldEntry,
-  onNext, onEditWorld, onDeleteWorld, onCreateWorld, onImportWorld,
+  onNext, onEditWorld, onDeleteWorld, onCreateWorld, onImportWorld, onSaveWorld,
 }: StepWorldBrowserProps) {
   const [search, setSearch] = useState('');
   const [diffFilter, setDiffFilter] = useState<string>('all');
@@ -89,12 +91,30 @@ export default function StepWorldBrowser({
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(reader.result as string) as WorldDef;
-        if (!data.name) { setImportError('JSON 缺少 name 字段'); return; }
-        // 确保有 id
-        if (!data.id) data.id = `custom_${Date.now()}`;
-        data.entryId = null;
-        onImportWorld(data);
+        const data = JSON.parse(reader.result as string);
+
+        // ── 格式检测：判断是否为我们的内部格式 ──
+        const isOurFormat =
+          // 有 worldBookEntries 且条目含 entryType → 内部格式
+          (Array.isArray(data.worldBookEntries) && data.worldBookEntries.some((e: any) => typeof e.entryType === 'string')) ||
+          // 有 modules 数组 → 内部格式
+          Array.isArray(data.modules) ||
+          // id 以 world_ 开头 → 内置世界格式
+          (typeof data.id === 'string' && data.id.startsWith('world_'));
+
+        if (isOurFormat) {
+          // 内部格式 → 直接导入，保留 9-tab
+          const world = data as WorldDef;
+          if (!world.name) { setImportError('JSON 缺少 name 字段'); return; }
+          if (!world.id) world.id = `custom_${Date.now()}`;
+          world.entryId = null;
+          world.source = undefined; // 清除可能的外部标记
+          onImportWorld(world);
+        } else {
+          // 外部格式 → 包装为外部世界
+          const world = normalizeExternal(data, file.name);
+          onImportWorld(world);
+        }
         setImportError('');
       } catch {
         setImportError('JSON 解析失败，请检查文件格式');
@@ -136,6 +156,13 @@ export default function StepWorldBrowser({
           </button>
         </div>
         <div className="mobile-detail-content">
+          {selected.source === 'external' ? (
+            <WorldBookEditor
+              key={selected.id}
+              world={selected}
+              onSave={(updated) => onSaveWorld?.(updated)}
+            />
+          ) : (
           <div className="world-detail">
             {(() => {
               const DetailIcon = getWorldIcon(selected);
@@ -187,6 +214,7 @@ export default function StepWorldBrowser({
               {activeTab === 'systems' && <SystemsTab world={selected} />}
             </div>
           </div>
+          )}
         </div>
       </div>
     );
@@ -255,6 +283,41 @@ export default function StepWorldBrowser({
       {!isMobile && (
         <div className="world-browser-right">
           {selected ? (
+            selected.source === 'external' ? (
+              /* ── 外部世界：条目编辑器 ── */
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {(() => {
+                  const DetailIcon = getWorldIcon(selected);
+                  return (
+                    <div
+                      className="world-detail-header"
+                      style={{ '--cover-color': selected.coverColor ?? 'var(--accent)' } as React.CSSProperties}
+                    >
+                      <DetailIcon size={32} strokeWidth={1.5} />
+                      <div>
+                        <h2 className="world-detail-title">
+                          {selected.name}
+                          <span style={{
+                            marginLeft: 8, fontSize: 'var(--font-size-xs)', padding: '2px 8px',
+                            borderRadius: '4px', background: 'rgba(255,255,255,0.2)', fontWeight: 500,
+                            verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center', gap: 4,
+                          }}>
+                            <ExternalLink size={12} /> 外部
+                          </span>
+                        </h2>
+                        <p className="world-detail-desc">{selected.description}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <WorldBookEditor
+                  key={selected.id}
+                  world={selected}
+                  onSave={(updated) => onSaveWorld?.(updated)}
+                />
+              </div>
+            ) : (
+            /* ── 内部世界：保留原有 9-tab ── */
             <div className="world-detail">
               {/* 头部 */}
               {(() => {
@@ -309,6 +372,7 @@ export default function StepWorldBrowser({
                 {activeTab === 'systems' && <SystemsTab world={selected} />}
               </div>
             </div>
+            )
           ) : (
             <div className="world-detail-empty">
               <Globe size={48} strokeWidth={1} style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
@@ -888,5 +952,74 @@ function EconomyTab({ world }: { world: WorldDef }) {
       )}
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════
+//  外部世界书导入标准化
+// ═══════════════════════════════════════════════════════
+
+/** 将外部格式 JSON 转为我们的 WorldDef */
+function normalizeExternal(data: any, fileName: string): WorldDef {
+  // 提取条目列表（兼容多种外部格式）
+  let rawList: any[] = [];
+
+  if (Array.isArray(data)) {
+    rawList = data;
+  } else if (data.entries) {
+    // SillyTavern 格式：entries 可能是对象 { "0": {...}, "1": {...} }
+    rawList = Array.isArray(data.entries) ? data.entries : Object.values(data.entries);
+  } else if (data.worldBookEntries) {
+    rawList = Array.isArray(data.worldBookEntries) ? data.worldBookEntries : Object.values(data.worldBookEntries);
+  } else if (data.items) {
+    rawList = data.items;
+  } else {
+    // 单个条目包装
+    rawList = [data];
+  }
+
+  const entries: WorldBookEntryDef[] = [];
+  const baseUid = Date.now();
+
+  for (let i = 0; i < rawList.length; i++) {
+    const item = rawList[i];
+    if (typeof item === 'string') {
+      entries.push({
+        uid: baseUid + i,
+        key: [],
+        comment: `条目 ${i + 1}`,
+        content: item,
+        constant: false,
+        order: i + 1,
+        position: 'after_char',
+      });
+    } else if (typeof item === 'object' && item !== null) {
+      entries.push({
+        uid: item.uid ?? (baseUid + i),
+        key: item.key || item.keys || [],
+        keysecondary: item.keysecondary,
+        comment: item.comment || item.name || item.title || `条目 ${i + 1}`,
+        content: item.content || item.text || item.description || JSON.stringify(item),
+        constant: item.constant ?? false,
+        order: item.order ?? item.insertionOrder ?? (i + 1),
+        position: item.position || 'after_char',
+        depth: item.depth,
+        entryType: undefined, // 外部条目没有 entryType
+        probability: item.probability,
+        disable: item.disable ?? (item.enabled === false),
+      });
+    }
+  }
+
+  // 用文件名生成世界名
+  const baseName = fileName.replace(/\.json$/i, '');
+
+  return {
+    id: `external_${baseUid}`,
+    name: data.name || baseName,
+    description: data.description || `从 ${fileName} 导入（${entries.length} 条条目）`,
+    entryId: null,
+    worldBookEntries: entries,
+    source: 'external',
+  };
 }
 
