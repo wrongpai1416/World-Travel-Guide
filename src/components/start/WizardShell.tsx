@@ -138,6 +138,7 @@ export default function WizardShell({
                 onDeleteWorld={onDeleteWorld}
                 onCreateWorld={() => onOpenEditor(null)}
                 onImportWorld={onImportWorld}
+                onSaveWorld={onSaveWorld}
               />
             )}
             {step === 2 && (
