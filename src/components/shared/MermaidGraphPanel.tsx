@@ -4,17 +4,8 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import DOMPurify from 'dompurify';
+import mermaid from 'mermaid';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
-
-// ─── Mermaid 动态导入（~1.5MB，仅在需要渲染时加载） ───
-let _mermaidModule: typeof import('mermaid') | null = null;
-async function getMermaid() {
-  if (!_mermaidModule) {
-    _mermaidModule = await import('mermaid');
-  }
-  return _mermaidModule;
-}
 
 // ============================================================
 //  类型定义
@@ -55,12 +46,11 @@ const DRAG_THRESHOLD = 4;
 
 let mermaidInitialized = false;
 
-async function ensureMermaidInit() {
+function ensureMermaidInit() {
   if (mermaidInitialized) return;
-  const mermaid = await getMermaid();
-  mermaid.default.initialize({
+  mermaid.initialize({
     startOnLoad: false,
-    securityLevel: 'strict',
+    securityLevel: 'loose',
     theme: 'base',
     deterministicIds: false,
     fontFamily: '"Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
@@ -238,25 +228,13 @@ export function MermaidGraphPanel({
       setIsRendering(true);
       setRenderError('');
       try {
-        await ensureMermaidInit();
-        const mermaid = await getMermaid();
+        ensureMermaidInit();
         const id = `mermaid-graph-${currentId}-${Date.now()}`;
-        const { svg } = await mermaid.default.render(id, graphDefinition);
+        console.log('[MermaidGraphPanel] 开始渲染, id:', id);
+        const { svg } = await mermaid.render(id, graphDefinition);
 
         if (!cancelled) {
-          // 净化 SVG 防止 XSS（移除事件处理器和脚本）
-          const cleanSvg = DOMPurify.sanitize(svg || '', {
-            USE_PROFILES: { svg: true, svgFilters: true },
-            ADD_TAGS: ['style'],
-            ADD_ATTR: ['xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'text-anchor',
-              'font-size', 'font-family', 'font-weight', 'transform', 'x', 'y', 'dx', 'dy',
-              'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'points', 'x1', 'y1',
-              'x2', 'y2', 'pathLength', 'marker-end', 'marker-start', 'orient', 'refX', 'refY',
-              'markerWidth', 'markerHeight', 'patternUnits', 'gradientUnits', 'spreadMethod',
-              'offset', 'stop-color', 'stop-opacity', 'opacity', 'clip-path', 'dominant-baseline',
-              'alignment-baseline', 'style', 'class', 'data-id', 'data-source'],
-          });
-          setRenderedSvg(cleanSvg);
+          setRenderedSvg(svg || '');
 
           // 等待 DOM 更新后处理 SVG
           await new Promise(resolve => requestAnimationFrame(resolve));
@@ -275,6 +253,7 @@ export function MermaidGraphPanel({
 
               const metrics = getGraphMetrics();
               setGraphSize(metrics);
+              console.log('[MermaidGraphPanel] SVG 尺寸:', metrics);
             }
           }
         }
