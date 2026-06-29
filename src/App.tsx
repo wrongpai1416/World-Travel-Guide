@@ -1,20 +1,16 @@
 import { GameProvider, useGame } from './context/GameContext';
 import { UISettingsProvider } from './context/UISettingsContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import SettingsScreen from './components/SettingsScreen';
 import StartScreen from './components/start/StartScreen';
+import SettingsScreen from './components/SettingsScreen';
 import GameScreen from './components/game/GameScreen';
 
 function AppContent() {
   const { state } = useGame();
-
   switch (state.currentScreen) {
-    case 'settings':
-      return <SettingsScreen />;
-    case 'game':
-      return <GameScreen />;
-    default:
-      return <StartScreen />;
+    case 'settings': return <SettingsScreen />;
+    case 'game': return <GameScreen />;
+    default: return <StartScreen />;
   }
 }
 

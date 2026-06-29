@@ -1,0 +1,19 @@
+[package]
+name = "world-travel-guide"
+version = "1.8.0"
+edition = "2021"
+
+[lib]
+name = "world_travel_guide_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-http = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time"] }

@@ -1,5 +1,5 @@
 // 轻量宏引擎 —— 支持 {{variable}}, {{random::}}, {{#if::}}, {{roll}} 等宏语法
-// 轻量宏引擎 —— 支持宏语法
+// 宏引擎
 
 /** 宏引擎配置 */
 export interface MacroEngineOptions {

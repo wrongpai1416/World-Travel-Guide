@@ -7,7 +7,7 @@ import type { MacroEngine } from './macroEngine';
 
 /**
  * 估算文本的 token 数量（中英文混合，~2.5 字符 ≈ 1 token）
- * 中英文混合估算，~2.5 字符 ≈ 1 token
+ * 启发式 token 估算
  */
 function estimateTokens(text: string): number {
   if (!text) return 0;
@@ -16,7 +16,7 @@ function estimateTokens(text: string): number {
 
 /**
  * 将文本裁剪到指定 token 预算内，按行截断
- * 按 token 预算裁剪文本，按行截断
+ * 动态记忆块裁剪
  */
 function trimToTokenBudget(text: string, tokenBudget: number): string {
   if (!text || tokenBudget <= 0) return '';

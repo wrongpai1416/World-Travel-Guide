@@ -22,7 +22,7 @@ import {
   createPromptSafeNpcSnapshot,
 } from '../utils/npcHelpers';
 
-/** 安全数值转换 + 区间钳制，防止 NaN 传播（） */
+/** 安全数值转换 + 区间钳制，防止 NaN 传播（安全数值钳制） */
 function safeClamp(value: unknown, min: number, max: number, fallback: number): number {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;

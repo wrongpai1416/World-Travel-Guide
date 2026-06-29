@@ -17,6 +17,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * 精简 GameState 用于变量提取 API 调用
  * 移除非必要字段（memoryRuntime、portraitUrl 等），减少序列化体积
+ * 变量快照清理
  */
 function sanitizeForExtraction(state: GameState): GameState {
   const snapshot = { ...state };
