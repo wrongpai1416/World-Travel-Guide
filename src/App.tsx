@@ -4,6 +4,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import StartScreen from './components/start/StartScreen';
 import SettingsScreen from './components/SettingsScreen';
 import GameScreen from './components/game/GameScreen';
+import BackgroundMusic from './components/BackgroundMusic';
 
 function AppContent() {
   const { state } = useGame();
@@ -20,6 +21,7 @@ export default function App() {
       <UISettingsProvider>
         <GameProvider>
           <AppContent />
+          <BackgroundMusic />
         </GameProvider>
       </UISettingsProvider>
     </ErrorBoundary>

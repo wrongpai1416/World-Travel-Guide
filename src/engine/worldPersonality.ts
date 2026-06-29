@@ -3,13 +3,16 @@ import { WORLDS, findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
 import { applyModulesV2 } from '../modules/injector';
 
-export async function loadWorldBook(): Promise<WorldBookManager | null> {
+export async function loadWorldBook(): Promise<WorldBookManager> {
   try {
     const resp = await fetch('/card.json');
-    if (!resp.ok) return null;
-    const cardData = await resp.json();
-    return createWorldBookManager(parseWorldBook(cardData));
-  } catch { return null; }
+    if (resp.ok) {
+      const cardData = await resp.json();
+      return createWorldBookManager(parseWorldBook(cardData));
+    }
+  } catch { /* fall through */ }
+  // 没有 card.json 时返回空管理器，applyWorld() 会注入世界专属条目
+  return createWorldBookManager([]);
 }
 
 /**
@@ -19,6 +22,8 @@ export async function loadWorldBook(): Promise<WorldBookManager | null> {
  * - 如果世界有 worldBookEntries，将它们添加到管理器（v2.0 新模式）
  */
 export function applyWorld(wb: WorldBookManager, worldId: string) {
+  // 先清除上一轮的世界专属条目（负 ID），避免切换世界时旧条目残留
+  wb.clearWorldEntries();
   wb.disableEntriesByPrefix('[WB]');
 
   if (worldId !== 'default') {
