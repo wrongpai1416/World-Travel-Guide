@@ -70,7 +70,9 @@ export default function SavesView({
         padding: '2rem',
       }}
     >
-      <div style={{ width: '100%', maxWidth: '680px' }}>
+      <div style={{ width: '100%', maxWidth: '680px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {/* 可滚动区域：头部 + 存档列表 */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {/* 头部 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
           <button
@@ -160,7 +162,9 @@ export default function SavesView({
           </div>
         )}
 
-        {/* 底部操作栏 */}
+        </div>{/* 结束可滚动区域 */}
+
+        {/* 底部操作栏 - 固定在底部 */}
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -168,6 +172,7 @@ export default function SavesView({
           flexWrap: 'wrap',
           paddingTop: '1rem',
           borderTop: '1px solid var(--border)',
+          flexShrink: 0,
         }}>
           <button
             onClick={onBack}

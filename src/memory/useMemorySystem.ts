@@ -22,6 +22,7 @@ import {
   parseRerankResult,
 } from './narrativeParsers';
 import { normalizeVectorFact } from './vectorUtils';
+import { formatRuntimeToCompiledText, DEFAULT_COMPILE_BUDGET } from './compileFormatter';
 
 // ─── 类型定义 ───
 
@@ -617,63 +618,24 @@ export function useMemorySystem(): MemorySystemHook {
   const pipelineCompile = useCallback(async (ctx: MemoryPipelineContext): Promise<string> => {
     if (!store.config.enabled) return '';
 
-    const entries = ctx._selectedEntries ?? [];
-    if (entries.length === 0) return '';
-
     const runtime = store.getMemoryRuntime();
-    const parts: string[] = [];
 
-    // 场景锚点
-    if (runtime.sceneAnchor) {
-      const sa = runtime.sceneAnchor;
-      const sceneLines = [
-        sa.locationLabel ? `地点：${sa.locationLabel}` : '',
-        sa.timeLabel ? `时间：${sa.timeLabel}` : '',
-        sa.immediateGoal ? `当前目标：${sa.immediateGoal}` : '',
-        sa.immediateRisk ? `当前风险：${sa.immediateRisk}` : '',
-      ].filter(Boolean);
-      if (sceneLines.length > 0) {
-        parts.push(`【当前场景】\n${sceneLines.join('\n')}`);
-      }
-    }
+    const queryKeywords = ctx._retrievalKeywords?.length
+      ? ctx._retrievalKeywords
+      : ctx.inputText.split(/[\s,，。！？、；：""''（）【】\n]+/).filter(w => w.length >= 2);
 
-    // 检索到的记忆（按类型分组）
-    const playerEntries = entries.filter(e => e.type === 'player');
-    const charEntries = entries.filter(e => e.type === 'otherCharacter');
-    const itemEntries = entries.filter(e => e.type === 'item');
+    const result = formatRuntimeToCompiledText(runtime, queryKeywords, DEFAULT_COMPILE_BUDGET);
+    ctx._compiledContext = result.text;
 
-    if (playerEntries.length > 0) {
-      const lines = playerEntries.map(e => `- ${e.title}：${e.summary}`);
-      parts.push(`【本层摘要】\n${lines.join('\n')}`);
-    }
-
-    if (charEntries.length > 0) {
-      const lines = charEntries.map(e => `- ${e.title}：${e.summary}`);
-      parts.push(`【角色记忆】\n${lines.join('\n')}`);
-    }
-
-    if (itemEntries.length > 0) {
-      const lines = itemEntries.map(e => `- ${e.title}：${e.summary}`);
-      parts.push(`【物品记忆】\n${lines.join('\n')}`);
-    }
-
-    const compiled = parts.join('\n\n');
-    ctx._compiledContext = compiled;
-
-    // 缓存编译结果
     store.setCompiledContext({
       compiledAt: Date.now(),
-      fullText: compiled,
-      sections: {
-        scene: parts[0] || '',
-        summary: playerEntries.length > 0 ? `【本层摘要】${playerEntries.length} 条` : '',
-        retrieval: `检索到 ${entries.length} 条记忆`,
-      },
+      fullText: result.text,
+      sections: result.sections,
       sceneAnchor: runtime.sceneAnchor,
     });
 
     store.bumpRuntimeVersion();
-    return compiled;
+    return result.text;
   }, [store]);
 
   // ═══════════════════════════════════════════

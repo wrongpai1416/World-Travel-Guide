@@ -2,7 +2,10 @@
 import { requestCompletion } from '../api/client';
 import { waitForRateLimit } from '../api/rateLimiter';
 import type { MemoryPipelineContext } from './useMemorySystem';
-import type { NarrativeMemoryRuntime, SummaryMemoryItem, VectorMemoryItem } from './types';
+import type {
+  NarrativeMemoryRuntime, SummaryMemoryItem, VectorMemoryItem,
+  NarrativeStateSlot, NarrativeRelationEdge, NarrativeRelationNetworkItem, NarrativeArchiveCard,
+} from './types';
 import { normalizeVectorFact } from './vectorUtils';
 import {
   parseNarrativePayload,
@@ -479,32 +482,30 @@ export async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: 
 // ─── 阶段9: 上下文编译 ───
 
 export async function executeMemoryCompile(memStore: MemoryStore, ctx: MemoryPipelineContext): Promise<void> {
-  const entries = ctx._selectedEntries ?? [];
-
+  const { formatRuntimeToCompiledText, DEFAULT_COMPILE_BUDGET } = await import('./compileFormatter');
   const runtime = memStore.getMemoryRuntime();
-  const parts: string[] = [];
 
-  if (runtime.sceneAnchor) {
-    const sa = runtime.sceneAnchor;
-    const lines = [
-      sa.locationLabel ? `地点：${sa.locationLabel}` : '',
-      sa.timeLabel ? `时间：${sa.timeLabel}` : '',
-      sa.immediateGoal ? `当前目标：${sa.immediateGoal}` : '',
-      sa.immediateRisk ? `当前风险：${sa.immediateRisk}` : '',
-    ].filter(Boolean);
-    if (lines.length > 0) parts.push(`【当前场景】\n${lines.join('\n')}`);
-  }
+  // 提取查询关键词：优先使用检索阶段产出的关键词，否则从用户输入分词
+  const queryKeywords = ctx._retrievalKeywords?.length
+    ? ctx._retrievalKeywords
+    : ctx.inputText.split(/[\s,，。！？、；：""''（）【】\n]+/).filter(w => w.length >= 2);
 
-  const player = entries.filter(e => e.type === 'player');
-  const chars = entries.filter(e => e.type === 'otherCharacter');
-  const items = entries.filter(e => e.type === 'item');
-  if (player.length > 0) parts.push(`【本层摘要】\n${player.map(e => `- ${e.title}：${e.summary}`).join('\n')}`);
-  if (chars.length > 0) parts.push(`【角色记忆】\n${chars.map(e => `- ${e.title}：${e.summary}`).join('\n')}`);
-  if (items.length > 0) parts.push(`【物品记忆】\n${items.map(e => `- ${e.title}：${e.summary}`).join('\n')}`);
+  const result = formatRuntimeToCompiledText(runtime, queryKeywords, DEFAULT_COMPILE_BUDGET);
 
-  const compiled = parts.join('\n\n');
-  ctx._compiledContext = compiled;
-  memStore.setCompiledContext({ compiledAt: Date.now(), fullText: compiled, sections: { scene: parts[0] || '', retrieval: `检索到 ${entries.length} 条记忆` }, sceneAnchor: runtime.sceneAnchor });
+  ctx._compiledContext = result.text;
+  memStore.setCompiledContext({
+    compiledAt: Date.now(),
+    fullText: result.text,
+    sections: result.sections,
+    sceneAnchor: runtime.sceneAnchor,
+  });
+
+  memStore.appendCompileDebugLog({
+    kind: 'compile',
+    message: `双层编译完成: ${result.tokenEstimate} tokens, hot=[${Object.values(result.hotIds).flat().length} items]`,
+    sourceStartIndex: ctx.floor,
+    sourceEndIndex: ctx.floor,
+  });
 }
 
 // ─── 内部工具函数 ───
@@ -564,6 +565,60 @@ function applyIngestToRuntime(runtime: NarrativeMemoryRuntime, parsed: Record<st
       const idx = runtime.entityCards.findIndex(c => c.id === patch.id || c.name === patch.name);
       if (idx >= 0) runtime.entityCards[idx] = { ...runtime.entityCards[idx], ...patch, updatedAt: Date.now() } as typeof runtime.entityCards[number];
       else runtime.entityCards.push({ ...patch, createdAt: Date.now(), updatedAt: Date.now() } as typeof runtime.entityCards[number]);
+    }
+  }
+
+  // stateSlotUpserts — 作用域状态变量
+  const stateSlotUpserts = parsed.stateSlotUpserts as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(stateSlotUpserts)) {
+    for (const slot of stateSlotUpserts) {
+      const idx = runtime.stateSlots.findIndex(s => s.id === slot.id);
+      if (idx >= 0) runtime.stateSlots[idx] = { ...runtime.stateSlots[idx], ...slot, updatedAt: Date.now() } as NarrativeStateSlot;
+      else runtime.stateSlots.push({ ...slot, createdAt: Date.now(), updatedAt: Date.now() } as NarrativeStateSlot);
+    }
+  }
+
+  // relationUpserts — 实体关系边
+  const relationUpserts = parsed.relationUpserts as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(relationUpserts)) {
+    for (const edge of relationUpserts) {
+      const idx = runtime.relationEdges.findIndex(r => r.id === edge.id);
+      if (idx >= 0) runtime.relationEdges[idx] = { ...runtime.relationEdges[idx], ...edge, updatedAt: Date.now() } as NarrativeRelationEdge;
+      else runtime.relationEdges.push({ ...edge, createdAt: Date.now(), updatedAt: Date.now() } as NarrativeRelationEdge);
+    }
+  }
+
+  // relationNetworkUpserts — 高置信度关系网络
+  const relationNetworkUpserts = parsed.relationNetworkUpserts as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(relationNetworkUpserts)) {
+    for (const item of relationNetworkUpserts) {
+      const idx = runtime.relationNetwork.findIndex(r => r.id === item.id);
+      if (idx >= 0) runtime.relationNetwork[idx] = { ...runtime.relationNetwork[idx], ...item, updatedAt: Date.now() } as NarrativeRelationNetworkItem;
+      else runtime.relationNetwork.push({ ...item, createdAt: Date.now(), updatedAt: Date.now() } as NarrativeRelationNetworkItem);
+    }
+  }
+
+  // archiveHints — 归档故事弧
+  const archiveHints = parsed.archiveHints as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(archiveHints)) {
+    for (const hint of archiveHints) {
+      const id = (hint.id as string) || `arc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const idx = runtime.archiveCards.findIndex(a => a.id === id);
+      const card: NarrativeArchiveCard = {
+        id,
+        title: (hint.title as string) || '',
+        arcTitle: (hint.title as string) || '',
+        summary: (hint.summary as string) || '',
+        timeSpan: (hint.timeSpan as string) || '',
+        keywords: Array.isArray(hint.keywords) ? [...hint.keywords] as string[] : [],
+        entityRefs: [],
+        sourceStartIndex: null,
+        sourceEndIndex: null,
+        createdAt: Date.now(),
+        archivedAt: Date.now(),
+      };
+      if (idx >= 0) runtime.archiveCards[idx] = { ...runtime.archiveCards[idx], ...card };
+      else runtime.archiveCards.push(card);
     }
   }
 
