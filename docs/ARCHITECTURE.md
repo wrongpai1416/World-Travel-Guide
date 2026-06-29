@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: 世界漫游指南 (World Travel Guide) v1.5.0
+**项目名称**: 世界漫游指南 (World Travel Guide) v1.6.0
 
 **项目定位**: AI 驱动的互动小说引擎 (AI-Powered Interactive Fiction Engine)
 
@@ -94,6 +94,51 @@
 6. **APIRequest** — 发送 SSE 流式请求
 7. **ResponseExtract** — 从响应中提取结构化数据
 8. **VariableUpdate** — 更新变量状态
+
+---
+
+## 启动流程与角色创建
+
+### 启动界面架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   启动层 (components/start/*)                │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ StartScreen   │  │ MainMenuView  │  │ SavesView     │   │
+│  │ 启动入口       │  │ 主菜单         │  │ 存档管理       │   │
+│  └───────┬───────┘  └───────────────┘  └───────────────┘   │
+│          │                                                  │
+│  ┌───────▼───────┐  ┌───────────────┐  ┌───────────────┐   │
+│  │ WizardShell   │  │ StepWorld*    │  │ StepConfirm   │   │
+│  │ 向导壳         │  │ 世界选择步骤   │  │ 确认步骤       │   │
+│  └───────────────┘  └───────────────┘  └───────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 向导流程
+
+```
+StartScreen → MainMenuView → WizardShell
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+              StepWorldSelect  StepPersonal  StepConfirm
+                    │           │           │
+                    └───────────┼───────────┘
+                                ▼
+                           GameScreen
+```
+
+### 路由更新
+
+```typescript
+// App.tsx
+switch (state.currentScreen) {
+  case 'settings': return <SettingsScreen />;
+  default: return <StartScreen />;
+}
+```
 
 ---
 

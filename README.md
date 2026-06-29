@@ -64,6 +64,14 @@
 - **世界生成器**：程序化世界生成
 - **世界配置应用**：世界书条目加载、启用/禁用、模块注入
 
+### <img src="https://unpkg.com/lucide-static@latest/icons/play.svg" width="16" height="16" /> 启动流程与角色创建
+
+- **启动界面**：主菜单、存档管理、向导流程一体化
+- **角色创建向导**：世界选择 → 角色信息 → 角色历史 → 确认，模块化步骤
+- **引导选择**：引导式选择覆盖层，降低新用户门槛
+- **存档系统**：存档列表、加载、删除，本地 IndexedDB 持久化
+- **角色档案**：ProfilePanel 展示角色信息，NotebookPanel 记录冒险笔记
+
 ## <img src="https://unpkg.com/lucide-static@latest/icons/file-text.svg" width="20" height="20" /> 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 完整的架构分析、用户流程、数据流、各层职责

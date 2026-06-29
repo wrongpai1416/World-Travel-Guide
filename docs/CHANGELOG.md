@@ -1,5 +1,26 @@
 # 更新日志
 
+## v1.6.0 — 启动流程与角色创建
+
+### ✨ 新增功能
+
+- **启动界面** (`components/start/StartScreen`)：应用入口，主菜单、存档管理、向导流程
+- **主菜单** (`components/start/MainMenuView`)：新建冒险、继续游戏、存档管理
+- **存档管理** (`components/start/SavesView`)：存档列表、加载、删除
+- **向导壳** (`components/start/WizardShell`)：角色创建向导容器
+- **向导步骤**：世界选择、角色信息、角色历史、确认等步骤
+- **引导选择** (`components/start/GuidedChoiceOverlay`)：引导式选择覆盖层
+- **向导 Hook** (`hooks/useWizard`)：向导流程状态管理
+- **角色历史 Hook** (`hooks/useCharacterHistory`)：角色历史记录管理
+- **角色头像 Hook** (`hooks/useCharacterPortrait`)：角色头像生成与管理
+- **年龄阶段** (`utils/ageStages`)：角色年龄阶段定义
+- **游戏面板**：ProfilePanel（角色档案）、NotebookPanel（笔记本）、RightPanel（右侧面板）
+
+### 🏗️ 架构
+
+- App.tsx 更新：加入 StartScreen 和 SettingsScreen 路由
+- 向导流程模块化，支持自定义步骤
+
 ## v1.5.0 — 世界生成与内置世界
 
 ### ✨ 新增功能
