@@ -10,6 +10,70 @@ export interface ComfyLora {
   strength_clip: number;
 }
 
+// ─── ComfyUI 自定义工作流 ───
+
+/** 参数注入点 — 标识工作流 JSON 中哪个节点的哪个输入槽用于动态注入 */
+export interface ParamInjectPoint {
+  nodeId: string;
+  inputKey: string;
+}
+
+/** 单个 ComfyUI 节点映射 — 自动检测哪些节点可以注入参数 */
+export interface DetectedNode {
+  nodeId: string;
+  classType: string;
+  inputs: string[];
+  /** 建议的映射角色（如 'positive_prompt', 'negative_prompt', 'seed' 等） */
+  suggestedRole: string | null;
+}
+
+/** 工作流参数映射表 */
+export interface WorkflowParamMapping {
+  positivePrompt?: ParamInjectPoint;
+  negativePrompt?: ParamInjectPoint;
+  seed?: ParamInjectPoint;
+  steps?: ParamInjectPoint;
+  cfg?: ParamInjectPoint;
+  sampler?: ParamInjectPoint;
+  scheduler?: ParamInjectPoint;
+  width?: ParamInjectPoint;
+  height?: ParamInjectPoint;
+  batchSize?: ParamInjectPoint;
+  denoise?: ParamInjectPoint;
+  /** 自定义注入 — key 为 nodeId.inputKey */
+  custom: Record<string, string>;
+}
+
+/** 工作流验证结果 */
+export interface WorkflowValidation {
+  /** 工作流中所有 class_type */
+  nodeTypes: string[];
+  /** 本地 ComfyUI 中已安装的节点类型 */
+  available: string[];
+  /** 本地缺失的节点类型 */
+  missing: string[];
+  /** 引用的模型/VAE/LoRA 在本地是否存在 */
+  modelWarnings: string[];
+  /** 是否有致命问题（如没有 SaveImage 节点） */
+  fatalErrors: string[];
+  /** 是否通过基本验证 */
+  valid: boolean;
+}
+
+/** ComfyUI 自定义工作流预设 */
+export interface ComfyWorkflowPreset {
+  id: string;
+  name: string;
+  /** 原始 ComfyUI workflow JSON（api format） */
+  workflow: Record<string, Record<string, unknown>>;
+  /** 参数映射 */
+  paramMapping: WorkflowParamMapping;
+  /** 导入时的验证快照 */
+  validation: WorkflowValidation;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ImageGenConfig {
   engine: ImageEngine;
   // ─── NovelAI ───
@@ -38,6 +102,12 @@ export interface ImageGenConfig {
   comfyLoras: ComfyLora[];
   comfyPositivePrompt: string;
   comfyNegativePrompt: string;
+  /** 是否使用自定义工作流（否则用内置默认流） */
+  comfyUseCustomWorkflow: boolean;
+  /** 当前选中的自定义工作流 ID */
+  comfyActiveWorkflowId: string;
+  /** 所有自定义工作流预设 */
+  comfyWorkflowPresets: ComfyWorkflowPreset[];
   // ─── OpenAI Compatible ───
   openaiCompatibleProvider: string;
   openaiCompatibleApiUrl: string;
@@ -171,6 +241,9 @@ export const DEFAULT_IMAGE_CONFIG: ImageGenConfig = {
   comfyLoras: [],
   comfyPositivePrompt: '',
   comfyNegativePrompt: '',
+  comfyUseCustomWorkflow: false,
+  comfyActiveWorkflowId: '',
+  comfyWorkflowPresets: [],
   // OpenAI Compatible
   openaiCompatibleProvider: 'openai',
   openaiCompatibleApiUrl: '',
