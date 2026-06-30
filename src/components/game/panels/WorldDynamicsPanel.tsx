@@ -35,17 +35,17 @@ const LEVEL_ICONS: Record<EventLevel, React.ReactNode> = {
 };
 
 const LEVEL_COLORS: Record<EventLevel, string> = {
-  mythic: '#a855f7',
-  political: '#3b82f6',
-  factional: '#f59e0b',
-  economic: '#10b981',
-  civilian: '#6b7280',
+  mythic: 'var(--event-level-mythic)',
+  political: 'var(--event-level-political)',
+  factional: 'var(--event-level-factional)',
+  economic: 'var(--event-level-economic)',
+  civilian: 'var(--event-level-civilian)',
 };
 
 const URGENCY_ICONS: Record<string, React.ReactNode> = {
-  urgent: <AlertTriangle size={12} color="#ef4444" />,
-  near_term: <Clock size={12} color="#f59e0b" />,
-  ongoing: <Clock size={12} color="#6b7280" />,
+  urgent: <AlertTriangle size={12} color="var(--danger)" />,
+  near_term: <Clock size={12} color="var(--warning)" />,
+  ongoing: <Clock size={12} color="var(--text-muted)" />,
 };
 
 const URGENCY_LABELS: Record<string, string> = {
@@ -58,7 +58,7 @@ const URGENCY_LABELS: Record<string, string> = {
 function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: number; tickCount?: number }) {
   const [expanded, setExpanded] = useState(false);
   const severityBar = Math.min(100, event.severity * 10);
-  const severityColor = event.severity >= 7 ? '#ef4444' : event.severity >= 4 ? '#f59e0b' : '#6b7280';
+  const severityColor = event.severity >= 7 ? 'var(--danger)' : event.severity >= 4 ? 'var(--warning)' : 'var(--text-muted)';
   const staleTicks = tickCount != null ? tickCount - (event.lastUpdatedTick ?? 0) : 0;
   const isStale = staleTicks > 5;
 
@@ -66,8 +66,8 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
     <div style={{
       marginBottom: '8px',
       marginLeft: `${depth * 16}px`,
-      border: '1px solid var(--border-color)',
-      borderRadius: '8px',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-md)',
       background: 'var(--bg-secondary)',
       overflow: 'hidden',
     }}>
@@ -77,7 +77,7 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: 'var(--space-2)',
           padding: '8px 10px',
           cursor: 'pointer',
           userSelect: 'none',
@@ -86,33 +86,26 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <span style={{ color: LEVEL_COLORS[event.level], display: 'flex', alignItems: 'center', gap: '4px' }}>
           {LEVEL_ICONS[event.level]}
-          <span style={{ fontSize: '11px', fontWeight: 600 }}>{getLevelLabel(event.level)}</span>
+          <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{getLevelLabel(event.level)}</span>
         </span>
-        <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+        <span style={{ flex: 1, fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--text-primary)' }}>
           {event.title}
         </span>
         {/* 严重度条 */}
         <div style={{
-          width: '40px', height: '4px', borderRadius: '2px',
+          width: '40px', height: '4px', borderRadius: 'var(--radius-sm)',
           background: 'var(--bg-tertiary)', overflow: 'hidden',
         }}>
           <div style={{
             width: `${severityBar}%`, height: '100%',
-            background: severityColor, borderRadius: '2px',
+            background: severityColor, borderRadius: 'var(--radius-sm)',
           }} />
         </div>
-        <span style={{
-          fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
-          background: event.status === 'brewing' ? '#fef3c7' : event.status === 'active' ? '#fee2e2' : '#d1fae5',
-          color: event.status === 'brewing' ? '#92400e' : event.status === 'active' ? '#991b1b' : '#065f46',
-        }}>
+        <span className={`event-badge ${event.status}`}>
           {event.status === 'brewing' ? '酝酿' : event.status === 'active' ? '进行中' : '已结束'}
         </span>
         {isStale && event.status === 'active' && (
-          <span style={{
-            fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
-            background: '#fef3c7', color: '#92400e',
-          }}>
+          <span className="event-badge brewing" style={{ fontSize: 'var(--font-size-xs)', padding: '1px 4px' }}>
             沉寂
           </span>
         )}
@@ -121,24 +114,21 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
       {/* 展开内容 */}
       {expanded && (
         <div style={{ padding: '0 10px 10px 10px' }}>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: '1.6', margin: '0 0 var(--space-2) 0' }}>
             {event.description}
           </p>
 
           {/* 受影响实体 */}
           {((event.affectedNpcIds?.length ?? 0) > 0 || (event.affectedFactions?.length ?? 0) > 0) && (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
               {(event.affectedFactions ?? []).map(f => (
-                <span key={f} style={{
-                  fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
-                  background: 'var(--accent-light)', color: 'var(--accent)',
-                }}>
+                <span key={f} className="event-badge active" style={{ fontSize: 'var(--font-size-xs)', padding: '1px 6px' }}>
                   {f}
                 </span>
               ))}
               {(event.affectedNpcIds ?? []).map(n => (
                 <span key={n} style={{
-                  fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
+                  fontSize: 'var(--font-size-xs)', padding: '1px 6px', borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
                 }}>
                   {n}
@@ -149,8 +139,8 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
 
           {/* 玩家切入点 */}
           {(event.playerHooks?.length ?? 0) > 0 && (
-            <div style={{ marginTop: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', marginBottom: '4px' }}>
+            <div style={{ marginTop: 'var(--space-2)' }}>
+              <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--accent)', marginBottom: '4px' }}>
                 <Target size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
                 玩家可介入
               </div>
@@ -169,14 +159,14 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
 function PlayerHookItem({ hook }: { hook: PlayerHook }) {
   return (
     <div style={{
-      fontSize: '11px', padding: '6px 8px', marginBottom: '4px',
+      fontSize: 'var(--font-size-xs)', padding: '6px 8px', marginBottom: '4px',
       borderLeft: '2px solid var(--accent)',
-      background: 'var(--accent-light)',
-      borderRadius: '0 6px 6px 0',
+      background: 'var(--accent-dim)',
+      borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{hook.title}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: 'var(--text-muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           {URGENCY_ICONS[hook.urgency]}
           {URGENCY_LABELS[hook.urgency]}
         </span>
@@ -186,7 +176,7 @@ function PlayerHookItem({ hook }: { hook: PlayerHook }) {
         <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {(hook.suggestedActions ?? []).map((action, ai) => (
             <span key={ai} style={{
-              fontSize: '10px', padding: '1px 6px', borderRadius: '10px',
+              fontSize: 'var(--font-size-xs)', padding: '1px 6px', borderRadius: 'var(--radius-md)',
               background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
             }}>
               {action}
@@ -211,24 +201,24 @@ function StorylineEntry({ npcId, npcName }: { npcId: string; npcName: string }) 
   return (
     <div style={{
       marginBottom: '8px',
-      border: '1px solid var(--border-color)',
-      borderRadius: '8px',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-md)',
       background: 'var(--bg-secondary)',
       overflow: 'hidden',
     }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
           padding: '8px 10px', cursor: 'pointer', userSelect: 'none',
         }}
       >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <PersonStanding size={14} color="var(--accent)" />
-        <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+        <span style={{ flex: 1, fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--text-primary)' }}>
           {npcName}
         </span>
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           {recentBeats.length} 个新进展
         </span>
       </div>
@@ -237,25 +227,25 @@ function StorylineEntry({ npcId, npcName }: { npcId: string; npcName: string }) 
         <div style={{ padding: '0 10px 10px 10px' }}>
           {storyline.summary && (
             <p style={{
-              fontSize: '11px', color: 'var(--text-secondary)',
-              lineHeight: '1.5', fontStyle: 'italic', margin: '0 0 8px 0',
-              padding: '6px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px',
+              fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)',
+              lineHeight: '1.5', fontStyle: 'italic', margin: '0 0 var(--space-2) 0',
+              padding: '6px 8px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
             }}>
               {storyline.summary}
             </p>
           )}
           {recentBeats.map((beat, bi) => (
             <div key={bi} style={{
-              fontSize: '11px', padding: '4px 0', borderBottom: '1px solid var(--border-color)',
+              fontSize: 'var(--font-size-xs)', padding: '4px 0', borderBottom: '1px solid var(--border)',
               color: 'var(--text-secondary)', lineHeight: '1.5',
             }}>
               <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{beat.title}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '10px', marginLeft: '6px' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)', marginLeft: '6px' }}>
                 {beat.time}
               </span>
               <div>{beat.narrative}</div>
               {beat.locationChange && (
-                <span style={{ fontSize: '10px', color: 'var(--accent)' }}>
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent)' }}>
                   移至: {beat.locationChange}
                 </span>
               )}
@@ -270,9 +260,9 @@ function StorylineEntry({ npcId, npcName }: { npcId: string; npcName: string }) 
 // ─── NPC 主动交互卡片 ───
 function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteraction }) {
   const [expanded, setExpanded] = useState(false);
-  const priorityColor = interaction.priority <= 100 ? '#ef4444'
-    : interaction.priority <= 300 ? '#f59e0b'
-    : interaction.priority <= 600 ? '#3b82f6' : '#6b7280';
+  const priorityColor = interaction.priority <= 100 ? 'var(--danger)'
+    : interaction.priority <= 300 ? 'var(--warning)'
+    : interaction.priority <= 600 ? 'var(--accent)' : 'var(--text-muted)';
   const priorityLabel = interaction.priority <= 100 ? '紧急'
     : interaction.priority <= 300 ? '重要'
     : interaction.priority <= 600 ? '一般' : '低';
@@ -280,26 +270,26 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
   return (
     <div style={{
       marginBottom: '8px',
-      border: `1px solid ${priorityColor}`,
-      borderRadius: '8px',
+      border: `1px solid var(--border)`,
+      borderRadius: 'var(--radius-md)',
       background: 'var(--bg-secondary)',
       overflow: 'hidden',
     }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
           padding: '8px 10px', cursor: 'pointer', userSelect: 'none',
         }}
       >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <MessageSquare size={14} color={priorityColor} />
-        <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+        <span style={{ flex: 1, fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--text-primary)' }}>
           {interaction.npcName}
         </span>
         <span style={{
-          fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
-          background: `${priorityColor}20`, color: priorityColor,
+          fontSize: 'var(--font-size-xs)', padding: '1px 6px', borderRadius: 'var(--radius-sm)',
+          background: priorityColor, color: 'var(--color-on-accent)', opacity: 0.85,
         }}>
           {priorityLabel}
         </span>
@@ -308,15 +298,15 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
       {expanded && (
         <div style={{ padding: '0 10px 10px 10px' }}>
           <div style={{
-            fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px',
+            fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)',
           }}>
             原因：{interaction.contactReason}
           </div>
 
           {/* NPC 内心想法 */}
           <div style={{
-            fontSize: '11px', padding: '6px 8px', marginBottom: '6px',
-            background: 'var(--bg-tertiary)', borderRadius: '6px',
+            fontSize: 'var(--font-size-xs)', padding: '6px 8px', marginBottom: 'var(--space-2)',
+            background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
             color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.5',
             borderLeft: '2px solid var(--text-muted)',
           }}>
@@ -325,8 +315,8 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
 
           {/* NPC 对白 */}
           <div style={{
-            fontSize: '12px', padding: '8px 10px',
-            background: 'var(--accent-light)', borderRadius: '6px',
+            fontSize: 'var(--font-size-sm)', padding: '8px 10px',
+            background: 'var(--accent-dim)', borderRadius: 'var(--radius-sm)',
             color: 'var(--text-primary)', lineHeight: '1.6',
             borderLeft: '3px solid var(--accent)',
           }}>
@@ -335,10 +325,10 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
 
           {/* 变量变更 */}
           {interaction.variableChanges && interaction.variableChanges.length > 0 && (
-            <div style={{ marginTop: '6px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 'var(--space-2)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {interaction.variableChanges.map((vc, i) => (
                 <span key={i} style={{
-                  fontSize: '10px', padding: '1px 6px', borderRadius: '10px',
+                  fontSize: 'var(--font-size-xs)', padding: '1px 6px', borderRadius: 'var(--radius-md)',
                   background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
                 }}>
                   {vc}
@@ -361,8 +351,8 @@ function EmptyState() {
       color: 'var(--text-muted)', textAlign: 'center',
     }}>
       <Globe size={32} opacity={0.4} />
-      <div style={{ fontSize: '13px' }}>世界正在平静运转中</div>
-      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+      <div style={{ fontSize: 'var(--font-size-base)' }}>世界正在平静运转中</div>
+      <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
         当重大事件发生时，动态将在此处展示
       </div>
     </div>
@@ -401,64 +391,42 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
       {/* 标题栏 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '8px 12px', borderBottom: '1px solid var(--border-color)',
+        padding: '8px 12px', borderBottom: '1px solid var(--border)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Globe size={16} color="var(--accent)" />
-          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+          <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)' }}>
             世界动态
           </span>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button
             onClick={() => setActiveTab('events')}
-            style={{
-              fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer',
-              background: activeTab === 'events' ? 'var(--accent)' : 'transparent',
-              color: activeTab === 'events' ? '#fff' : 'var(--text-muted)',
-            }}
+            className={activeTab === 'events' ? 'btn-primary btn-xs' : 'btn-ghost btn-xs'}
           >
             事件
           </button>
           <button
             onClick={() => setActiveTab('storylines')}
-            style={{
-              fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer',
-              background: activeTab === 'storylines' ? 'var(--accent)' : 'transparent',
-              color: activeTab === 'storylines' ? '#fff' : 'var(--text-muted)',
-            }}
+            className={activeTab === 'storylines' ? 'btn-primary btn-xs' : 'btn-ghost btn-xs'}
           >
             暗线
           </button>
           <button
             onClick={() => setActiveTab('interactions')}
-            style={{
-              fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer',
-              background: activeTab === 'interactions' ? 'var(--accent)' : 'transparent',
-              color: activeTab === 'interactions' ? '#fff' : 'var(--text-muted)',
-              position: 'relative',
-            }}
+            className={activeTab === 'interactions' ? 'btn-primary btn-xs' : 'btn-ghost btn-xs'}
+            style={{ position: 'relative' }}
           >
             交互
             {(simState.pendingInteractions ?? []).length > 0 && (
-              <span style={{
-                position: 'absolute', top: '-4px', right: '-4px',
-                width: '14px', height: '14px', borderRadius: '50%',
-                background: '#ef4444', color: '#fff',
-                fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700,
-              }}>
+              <span className="notification-dot">
                 {simState.pendingInteractions.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            style={{
-              fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer',
-              background: activeTab === 'settings' ? 'var(--accent)' : 'transparent',
-              color: activeTab === 'settings' ? '#fff' : 'var(--text-muted)',
-            }}
+            className={activeTab === 'settings' ? 'btn-primary btn-xs' : 'btn-ghost btn-xs'}
           >
             设置
           </button>
@@ -472,12 +440,12 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
             {/* 世界新闻摘要 */}
             {simState.worldNewsSummary && (
               <div style={{
-                fontSize: '11px', padding: '8px 10px', marginBottom: '10px',
-                background: 'var(--accent-light)', borderRadius: '8px',
+                fontSize: 'var(--font-size-xs)', padding: '8px 10px', marginBottom: '10px',
+                background: 'var(--accent-dim)', borderRadius: 'var(--radius-md)',
                 color: 'var(--text-secondary)', lineHeight: '1.6',
                 border: '1px solid var(--accent)',
               }}>
-                <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: '4px', fontSize: '10px' }}>
+                <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: '4px', fontSize: 'var(--font-size-xs)' }}>
                   <Zap size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
                   世界新闻
                 </div>
@@ -499,13 +467,8 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
               <button
                 onClick={onManualTick}
                 disabled={isSimulating}
-                style={{
-                  width: '100%', marginTop: '12px', padding: '6px 0',
-                  borderRadius: '6px', border: '1px dashed var(--border-color)',
-                  background: 'transparent', color: 'var(--text-muted)',
-                  fontSize: '12px', cursor: isSimulating ? 'not-allowed' : 'pointer',
-                  opacity: isSimulating ? 0.5 : 1,
-                }}
+                className="btn-ghost btn-sm"
+                style={{ width: '100%', marginTop: 'var(--space-3)' }}
               >
                 {isSimulating ? '推演中...' : '手动推演一次'}
               </button>
@@ -540,8 +503,8 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
                 color: 'var(--text-muted)', textAlign: 'center',
               }}>
                 <Radio size={32} opacity={0.4} />
-                <div style={{ fontSize: '13px' }}>暂无 NPC 主动联系</div>
-                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                <div style={{ fontSize: 'var(--font-size-base)' }}>暂无 NPC 主动联系</div>
+                <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
                   当离场角色有重要事务时，会在此处显示
                 </div>
               </div>
@@ -589,7 +552,7 @@ function SimSettings() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px',
       }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>启用世界推演</span>
+        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>启用世界推演</span>
         <input
           type="checkbox"
           checked={cfg.enabled}
@@ -599,14 +562,12 @@ function SimSettings() {
 
       {/* API 预设 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>推演 API</span>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>推演 API</span>
         <select
           value={presetId}
           onChange={e => handlePresetChange(e.target.value)}
-          style={{
-            padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)',
-            background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '12px',
-          }}
+          className="input-field"
+          style={{ width: '100%' }}
         >
           <option value="">跟随主 API</option>
           {presets.map(p => (
@@ -617,14 +578,12 @@ function SimSettings() {
 
       {/* 时间单位 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>推演触发方式</span>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>推演触发方式</span>
         <select
           value={cfg.timeUnit}
           onChange={e => updateConfig({ timeUnit: e.target.value as SimConfig['timeUnit'] })}
-          style={{
-            padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)',
-            background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '12px',
-          }}
+          className="input-field"
+          style={{ width: '100%' }}
         >
           <option value="per_scene">每次场景切换</option>
           <option value="per_day">每天一次</option>
@@ -635,7 +594,7 @@ function SimSettings() {
 
       {/* 自动推演间隔 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           自动推演间隔（消息轮数，0=仅手动触发）
         </span>
         <input
@@ -644,17 +603,14 @@ function SimSettings() {
           max={20}
           value={cfg.autoTickInterval}
           onChange={e => updateConfig({ autoTickInterval: parseInt(e.target.value) || 0 })}
-          style={{
-            padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)',
-            background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '12px',
-            width: '80px',
-          }}
+          className="input-field"
+          style={{ width: '80px' }}
         />
       </div>
 
       {/* 最大级联深度 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           事件级联深度: {cfg.maxCascadeDepth}
         </span>
         <input
@@ -668,7 +624,7 @@ function SimSettings() {
 
       {/* 最大活跃事件 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           最大活跃事件数: {cfg.maxActiveEvents}
         </span>
         <input
@@ -682,7 +638,7 @@ function SimSettings() {
 
       {/* 陈旧事件阈值 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           陈旧事件衰减阈值: {cfg.staleTickThreshold} tick（0=禁用）
         </span>
         <input
@@ -692,15 +648,15 @@ function SimSettings() {
           onChange={e => updateConfig({ staleTickThreshold: parseInt(e.target.value) })}
           style={{ width: '100%' }}
         />
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7 }}>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
           超过此 tick 数未更新的事件将自动衰减严重度
         </span>
       </div>
 
       {/* 统计信息 */}
       <div style={{
-        fontSize: '10px', color: 'var(--text-muted)', padding: '8px 10px',
-        background: 'var(--bg-tertiary)', borderRadius: '8px',
+        fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', padding: '8px 10px',
+        background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)',
       }}>
         <div>推演次数: {simState.tickCount ?? 0}</div>
         <div>活跃事件: {Object.values(simState.events ?? {}).filter(e => e.status !== 'resolved').length}</div>

@@ -1989,14 +1989,15 @@
 .wbe-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
+  gap: var(--space-1);
+  padding: 8px 16px;
   border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  min-height: 36px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -2004,20 +2005,40 @@
   background: var(--accent);
   color: var(--color-on-accent);
 }
-.wbe-btn-primary:hover { opacity: 0.88; }
+.wbe-btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.wbe-btn-primary:active {
+  transform: translateY(0);
+}
 
 .wbe-btn-outline {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-secondary);
 }
-.wbe-btn-outline:hover { background: var(--bg-tertiary); }
+.wbe-btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.wbe-btn-outline:active {
+  transform: translateY(0);
+}
 
 .wbe-btn-ghost {
   background: transparent;
   color: var(--text-secondary);
 }
-.wbe-btn-ghost:hover { background: var(--bg-tertiary); }
+.wbe-btn-ghost:hover {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.wbe-btn-ghost:active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
 
 .wbe-import-msg {
   display: flex;

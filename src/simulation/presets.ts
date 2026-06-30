@@ -271,7 +271,7 @@ export function filterKeywordEntries(
     if (!e.enabled) return false;
     if (e.triggerMode === 'always') return true;
     // keyword 模式：至少匹配一个关键词
-    return e.keywords?.some(kw => lower.includes(kw.toLowerCase())) ?? false;
+    return Array.isArray(e.keywords) && e.keywords.some(kw => lower.includes(kw.toLowerCase()));
   });
 }
 

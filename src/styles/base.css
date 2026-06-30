@@ -229,6 +229,66 @@ select.input-field {
 }
 
 
+/* ─── 通知徽章 ─── */
+.notification-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--color-on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+/* ─── 事件状态徽章 ─── */
+.event-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.event-badge.brewing {
+  background: var(--status-brewing-bg);
+  color: var(--status-brewing-text);
+}
+.event-badge.active {
+  background: var(--status-active-bg);
+  color: var(--status-active-text);
+}
+.event-badge.resolved {
+  background: var(--status-resolved-bg);
+  color: var(--status-resolved-text);
+}
+
+/* ─── 世界书条目展开/折叠按钮 ─── */
+.wb-entry-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 8px 10px;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: background var(--duration-fast) var(--ease-out);
+  width: 100%;
+  text-align: left;
+}
+.wb-entry-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
 /* ─── Focus 可见样式 ─── */
 :focus-visible {
   outline: 2px solid var(--accent);

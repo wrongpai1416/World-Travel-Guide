@@ -422,8 +422,8 @@ function PresetCard({
         justifyContent: 'space-between',
         padding: '8px 12px',
         borderRadius: '6px',
-        background: isActive ? 'var(--primary-50, #eff6ff)' : 'var(--bg-secondary)',
-        border: isActive ? '1px solid var(--primary)' : '1px solid var(--border)',
+        background: isActive ? 'var(--accent-dim)' : 'var(--bg-secondary)',
+        border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
         cursor: 'pointer',
       }}
       onClick={onActivate}
@@ -451,7 +451,7 @@ function PresetCard({
           <CheckCircle size={14} color="var(--success, #10b981)" />
         )}
         {isActive && (
-          <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 500 }}>使用中</span>
+          <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 500 }}>使用中</span>
         )}
         <div onClick={(e) => e.stopPropagation()}>
           <Button onClick={onEdit}>编辑</Button>

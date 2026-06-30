@@ -532,7 +532,7 @@ export class WorldSimulationEngine {
       currentStatus: npc.个人信息?.当前状态 ?? '未知',
       shortTermGoal: npc.短期目标 ?? '未知',
       longTermGoal: npc.长期目标 ?? '未知',
-      lastKnownChronicles: (npc.人物事迹 ?? []).slice(-5),
+      lastKnownChronicles: (Array.isArray(npc.人物事迹) ? npc.人物事迹 : []).slice(-5),
       relationship: `${npc.关系数据?.好感度 ?? 0}好感 / ${npc.关系数据?.关系类型 ?? '陌生人'}`,
     };
   }

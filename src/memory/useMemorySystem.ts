@@ -811,7 +811,7 @@ function applyIngestResult(runtime: NarrativeMemoryRuntime, parsed: Record<strin
     runtime.sceneAnchor = {
       timeLabel: scenePatch.timeLabel ?? existing?.timeLabel ?? '',
       locationLabel: scenePatch.locationLabel ?? existing?.locationLabel ?? '',
-      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities as string[] : existing?.presentEntities) ?? [],
+      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities as string[] : Array.isArray(existing?.presentEntities) ? existing.presentEntities : []) ?? [],
       immediateGoal: scenePatch.immediateGoal ?? existing?.immediateGoal ?? '',
       immediateRisk: scenePatch.immediateRisk ?? existing?.immediateRisk ?? '',
       conversationFocus: scenePatch.conversationFocus ?? existing?.conversationFocus ?? '',
@@ -825,6 +825,10 @@ function applyIngestResult(runtime: NarrativeMemoryRuntime, parsed: Record<strin
   const threadUpserts = parsed.threadUpserts as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(threadUpserts)) {
     for (const thread of threadUpserts) {
+      // 防御：数组字段归一化
+      for (const f of ['relatedEntities', 'relatedItems', 'relatedLocations']) {
+        if (thread[f] && !Array.isArray(thread[f])) thread[f] = [thread[f]];
+      }
       const idx = runtime.activeThreads.findIndex(t => t.id === thread.id);
       const normalized = { ...thread, updatedAt: Date.now() } as NarrativeMemoryRuntime['activeThreads'][number];
       if (idx >= 0) runtime.activeThreads[idx] = { ...runtime.activeThreads[idx], ...normalized };
@@ -836,6 +840,9 @@ function applyIngestResult(runtime: NarrativeMemoryRuntime, parsed: Record<strin
   const eventCandidates = parsed.eventCandidates as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(eventCandidates)) {
     for (const card of eventCandidates) {
+      for (const f of ['entityRefs', 'locationRefs', 'threadRefs', 'timeLabels', 'keywords']) {
+        if (card[f] && !Array.isArray(card[f])) card[f] = [card[f]];
+      }
       const idx = runtime.eventCards.findIndex(c => c.id === card.id);
       const normalized = { ...card, createdAt: Date.now(), updatedAt: Date.now() } as NarrativeMemoryRuntime['eventCards'][number];
       if (idx >= 0) runtime.eventCards[idx] = { ...runtime.eventCards[idx], ...normalized };
@@ -846,13 +853,18 @@ function applyIngestResult(runtime: NarrativeMemoryRuntime, parsed: Record<strin
   // 应用实体档案
   const entityPatches = parsed.entityPatches as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(entityPatches)) {
+    const ensureArr = (v: unknown): string[] => Array.isArray(v) ? v as string[] : (v ? [String(v)] : []);
     for (const patch of entityPatches) {
+      // 防御：数组字段归一化
+      for (const f of ['currentStatus', 'aliases', 'stableFacts', 'affiliations', 'relatedThreads', 'relatedEvents']) {
+        if (patch[f] && !Array.isArray(patch[f])) patch[f] = [patch[f]];
+      }
       const idx = runtime.entityCards.findIndex(c => c.id === patch.id || c.name === patch.name);
       if (idx >= 0) {
         const existing = runtime.entityCards[idx];
         runtime.entityCards[idx] = {
           ...existing, ...patch,
-          stableFacts: [...new Set([...(existing.stableFacts || []), ...((patch.stableFacts as string[]) || [])])].slice(-10),
+          stableFacts: [...new Set([...ensureArr(existing.stableFacts), ...ensureArr(patch.stableFacts)])].slice(-10),
           updatedAt: Date.now(),
         };
       } else {

@@ -80,15 +80,16 @@ function countKeywordHits(text: string, keywords: string[]): number {
   return keywords.reduce((hits, kw) => kw && lower.includes(kw.toLowerCase()) ? hits + 1 : hits, 0);
 }
 
+const asArr = (v: unknown): unknown[] => Array.isArray(v) ? v : (v ? [v] : []);
+
 function threadSearchText(t: NarrativeThread): string {
-  return [t.title, t.summary, t.goal, t.blockingReason, ...t.relatedEntities, ...t.relatedLocations].filter(Boolean).join(' ');
+  return [t.title, t.summary, t.goal, t.blockingReason, ...asArr(t.relatedEntities), ...asArr(t.relatedLocations)].filter(Boolean).join(' ');
 }
 function eventSearchText(e: NarrativeEventCard): string {
-  return [e.title, e.summary, e.excerpt, ...e.entityRefs, ...e.locationRefs].filter(Boolean).join(' ');
+  return [e.title, e.summary, e.excerpt, ...asArr(e.entityRefs), ...asArr(e.locationRefs)].filter(Boolean).join(' ');
 }
 function entitySearchText(e: NarrativeEntityCard): string {
-  const status = Array.isArray(e.currentStatus) ? e.currentStatus : (e.currentStatus ? [e.currentStatus] : []);
-  return [e.name, ...e.aliases, ...status, ...e.stableFacts, e.currentStance, ...e.affiliations].filter(Boolean).join(' ');
+  return [e.name, ...asArr(e.aliases), ...asArr(e.currentStatus), ...asArr(e.stableFacts), e.currentStance, ...asArr(e.affiliations)].filter(Boolean).join(' ');
 }
 
 // ─── 排序与选择 ───
@@ -168,10 +169,11 @@ function formatEventLine(e: NarrativeEventCard): string {
 
 function formatEntityLine(e: NarrativeEntityCard): string {
   const parts = [`- ${e.name}（${e.entityType}）`];
-  const status = Array.isArray(e.currentStatus) ? e.currentStatus : (e.currentStatus ? [e.currentStatus] : []);
+  const status = asArr(e.currentStatus);
   if (status.length > 0) parts.push(`｜状态：${status.join(', ')}`);
   if (e.currentStance) parts.push(`｜立场：${e.currentStance}`);
-  if (e.stableFacts.length > 0) parts.push(`｜${e.stableFacts[0]}`);
+  const facts = asArr(e.stableFacts);
+  if (facts.length > 0) parts.push(`｜${facts[0]}`);
   return parts.join('');
 }
 

@@ -119,11 +119,13 @@ function buildLevelDescriptions(worldContext?: SimWorldContext): string {
     if (ctx.socialHierarchy) {
       extras.push(`- 社会结构：${ctx.socialHierarchy}`);
     }
-    if (ctx.factions.length > 0) {
-      extras.push(`- 已知势力：${ctx.factions.join('、')}`);
+    const factions = Array.isArray(ctx.factions) ? ctx.factions : [];
+    const coreThemes = Array.isArray(ctx.coreThemes) ? ctx.coreThemes : [];
+    if (factions.length > 0) {
+      extras.push(`- 已知势力：${factions.join('、')}`);
     }
-    if (ctx.coreThemes.length > 0) {
-      extras.push(`- 核心主题：${ctx.coreThemes.join('、')}`);
+    if (coreThemes.length > 0) {
+      extras.push(`- 核心主题：${coreThemes.join('、')}`);
     }
 
     if (extras.length > 0) {

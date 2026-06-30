@@ -531,7 +531,7 @@ function applyIngestToRuntime(runtime: NarrativeMemoryRuntime, parsed: Record<st
     runtime.sceneAnchor = {
       timeLabel: scenePatch.timeLabel ?? existing?.timeLabel ?? '',
       locationLabel: scenePatch.locationLabel ?? existing?.locationLabel ?? '',
-      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities : existing?.presentEntities) ?? [],
+      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities : Array.isArray(existing?.presentEntities) ? existing.presentEntities : []) ?? [],
       immediateGoal: scenePatch.immediateGoal ?? existing?.immediateGoal ?? '',
       immediateRisk: scenePatch.immediateRisk ?? existing?.immediateRisk ?? '',
       conversationFocus: scenePatch.conversationFocus ?? existing?.conversationFocus ?? '',
@@ -637,13 +637,13 @@ export function collectAllMemoriesFromRuntime(runtime: NarrativeMemoryRuntime) {
     if (!record.summaryData) continue;
     const floor = record.sourceStartIndex ?? 0;
     for (const item of record.summaryData.playerMemories ?? []) {
-      memories.push({ id: item.id || `pm_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'player', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `pm_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'player', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
     for (const item of record.summaryData.otherCharacterMemories ?? []) {
-      memories.push({ id: item.id || `oc_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'otherCharacter', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `oc_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'otherCharacter', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
     for (const item of record.summaryData.itemMemories ?? []) {
-      memories.push({ id: item.id || `im_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'item', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `im_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'item', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
   }
   return memories;
