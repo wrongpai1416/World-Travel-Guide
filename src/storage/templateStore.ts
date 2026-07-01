@@ -8,6 +8,7 @@ import { v4 as uuid } from 'uuid';
 import type { PlayerProfile, CustomNpc } from './db';
 import type { SkillData, InventoryItem } from '../schema/variables';
 import { STORAGE_KEYS } from '@/config/storageKeys';
+export { downloadJSON } from '../utils/download';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -377,16 +378,4 @@ export function parseHistoryPresetJSON(jsonStr: string): ValidateResult<HistoryP
   };
 
   return { ok: true, data: preset };
-}
-
-// ─── 下载工具 ─────────────────────────────────────────
-
-export function downloadJSON(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

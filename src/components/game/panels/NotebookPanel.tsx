@@ -5,7 +5,8 @@ import EmptyState from '../../shared/EmptyState';
 
 interface Props { gameState: GameState; }
 
-function priorityColor(p: string) {
+function priorityColor(p?: string) {
+  if (!p) return '#6b7280';
   if (p.includes('紧急') || p.includes('高')) return '#ef4444';
   if (p.includes('中')) return '#f59e0b';
   return '#22c55e';

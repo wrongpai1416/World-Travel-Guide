@@ -779,11 +779,6 @@ Stage 5 · 余韵（Afterglow）
 - 适度使用喘息声与省略号增强临场感
 </NSFWContent>`;
 
-/** @deprecated 使用 getBuiltinPreset('claude') 替代 */
-export function getClaudePreset(): BuiltinPreset {
-  return getBuiltinPreset('claude');
-}
-
 // ============ 内置预设注册（延后到增色模块定义之后） ============
 
 // ============ 增色模块（可选叠加层） ============

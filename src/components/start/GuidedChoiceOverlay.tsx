@@ -178,7 +178,7 @@ export default function GuidedChoiceOverlay({
       // 如果之前有自定义选择，恢复内容（支持多选模式下的 choiceId 逗号拼接）
       const existingCustom = selections.find(s =>
         s.dimensionKey === currentDim.key && (
-          s.choiceId === 'E' || s.choiceIds?.split(',').includes('E')
+          s.choiceId === 'E' || (s.choiceIds ?? '').split(',').includes('E')
         )
       );
       if (existingCustom) {
@@ -703,7 +703,7 @@ ${customSubtitle.trim() ? `- 描述：${customSubtitle.trim()}` : ''}
                   // 支持多选模式下的自定义选项查找
                   const customSelection = selections.find(s =>
                     s.dimensionKey === currentDim?.key && (
-                      s.choiceId === 'E' || s.choiceIds?.split(',').includes('E')
+                      s.choiceId === 'E' || (s.choiceIds ?? '').split(',').includes('E')
                     )
                   );
                   const customChoice = customSelection?.choices?.find(c => c.id === 'E');

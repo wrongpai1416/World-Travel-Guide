@@ -23,6 +23,8 @@ interface SimulationStore {
   setLastError: (err: string | null) => void;
   resetSimulation: () => void;
   loadFromStorage: () => void;
+  /** 从引擎同步状态（仅更新 React state，不写 localStorage） */
+  syncFromEngine: (state: SimulationState) => void;
 }
 
 function loadSimState(): SimulationState {
@@ -82,6 +84,10 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
       } catch { /* ignore */ }
       return { simState: state };
     }),
+
+  /** 从引擎同步状态（仅更新 React state，不写 localStorage，避免双写） */
+  syncFromEngine: (state: SimulationState) =>
+    set({ simState: state }),
 
   setIsSimulating: (v) => set({ isSimulating: v }),
   setLastError: (err) => set({ lastError: err }),

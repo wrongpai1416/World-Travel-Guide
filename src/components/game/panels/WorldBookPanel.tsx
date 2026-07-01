@@ -48,9 +48,9 @@ export default function WorldBookPanel({ worldId, engine }: Props) {
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(e =>
-        e.comment.toLowerCase().includes(q) ||
-        e.content.toLowerCase().includes(q) ||
-        e.keys.some((k: string) => k.toLowerCase().includes(q))
+        (e.comment ?? '').toLowerCase().includes(q) ||
+        (e.content ?? '').toLowerCase().includes(q) ||
+        (e.keys ?? []).some((k: string) => (k ?? '').toLowerCase().includes(q))
       );
     }
     return result;

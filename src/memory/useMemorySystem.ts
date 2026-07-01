@@ -120,8 +120,8 @@ export interface MemorySystemHook {
 
 function computeKeywordHitRate(memoryKeywords: string[], retrievalKeywords: string[]) {
   if (memoryKeywords.length === 0) return { hitRate: 0, matchedKeywords: [] as string[] };
-  const normalizedMemory = memoryKeywords.map(k => k.toLowerCase().trim());
-  const normalizedRetrieval = retrievalKeywords.map(k => k.toLowerCase().trim());
+  const normalizedMemory = memoryKeywords.map(k => (k ?? '').toLowerCase().trim());
+  const normalizedRetrieval = retrievalKeywords.map(k => (k ?? '').toLowerCase().trim());
   const matched = normalizedMemory.filter(mk =>
     normalizedRetrieval.some(rk => rk.includes(mk) || mk.includes(rk))
   );
@@ -131,7 +131,7 @@ function computeKeywordHitRate(memoryKeywords: string[], retrievalKeywords: stri
 function deduplicateByTitle(entries: MemoryEntry[]): MemoryEntry[] {
   const seen = new Set<string>();
   return entries.filter(e => {
-    const key = e.title.toLowerCase().trim();
+    const key = (e.title ?? '').toLowerCase().trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -483,7 +483,7 @@ export function useMemorySystem(): MemorySystemHook {
 
       // 标题匹配
       const titleSelected = allMemories.filter(m =>
-        finalSelectedTitles.some(title => title === m.title || m.title.includes(title) || title.includes(m.title))
+        finalSelectedTitles.some(title => title === m.title || (m.title ?? '').includes(title) || title.includes(m.title ?? ''))
       );
 
       // 关键词命中率补充
@@ -539,7 +539,7 @@ export function useMemorySystem(): MemorySystemHook {
       console.warn('[记忆系统] 精排失败:', message);
       // 精排失败，使用原始排序
       ctx._selectedEntries = allMemories.filter(m =>
-        finalSelectedTitles.some(title => title === m.title || m.title.includes(title) || title.includes(m.title))
+        finalSelectedTitles.some(title => title === m.title || (m.title ?? '').includes(title) || title.includes(m.title ?? ''))
       );
     } finally {
       store.setLoading(false);
@@ -568,7 +568,7 @@ export function useMemorySystem(): MemorySystemHook {
 
       // 标题匹配
       const titleSelected = allMemories.filter(m =>
-        finalSelectedTitles.some(title => title === m.title || m.title.includes(title) || title.includes(m.title))
+        finalSelectedTitles.some(title => title === m.title || (m.title ?? '').includes(title) || title.includes(m.title ?? ''))
       );
 
       // 关键词命中率补充

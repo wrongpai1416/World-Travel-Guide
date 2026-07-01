@@ -1,4 +1,4 @@
-// 游戏内世界书编辑器 —— 覆盖式编辑界面
+// 游戏内世界书编辑器 —— 直接操作 WorldBookEntryDef
 // 全局条目( constant )只读 · 触发条目可自由编辑
 // 保存直接反馈到游戏引擎的 WorldBookManager
 import { useState, useRef, useCallback } from 'react';
@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, AlertCircle, X, Pencil,
 } from 'lucide-react';
 import type { GameEngine } from '../../../engine/types';
-import type { WorldBookEntry } from '../../../worldbook/index';
+import { convertWorldBookDefsToEntries } from '../../../worldbook/index';
 import { findWorldDef } from '../../../data/worldLoader';
 import type { WorldBookEntryDef, WorldDef } from '../../../data/worlds-schema';
 import { STORAGE_KEYS } from '../../../config/storageKeys';
@@ -19,55 +19,7 @@ interface Props {
   onClose: () => void;
 }
 
-type EditEntry = WorldBookEntry & { _dirty?: boolean };
-
-/** 将 WorldBookEntryDef 转为 WorldBookEntry 格式（编辑器内部用） */
-function defsToEntries(defs: WorldBookEntryDef[]): WorldBookEntry[] {
-  return defs.map((e, idx) => ({
-    id: -(idx + 1),
-    comment: e.comment,
-    content: e.content,
-    constant: e.constant,
-    enabled: !e.disable,
-    selective: (e.key?.length ?? 0) > 0,
-    keys: e.key ?? [],
-    secondaryKeys: e.keysecondary ?? [],
-    position: (e.position ?? 'after_char') as 'before_char' | 'after_char',
-    insertionOrder: e.order ?? 0,
-    order: e.order,
-    depth: e.depth,
-    probability: e.probability,
-    useProbability: e.useProbability,
-    excludeRecursion: e.excludeRecursion,
-    preventRecursion: e.preventRecursion,
-    group: e.group,
-  }));
-}
-
-/** 将 WorldBookEntry 转回 WorldBookEntryDef 格式（持久化用） */
-function entriesToDefs(entries: WorldBookEntry[]): WorldBookEntryDef[] {
-  return entries.map((e, idx) => ({
-    uid: e.id < 0 ? e.id : -(idx + 1),
-    key: e.keys ?? [],
-    keysecondary: e.secondaryKeys ?? [],
-    comment: e.comment,
-    content: e.content,
-    constant: e.constant,
-    disable: !e.enabled,
-    order: e.order ?? e.insertionOrder ?? idx + 1,
-    position: e.position ?? 'after_char',
-    depth: e.depth,
-    probability: e.probability,
-    useProbability: e.useProbability,
-    excludeRecursion: e.excludeRecursion,
-    preventRecursion: e.preventRecursion,
-    group: e.group,
-    selectiveLogic: e.selectiveLogic,
-    scanDepth: e.scanDepth,
-    caseSensitive: e.caseSensitive,
-    matchWholeWords: e.matchWholeWords,
-  }));
-}
+type EditEntry = WorldBookEntryDef & { _dirty?: boolean };
 
 /** 持久化世界到 localStorage（CUSTOM_WORLDS） */
 function persistWorldToStorage(updatedWorld: WorldDef) {
@@ -86,68 +38,61 @@ function persistWorldToStorage(updatedWorld: WorldDef) {
   }
 }
 
+/** 读取原始 WorldBookEntryDef[]，优先从 worldDef 读取 */
+function loadDefs(worldId: string): WorldBookEntryDef[] {
+  const world = findWorldDef(worldId);
+  const defs = world?.worldBookEntries ?? [];
+  return JSON.parse(JSON.stringify(defs)); // 深拷贝，避免编辑污染原始数据
+}
+
 export default function InGameWorldBookEditor({ engine, worldId, onClose }: Props) {
-  const [entries, setEntries] = useState<EditEntry[]>(() => {
-    // 优先从引擎的运行时 WorldBookManager 读取
-    const wb = engine.worldBook;
-    if (wb) {
-      const runtime = wb.getAllEntries();
-      if (runtime.length > 0) {
-        return runtime.map(e => ({ ...e }));
-      }
-    }
-    // 兜底：从 WorldDef 静态定义读取（card.json 不存在时的场景）
-    const world = findWorldDef(worldId);
-    return defsToEntries(world?.worldBookEntries ?? []).map(e => ({ ...e }));
-  });
+  const [entries, setEntries] = useState<EditEntry[]>(() =>
+    loadDefs(worldId),
+  );
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [importMsg, setImportMsg] = useState('');
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const nextIdRef = useRef(Date.now());
+  const nextUidRef = useRef(Date.now());
 
-  const genId = useCallback(() => --nextIdRef.current, []);
+  const genUid = useCallback(() => --nextUidRef.current, []);
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (uid: number) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
       return next;
     });
   };
 
-  const updateEntry = (id: number, patch: Partial<EditEntry>) => {
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, ...patch, _dirty: true } : e));
+  const updateEntry = (uid: number, patch: Partial<EditEntry>) => {
+    setEntries(prev => prev.map(e => e.uid === uid ? { ...e, ...patch, _dirty: true } : e));
   };
 
-  const deleteEntry = (id: number) => {
+  const deleteEntry = (uid: number) => {
     setEntries(prev => prev.filter(e => {
-      if (e.id === id) return !e.constant;
+      if (e.uid === uid) return !e.constant;
       return true;
     }));
   };
 
   const addEntry = () => {
-    const id = genId();
+    const uid = genUid();
     const newEntry: EditEntry = {
-      id,
+      uid,
+      key: [],
       comment: '新条目',
       content: '',
       constant: false,
-      enabled: true,
-      selective: false,
-      keys: [],
-      secondaryKeys: [],
-      position: 'after_char',
-      insertionOrder: entries.length + 1,
       order: entries.length + 1,
+      position: 'after_char',
       _dirty: true,
     };
     setEntries(prev => [...prev, newEntry]);
-    setExpanded(prev => new Set(prev).add(id));
+    setExpanded(prev => new Set(prev).add(uid));
   };
 
-  // 导出当前所有条目
+  // 导出
   const exportEntries = () => {
     const clean = entries.map(({ _dirty, ...rest }) => rest);
     const blob = new Blob([JSON.stringify({ worldBookEntries: clean }, null, 2)], { type: 'application/json' });
@@ -168,18 +113,18 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result as string);
-        const incoming: WorldBookEntry[] = data.worldBookEntries || data.entries || [];
+        const incoming: WorldBookEntryDef[] = data.worldBookEntries || data.entries || [];
         if (!Array.isArray(incoming) || incoming.length === 0) {
           setImportMsg('未找到有效的条目数据');
           return;
         }
         setEntries(prev => {
-          const existingIds = new Set(prev.map(e => e.id));
+          const existingUids = new Set(prev.map(e => e.uid));
           const merged = [...prev];
-          let added = 0, replaced = 0;
+          let added = 0; let replaced = 0;
           for (const item of incoming) {
-            if (existingIds.has(item.id)) {
-              merged[merged.findIndex(e => e.id === item.id)] = { ...item };
+            if (existingUids.has(item.uid)) {
+              merged[merged.findIndex(e => e.uid === item.uid)] = { ...item };
               replaced++;
             } else {
               merged.push({ ...item });
@@ -203,47 +148,33 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
       setTimeout(() => setSaveMsg(null), 3000);
       return;
     }
-    const clean = entries.map(({ _dirty, ...rest }) => rest);
+    const clean: WorldBookEntryDef[] = entries.map(({ _dirty, ...rest }) => rest);
 
-    // ── Step 1: 两步保存到运行时引擎 ──
-    const nonConstant = clean.filter(e => !e.constant);
-    const allConstant = clean.filter(e => e.constant);
-
-    const wbEntries = engine.worldBook.getAllEntries();
-    const hasConstantInManager = wbEntries.some(e => e.constant);
-    const existingConstantIds = new Set(wbEntries.filter(e => e.constant).map(e => e.id));
-
-    if (!hasConstantInManager) {
-      // 管理器无 constant → 注入全部
-      engine.worldBook.addEntries(clean);
-    } else {
-      // 替换非全局条目
-      engine.worldBook.replaceNonConstantEntries(nonConstant);
-      // 只添加管理器中不存在的 constant 条目（避免重复）
-      const trulyNewConstant = allConstant.filter(e => !existingConstantIds.has(e.id));
-      if (trulyNewConstant.length > 0) {
-        engine.worldBook.addEntries(trulyNewConstant);
-      }
-    }
-
-    // ── Step 2: 持久化到 localStorage ──
+    // ── Step 1: 持久化到 localStorage ──
     try {
       const world = findWorldDef(worldId);
       if (world) {
-        const defs = entriesToDefs(clean);
-        const updatedWorld: WorldDef = { ...world, worldBookEntries: defs };
+        const updatedWorld: WorldDef = { ...world, worldBookEntries: clean };
         persistWorldToStorage(updatedWorld);
-        setSaveMsg({ type: 'success', text: '保存成功，已持久化到世界预设' });
-        setTimeout(() => { setSaveMsg(null); onClose(); }, 800);
       } else {
         setSaveMsg({ type: 'error', text: `未找到世界定义: ${worldId}` });
         setTimeout(() => setSaveMsg(null), 3000);
+        return;
       }
     } catch (err) {
       console.error('[世界书保存] 持久化失败:', err);
-      setSaveMsg({ type: 'error', text: '运行时已更新，但持久化失败' });
+      setSaveMsg({ type: 'error', text: '持久化失败' });
       setTimeout(() => setSaveMsg(null), 3000);
+      return;
     }
+
+    // ── Step 2: 重载到运行时引擎 ──
+    // 直接替换所有世界专属条目（统一转换，零字段丢失）
+    engine.worldBook.clearWorldEntries();
+    engine.worldBook.addEntries(convertWorldBookDefsToEntries(clean));
+
+    setSaveMsg({ type: 'success', text: '保存成功' });
+    setTimeout(() => { setSaveMsg(null); onClose(); }, 800);
   };
 
   const globalCount = entries.filter(e => e.constant).length;
@@ -274,13 +205,13 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
           display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
         }}>
           <span style={badgeStyle('color-mix(in srgb, var(--warning) 12%, transparent)', 'var(--warning)')}>
-            <Lock size={12} /> 全局 {globalCount}（只读，需导出编辑后重新导入）
+            <Lock size={12} /> 全局 {globalCount}（只读）
           </span>
           <span style={badgeStyle('color-mix(in srgb, var(--success) 12%, transparent)', 'var(--success)')}>
             <Pencil size={12} /> 触发 {triggerCount}（可编辑）
           </span>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
-            保存后立即生效于当前游戏，并持久化到世界预设
+            保存后立即生效于当前游戏
           </span>
         </div>
 
@@ -339,19 +270,23 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
             </div>
           ) : (
             entries.map((entry, idx) => {
-              const isExpanded = expanded.has(entry.id);
+              const isExpanded = expanded.has(entry.uid);
               const isGlobal = entry.constant;
+              const isEnabled = !entry.disable;
+              const keys = entry.key ?? [];
 
               return (
-                <div key={entry.id} className={`wbe-entry${isGlobal ? ' wbe-entry-global' : ''}${isExpanded ? ' wbe-entry-expanded' : ''}`}>
+                <div key={entry.uid} className={`wbe-entry${isGlobal ? ' wbe-entry-global' : ''}${isExpanded ? ' wbe-entry-expanded' : ''}`}>
                   {/* 条目头部 */}
-                  <div className="wbe-entry-header" onClick={() => toggleExpand(entry.id)}>
+                  <div className="wbe-entry-header" onClick={() => toggleExpand(entry.uid)}>
                     <div className="wbe-entry-left">
                       <span className="wbe-entry-order">{idx + 1}</span>
                       {isGlobal ? (
                         <span className="wbe-entry-lock" title="全局条目（只读）"><Lock size={13} /></span>
-                      ) : (
+                      ) : isEnabled ? (
                         <span className="wbe-entry-type-dot" />
+                      ) : (
+                        <span className="wbe-entry-type-dot" style={{ background: 'var(--text-muted)' }} />
                       )}
                       <span className="wbe-entry-title">{entry.comment || '（无标题）'}</span>
                     </div>
@@ -360,7 +295,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                       {!isGlobal && (
                         <button
                           className="wbe-entry-delete"
-                          onClick={e => { e.stopPropagation(); deleteEntry(entry.id); }}
+                          onClick={e2 => { e2.stopPropagation(); deleteEntry(entry.uid); }}
                           title="删除条目"
                         >
                           <Trash2 size={13} />
@@ -379,7 +314,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                         <input
                           className="wbe-input"
                           value={entry.comment}
-                          onChange={e => updateEntry(entry.id, { comment: e.target.value })}
+                          onChange={e2 => updateEntry(entry.uid, { comment: e2.target.value })}
                           disabled={isGlobal}
                         />
                       </label>
@@ -391,7 +326,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                           className="wbe-textarea"
                           rows={6}
                           value={entry.content}
-                          onChange={e => updateEntry(entry.id, { content: e.target.value })}
+                          onChange={e2 => updateEntry(entry.uid, { content: e2.target.value })}
                           disabled={isGlobal}
                         />
                       </label>
@@ -401,9 +336,9 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                         <span className="wbe-label">触发关键词（逗号分隔）</span>
                         <input
                           className="wbe-input"
-                          value={entry.keys?.join(', ') ?? ''}
-                          onChange={e => updateEntry(entry.id, {
-                            keys: parseKeywordInput(e.target.value),
+                          value={keys.join(', ')}
+                          onChange={e2 => updateEntry(entry.uid, {
+                            key: parseKeywordInput(e2.target.value),
                           })}
                           disabled={isGlobal}
                           placeholder={isGlobal ? '全局条目始终生效' : '输入触发关键词...'}
@@ -413,12 +348,24 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                       {/* 选项行 */}
                       <div className="wbe-options-row">
                         <label className="wbe-field wbe-field-sm">
+                          <span className="wbe-label">启用</span>
+                          <select
+                            className="wbe-input"
+                            value={entry.disable ? 'disabled' : 'enabled'}
+                            disabled={isGlobal}
+                            onChange={e2 => updateEntry(entry.uid, { disable: e2.target.value === 'disabled' })}
+                          >
+                            <option value="enabled">启用</option>
+                            <option value="disabled">禁用</option>
+                          </select>
+                        </label>
+                        <label className="wbe-field wbe-field-sm">
                           <span className="wbe-label">类型</span>
                           <select
                             className="wbe-input"
                             value={entry.constant ? 'constant' : 'trigger'}
                             disabled={isGlobal}
-                            onChange={e => updateEntry(entry.id, { constant: e.target.value === 'constant' })}
+                            onChange={e2 => updateEntry(entry.uid, { constant: e2.target.value === 'constant' })}
                           >
                             <option value="trigger">触发式</option>
                             <option value="constant">全局</option>
@@ -429,8 +376,8 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                           <input
                             className="wbe-input"
                             type="number"
-                            value={entry.order ?? entry.insertionOrder}
-                            onChange={e => updateEntry(entry.id, { order: Number(e.target.value) || 0 })}
+                            value={entry.order}
+                            onChange={e2 => updateEntry(entry.uid, { order: Number(e2.target.value) || 0 })}
                             disabled={isGlobal}
                           />
                         </label>
@@ -439,7 +386,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                           <select
                             className="wbe-input"
                             value={entry.position ?? 'after_char'}
-                            onChange={e => updateEntry(entry.id, { position: e.target.value as 'before_char' | 'after_char' })}
+                            onChange={e2 => updateEntry(entry.uid, { position: e2.target.value as 'before_char' | 'after_char' })}
                             disabled={isGlobal}
                           >
                             <option value="after_char">角色定义后</option>
@@ -452,7 +399,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                             className="wbe-input"
                             type="number"
                             value={entry.depth ?? ''}
-                            onChange={e => updateEntry(entry.id, { depth: e.target.value ? Number(e.target.value) : undefined })}
+                            onChange={e2 => updateEntry(entry.uid, { depth: e2.target.value ? Number(e2.target.value) : undefined })}
                             placeholder="不限"
                           />
                         </label>
@@ -463,7 +410,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                             type="number"
                             min={0} max={100}
                             value={entry.probability ?? ''}
-                            onChange={e => updateEntry(entry.id, { probability: e.target.value ? Number(e.target.value) : undefined })}
+                            onChange={e2 => updateEntry(entry.uid, { probability: e2.target.value ? Number(e2.target.value) : undefined })}
                             placeholder="100"
                           />
                         </label>

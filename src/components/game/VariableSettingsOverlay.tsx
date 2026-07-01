@@ -730,8 +730,8 @@ function VariableTab({
       {sections.map(section => {
         const filteredEntries = section.entries.filter(e => {
           if (!filterLower) return true;
-          return e.displayName.toLowerCase().includes(filterLower)
-            || e.canonicalPath.toLowerCase().includes(filterLower);
+          return (e.displayName ?? '').toLowerCase().includes(filterLower)
+            || (e.canonicalPath ?? '').toLowerCase().includes(filterLower);
         });
         if (filteredEntries.length === 0) return null;
 
@@ -871,9 +871,9 @@ function VariableTab({
 
         const filteredEntries = entries.filter(e => {
           if (!filterLower) return true;
-          return e.displayName.toLowerCase().includes(filterLower)
-            || e.path.toLowerCase().includes(filterLower)
-            || npcName.toLowerCase().includes(filterLower);
+          return (e.displayName ?? '').toLowerCase().includes(filterLower)
+            || (e.path ?? '').toLowerCase().includes(filterLower)
+            || (npcName ?? '').toLowerCase().includes(filterLower);
         });
         if (filteredEntries.length === 0) return null;
 

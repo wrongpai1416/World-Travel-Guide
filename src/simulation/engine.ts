@@ -37,6 +37,8 @@ export class WorldSimulationEngine {
   private _lastGameState: GameState | null = null;
   /** 当前世界的语义上下文（含自适应层级标签） */
   private _worldContext: SimWorldContext | null = null;
+  /** 状态变更回调（供 UI store 同步用） */
+  onStateChange: ((state: SimulationState) => void) | null = null;
 
   constructor(state?: SimulationState) {
     this.state = state ?? createEmptySimState();
@@ -179,6 +181,51 @@ export class WorldSimulationEngine {
     if (this.state.pendingInteractions.length === 0) return undefined;
     return [...this.state.pendingInteractions]
       .sort((a, b) => a.priority - b.priority)[0];
+  }
+
+  /** 移除指定 NPC 交互 */
+  removeInteraction(interactionId: string) {
+    const idx = this.state.pendingInteractions.findIndex(i => i.id === interactionId);
+    if (idx >= 0) {
+      this.state.pendingInteractions.splice(idx, 1);
+      this.saveState();
+    }
+  }
+
+  /** 清除所有待处理交互 */
+  clearAllInteractions() {
+    this.state.pendingInteractions = [];
+    this.saveState();
+  }
+
+  /** 移除指定世界事件（从活跃或已解决中删除） */
+  removeEvent(eventId: string) {
+    if (this.state.events[eventId]) {
+      delete this.state.events[eventId];
+    } else if (this.state.resolvedEvents[eventId]) {
+      delete this.state.resolvedEvents[eventId];
+    }
+    this.saveState();
+  }
+
+  /** 清除所有世界事件（活跃 + 已解决） */
+  clearAllEvents() {
+    this.state.events = {};
+    this.state.resolvedEvents = {};
+    this.state.worldNewsSummary = undefined;
+    this.saveState();
+  }
+
+  /** 移除指定角色暗线 */
+  removeStoryline(npcId: string) {
+    delete this.state.storylines[npcId];
+    this.saveState();
+  }
+
+  /** 清除所有角色暗线 */
+  clearAllStorylines() {
+    this.state.storylines = {};
+    this.saveState();
   }
 
   // ─── 推演核心 ───
@@ -603,12 +650,16 @@ export class WorldSimulationEngine {
     }
   }
 
-  /** 持久化到 localStorage */
+  /** 持久化到 localStorage + 通知 UI */
   saveState() {
     try {
       localStorage.setItem(SIM_STORAGE_KEY, JSON.stringify(this.state));
     } catch (err) {
       console.warn('[WorldSim] 保存状态失败:', err);
+    }
+    // 通知 Zustand store 同步（避免 require 在 ESM 中失败）
+    if (this.onStateChange) {
+      try { this.onStateChange(this.state); } catch { /* ignore */ }
     }
   }
 

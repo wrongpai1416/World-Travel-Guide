@@ -13,6 +13,10 @@ import {
   shouldSuppressCharacterWorldBookEntry,
 } from './npcWorldbook';
 
+// ─── 公共转换：WorldBookEntryDef → WorldBookEntry ─────────────────
+
+import type { WorldBookEntryDef } from '../data/worlds-schema';
+
 // ─── 条目类型 ─────────────────────────
 
 export interface WorldBookEntry {
@@ -58,6 +62,10 @@ export interface WorldBookEntry {
   order?: number;
   /** atDepth 的深度值 */
   depth?: number;
+  /** 条目分类 (来自 WorldBookEntryDef) */
+  entryType?: string;
+  /** 结构化元数据 (来自 WorldBookEntryDef) */
+  meta?: Record<string, unknown>;
 }
 
 // ─── 扫描注入结果 ─────────────────────────────────────
@@ -71,6 +79,42 @@ export interface ScanInjectionResult {
   atDepthEntries: Array<{ depth: number; content: string }>;
   /** 所有激活的条目（按发送顺序） */
   activatedEntries: WorldBookEntry[];
+}
+
+/**
+ * 将 WorldBookEntryDef[] 转换为 WorldBookEntry[]
+ * ⚠️ 这是唯一合法的转换点，engine 注入和编辑器保存都必须通过这个函数
+ * 所有字段映射集中管理，新增字段只改这里
+ */
+export function convertWorldBookDefsToEntries(defs: WorldBookEntryDef[]): WorldBookEntry[] {
+  return defs.map((e, idx) => ({
+    id: -(idx + 1),
+    comment: e.comment,
+    content: e.content,
+    constant: e.constant,
+    enabled: !e.disable,
+    selective: (e.key?.length ?? 0) > 0,
+    keys: e.key ?? [],
+    secondaryKeys: e.keysecondary ?? [],
+    excludeKeys: e.exclude_key ?? [],
+    position: (e.position ?? 'after_char') as 'before_char' | 'after_char',
+    insertionOrder: e.order ?? 0,
+    order: e.order,
+    depth: e.depth,
+    probability: e.probability,
+    useProbability: e.useProbability,
+    excludeRecursion: e.excludeRecursion,
+    preventRecursion: e.preventRecursion,
+    group: e.group,
+    useGroupScoring: e.useGroupScoring,
+    groupWeight: e.groupWeight,
+    selectiveLogic: e.selectiveLogic,
+    scanDepth: e.scanDepth,
+    caseSensitive: e.caseSensitive,
+    matchWholeWords: e.matchWholeWords,
+    entryType: e.entryType,
+    meta: e.meta as Record<string, unknown> | undefined,
+  }));
 }
 
 // ─── WorldBookManager 接口 ─────────────────────────────

@@ -2,6 +2,7 @@
 import { v4 as uuid } from 'uuid';
 import type { PresetPack, PresetPromptEntry } from '@/data/builtinPresets';
 import type { RegexScript } from '@/utils/regexScripts';
+export { downloadJSON } from './download';
 
 // ─── 导出 ───
 
@@ -70,18 +71,6 @@ function normalizeRegexForExport(scripts: RegexScript[]): Record<string, unknown
     minDepth: s.minDepth ?? null,
     maxDepth: s.maxDepth ?? null,
   }));
-}
-
-export function downloadJSON(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 // ─── 导入 ───

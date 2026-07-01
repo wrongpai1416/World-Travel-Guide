@@ -223,7 +223,7 @@ function deriveMythicLabel(input: LabelDeriveInput): string {
     return short;
   }
   // 从 setting 推断
-  const setting = input.setting;
+  const setting = input.setting ?? '';
   if (setting.includes('修仙') || setting.includes('灵气')) return '天道·仙途';
   if (setting.includes('魔法') || setting.includes('魔力')) return '神域·魔法';
   if (setting.includes('赛博') || setting.includes('科技')) return '网络·赛博空间';
@@ -240,7 +240,7 @@ function derivePoliticalLabel(input: LabelDeriveInput): string {
     return top;
   }
   // 从 setting 推断
-  const setting = input.setting;
+  const setting = input.setting ?? '';
   if (setting.includes('朝廷') || setting.includes('皇帝')) return '权力·朝廷';
   if (setting.includes('门阀') || setting.includes('世家')) return '权力·世家';
   if (setting.includes('企业') || setting.includes('公司')) return '权力·企业';
@@ -255,7 +255,7 @@ function deriveFactionalLabel(input: LabelDeriveInput): string {
     if (names.length <= 20) return `势力·${names}`;
     return `势力·${input.factions.slice(0, 2).join('、')}等`;
   }
-  const setting = input.setting;
+  const setting = input.setting ?? '';
   if (setting.includes('宗门') || setting.includes('门派')) return '势力·宗门';
   if (setting.includes('帮派') || setting.includes('组织')) return '势力·帮派';
   if (setting.includes('商会') || setting.includes('公司')) return '势力·商会';

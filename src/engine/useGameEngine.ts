@@ -13,10 +13,10 @@ import type { WorldBookManager } from '../worldbook/index';
 import { sanitizeForContext } from './contextManager';
 import type { GameSave, PlayerProfile, CustomNpc } from '../storage/db';
 import { optimizeSnapshots } from '../storage/db';
-import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
+import { loadWorldBook, applyWorld } from './worldPersonality';
 import { findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
-import { getSimulationEngine } from '../simulation/SimulationApi';
+import { getSimulationEngine, restoreEngineState } from '../simulation/SimulationApi';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
@@ -172,14 +172,10 @@ export function useGameEngine(
     messagesRef.current = messages;
   }, [messages]);
 
-  // 辅助：应用世界 + 模块注入
+  // 辅助：应用世界
   const applyWorldAndModules = useCallback((wb: WorldBookManager, worldId: string) => {
     applyWorld(wb, worldId);
-    const world = findWorldDef(worldId);
-    if (world) {
-      applyModules(wb, world);
-    }
-  }, [findWorldDef]);
+  }, []);
 
   useEffect(() => {
     loadWorldBook().then(wb => {
@@ -359,6 +355,20 @@ export function useGameEngine(
     // 恢复变量提取 API 配置
     if (save.variableConfig?.apiPresetId) {
       localStorage.setItem('world_travel_guide_variable_api_preset', save.variableConfig.apiPresetId);
+    }
+    // 恢复世界推演模拟状态
+    if (save.simulationState) {
+      restoreEngineState(save.simulationState);
+    } else {
+      // 旧存档没有 simulationState（可能是迁移前创建或 auto-save 时序问题）
+      // 引擎已在初始化时从 localStorage 加载了状态，只在两端都为空时才重置
+      const engine = getSimulationEngine();
+      const hasLocalData = Object.keys(engine.state.events).length > 0
+        || Object.keys(engine.state.storylines).length > 0
+        || engine.state.pendingInteractions.length > 0;
+      if (!hasLocalData) {
+        engine.reset();
+      }
     }
   }, []);
 
