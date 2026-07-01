@@ -80,7 +80,7 @@ function makeSaveData(overrides: Partial<GameSave> = {}): GameSave {
 // 辅助：创建导入数据
 function makeImportData(name: string, id?: string) {
   return {
-    type: 'chuanyue-save',
+    type: 'world-travel-guide-save',
     version: '2.0',
     save: {
       id: id || `save_${Date.now()}`,

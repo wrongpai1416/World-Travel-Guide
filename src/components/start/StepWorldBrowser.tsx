@@ -832,7 +832,7 @@ function SystemsTab({ world }: { world: WorldDef }) {
               <div className="detail-row"><Zap size={13} /><strong>机制：</strong>{relationshipsEntry.meta.relationships.mechanics}</div>
             )}
             <div className="detail-pills">
-              {relationshipsEntry.meta.relationships.types.map((rt, i) => (
+              {(relationshipsEntry.meta.relationships.types ?? []).map((rt, i) => (
                 <span key={i} className="detail-pill" title={rt.description}>{rt.name}</span>
               ))}
             </div>

@@ -2,6 +2,7 @@
 import { v4 as uuid } from 'uuid';
 import type { PresetPack, PresetPromptEntry } from '@/data/builtinPresets';
 import type { RegexScript } from '@/utils/regexScripts';
+export { downloadJSON } from './download';
 
 // ─── 导出 ───
 
@@ -72,18 +73,6 @@ function normalizeRegexForExport(scripts: RegexScript[]): Record<string, unknown
   }));
 }
 
-export function downloadJSON(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 // ─── 导入 ───
 
 type ValidateResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -100,10 +89,7 @@ export function parsePresetJSON(jsonStr: string): ValidateResult<PresetPack> {
 
   if (!isObj(raw)) return { ok: false, error: 'JSON 根必须是对象' };
 
-  // 兼容 envelope 格式
-  const data = (raw as Record<string, unknown>).type === 'chuanyue-preset' && (raw as Record<string, unknown>).data
-    ? (raw as Record<string, unknown>).data as Record<string, unknown>
-    : raw;
+  const data = raw as Record<string, unknown>;
 
   // 提取 name
   const name = isStr(data.name) ? data.name.trim() : '导入的预设';

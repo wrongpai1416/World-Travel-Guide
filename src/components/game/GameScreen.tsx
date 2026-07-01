@@ -18,6 +18,7 @@ import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay'
 import WorldDynamicsPanel from './panels/WorldDynamicsPanel';
 import { useSimulationStore } from '../../stores/simulationStore';
 import { getSimulationEngine, setWorldContext } from '../../simulation/SimulationApi';
+import { useSaveStore } from '../../stores/saveStore';
 import { extractWorldContext } from '../../simulation/worldContext';
 import type { WorldSystemData, DiceRoll, SurvivalRecipe, BusinessModuleSchema } from '../../modules/schema';
 
@@ -257,6 +258,10 @@ export default function GameScreen() {
         await simEngine.tick(gs, gameTime, round, worldDesc);
         // 同步到 Zustand store
         useSimulationStore.getState().setSimState(simEngine.state);
+        // tick 可能耗时超过 auto-save 的 500ms debounce，
+        // 导致 IndexedDB 存档中保存的是 tick 前的旧状态。
+        // tick 完成后立即触发存档，确保最新状态写入 IndexedDB
+        useSaveStore.getState().scheduleAutoSave();
       } catch (err) {
         console.warn('[WorldSim] 自动推演失败:', err);
       } finally {
@@ -289,6 +294,7 @@ export default function GameScreen() {
       simEngine.state.config.lastAutoTickRound = 0;
       await simEngine.tick(gs, gameTime, round, worldDesc);
       useSimulationStore.getState().setSimState(simEngine.state);
+      useSaveStore.getState().scheduleAutoSave();
     } catch (err) {
       console.warn('[WorldSim] 手动推演失败:', err);
     } finally {

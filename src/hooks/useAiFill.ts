@@ -5,6 +5,7 @@ import type { WorldDef } from '../data/worldLoader';
 import type { ApiConfig } from '../api/types';
 import { requestStreamWithRetry } from '../api/client';
 import { buildCharacterFillPrompt } from '../utils/prompts';
+import { buildSpecialConfig } from '../modules/normalizeModule';
 
 interface UseAiFillOptions {
   apiConfig: ApiConfig | null;
@@ -53,9 +54,7 @@ export function useAiFill({
       dim4: { name: statRaw.dim4?.name || '属性4', range: statRaw.dim4?.range || [0, 100] },
       dim5: { name: statRaw.dim5?.name || '属性5', range: statRaw.dim5?.range || [0, 100] },
       dim6: { name: statRaw.dim6?.name || '属性6', range: statRaw.dim6?.range || [0, 100] },
-      special: Array.isArray(statRaw.special) ? statRaw.special.map((s: any) => ({
-        id: s.id || '', name: s.name || '', range: s.range || [0, 100], description: s.description || '',
-      })) : undefined,
+      special: buildSpecialConfig(statRaw.special),
     } : undefined;
 
     const systemPrompt = buildCharacterFillPrompt({

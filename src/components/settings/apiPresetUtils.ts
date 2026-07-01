@@ -1,7 +1,7 @@
 import type { ApiConfig } from '../../api/types';
 
-export const PRESETS_KEY = 'chuanyue_api_presets';
-export const VARIABLE_ENABLED_KEY = 'chuanyue_variable_enabled';
+export const PRESETS_KEY = 'world_travel_guide_api_presets';
+export const VARIABLE_ENABLED_KEY = 'world_travel_guide_variable_enabled';
 
 export interface ApiPreset {
   id: string;

@@ -392,7 +392,7 @@ export async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipe
   try {
     // 先做本地匹配
     const titleSelected = allMemories.filter(m =>
-      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+      finalSelectedTitles.some(t => t === m.title || (m.title ?? '').includes(t) || t.includes(m.title ?? ''))
     );
 
     const rerankPrompt = templates.rerank
@@ -417,7 +417,7 @@ export async function executeMemoryRerank(memStore: MemoryStore, ctx: MemoryPipe
     console.warn('[精排] 失败:', message);
     // 精排失败，使用原始排序
     const titleSelected = allMemories.filter(m =>
-      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+      finalSelectedTitles.some(t => t === m.title || (m.title ?? '').includes(t) || t.includes(m.title ?? ''))
     );
     ctx._selectedEntries = titleSelected;
     ctx._degradedStages = ctx._degradedStages || [];
@@ -443,7 +443,7 @@ export async function executeMemoryRetrieveFinalize(memStore: MemoryStore, ctx: 
 
     // 标题匹配
     const titleSelected = allMemories.filter(m =>
-      finalSelectedTitles.some(t => t === m.title || m.title.includes(t) || t.includes(m.title))
+      finalSelectedTitles.some(t => t === m.title || (m.title ?? '').includes(t) || t.includes(m.title ?? ''))
     );
 
     // 关键词命中率补充

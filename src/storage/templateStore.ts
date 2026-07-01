@@ -8,6 +8,7 @@ import { v4 as uuid } from 'uuid';
 import type { PlayerProfile, CustomNpc } from './db';
 import type { SkillData, InventoryItem } from '../schema/variables';
 import { STORAGE_KEYS } from '@/config/storageKeys';
+export { downloadJSON } from '../utils/download';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -185,7 +186,7 @@ interface ExportEnvelope<T> {
 
 export function exportPlayerPresetJSON(preset: PlayerPreset): string {
   const envelope: ExportEnvelope<PlayerPreset> = {
-    type: 'chuanyue-player-preset',
+    type: 'world-travel-guide-player-preset',
     version: '1.0',
     exportedAt: Date.now(),
     data: preset,
@@ -195,7 +196,7 @@ export function exportPlayerPresetJSON(preset: PlayerPreset): string {
 
 export function exportNpcTemplateJSON(template: NpcTemplate): string {
   const envelope: ExportEnvelope<NpcTemplate> = {
-    type: 'chuanyue-npc-template',
+    type: 'world-travel-guide-npc-template',
     version: '1.0',
     exportedAt: Date.now(),
     data: template,
@@ -205,7 +206,7 @@ export function exportNpcTemplateJSON(template: NpcTemplate): string {
 
 export function exportHistoryPresetJSON(preset: HistoryPreset): string {
   const envelope: ExportEnvelope<HistoryPreset> = {
-    type: 'chuanyue-history-preset',
+    type: 'world-travel-guide-history-preset',
     version: '1.0',
     exportedAt: Date.now(),
     data: preset,
@@ -256,8 +257,7 @@ export function parsePlayerPresetJSON(jsonStr: string): ValidateResult<PlayerPre
   let raw: any;
   try { raw = JSON.parse(jsonStr); } catch { return { ok: false, error: 'JSON 解析失败，请检查文件格式' }; }
 
-  // 兼容：直接是裸数据或带 envelope
-  const data = (raw.type === 'chuanyue-player-preset' && raw.data) ? raw.data : raw;
+  const data = raw;
 
   if (!isStr(data.name) || !data.name.trim()) return { ok: false, error: '缺少有效的 name 字段' };
   if (!isStr(data.gender)) return { ok: false, error: 'gender 字段必须是字符串' };
@@ -306,10 +306,7 @@ export function parseNpcTemplateJSON(jsonStr: string): ValidateResult<NpcTemplat
   let raw: any;
   try { raw = JSON.parse(jsonStr); } catch { return { ok: false, error: 'JSON 解析失败，请检查文件格式' }; }
 
-  // 兼容：裸数据或 envelope
-  const data = (raw.type === 'chuanyue-npc-template' && raw.data) ? raw.data : raw;
-
-  // 也兼容直接就是一个 CustomNpc（有 name 且没有外层 npc 字段）
+  const data = raw;
   const npc = data.npc ?? data;
 
   if (!isValidNpcShape(npc)) {
@@ -357,8 +354,7 @@ export function parseHistoryPresetJSON(jsonStr: string): ValidateResult<HistoryP
   let raw: any;
   try { raw = JSON.parse(jsonStr); } catch { return { ok: false, error: 'JSON 解析失败，请检查文件格式' }; }
 
-  // 兼容：裸数据或 envelope
-  const data = (raw.type === 'chuanyue-history-preset' && raw.data) ? raw.data : raw;
+  const data = raw;
 
   if (!isStr(data.name) || !data.name.trim()) return { ok: false, error: '缺少有效的 name 字段' };
   if (!isObj(data.segments)) return { ok: false, error: 'segments 字段必须是对象' };
@@ -377,16 +373,4 @@ export function parseHistoryPresetJSON(jsonStr: string): ValidateResult<HistoryP
   };
 
   return { ok: true, data: preset };
-}
-
-// ─── 下载工具 ─────────────────────────────────────────
-
-export function downloadJSON(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

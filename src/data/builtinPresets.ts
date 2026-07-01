@@ -534,6 +534,7 @@ const PROMPT_OUTPUT_FORMAT = `<OutputFormat>
 
 ⚠️ 重要警告：
 - 行动选项是必须的，缺少选项会导致系统无法解析你的回复
+- 正文字数要求：<contenttext> 正文内容每次必须在 1000-2000 字之间（中文计字），字数不足或严重超出均视为不合格输出。描写应详实充分，杜绝敷衍应付
 - 必须提供3-5个行动选项
 - 选项应当涵盖：继续推进主线、探索/调查、与NPC互动、休息/准备、自由行动等不同方向
 - 即使剧情到了关键节点，也必须提供选项，不能省略
@@ -778,11 +779,6 @@ Stage 5 · 余韵（Afterglow）
 - 允许角色在符合人设的情况下不说露骨语言（如青涩害羞类角色应更内敛）
 - 适度使用喘息声与省略号增强临场感
 </NSFWContent>`;
-
-/** @deprecated 使用 getBuiltinPreset('claude') 替代 */
-export function getClaudePreset(): BuiltinPreset {
-  return getBuiltinPreset('claude');
-}
 
 // ============ 内置预设注册（延后到增色模块定义之后） ============
 

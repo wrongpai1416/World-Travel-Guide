@@ -1,14 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
+import { useAudioStore } from '../stores/audioStore';
 
 const MUSIC_SRC = '/scarborough-fair.mp3';
-const STORAGE_KEY = 'bgm_muted';
 
 export default function BackgroundMusic() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [muted, setMuted] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  });
+  const muted = useAudioStore((s) => s.bgmMuted);
+  const setBgmMuted = useAudioStore((s) => s.setBgmMuted);
 
   // 创建 Audio 元素并尝试自动播放
   useEffect(() => {
@@ -37,12 +36,11 @@ export default function BackgroundMusic() {
   // 同步静音状态
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = muted;
-    localStorage.setItem(STORAGE_KEY, String(muted));
   }, [muted]);
 
   const toggle = () => {
     const next = !muted;
-    setMuted(next);
+    setBgmMuted(next);
     if (audioRef.current) {
       if (next) {
         audioRef.current.pause();

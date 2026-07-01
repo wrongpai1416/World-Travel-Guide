@@ -1,7 +1,6 @@
-import { type WorldBookManager, type WorldBookEntry, createWorldBookManager, parseWorldBook } from '../worldbook/index';
+import { type WorldBookManager, createWorldBookManager, parseWorldBook, convertWorldBookDefsToEntries } from '../worldbook/index';
 import { WORLDS, findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
-import { applyModulesV2 } from '../modules/injector';
 
 export async function loadWorldBook(): Promise<WorldBookManager> {
   try {
@@ -38,44 +37,7 @@ export function applyWorld(wb: WorldBookManager, worldId: string) {
     // v2.0 新模式：加载嵌入式世界书条目（内置 + 自建 + 外部导入均支持）
     const worldBookEntries = world?.worldBookEntries ?? [];
     if (worldBookEntries.length > 0) {
-      const converted: WorldBookEntry[] = worldBookEntries.map((e, idx) => ({
-        id: -(idx + 1),  // 负数 ID 避免与 card.json 条目冲突
-        comment: e.comment,
-        content: e.content,
-        constant: e.constant,
-        enabled: !e.disable,
-        selective: (e.key?.length ?? 0) > 0,
-        keys: e.key ?? [],
-        secondaryKeys: e.keysecondary ?? [],
-        position: e.position ?? 'after_char',
-        insertionOrder: e.order ?? 0,
-        // v2 新增字段
-        excludeKeys: e.exclude_key ?? [],
-        selectiveLogic: e.selectiveLogic,
-        scanDepth: e.scanDepth,
-        caseSensitive: e.caseSensitive,
-        matchWholeWords: e.matchWholeWords,
-        probability: e.probability,
-        useProbability: e.useProbability,
-        excludeRecursion: e.excludeRecursion,
-        preventRecursion: e.preventRecursion,
-        group: e.group,
-        useGroupScoring: e.useGroupScoring,
-        groupWeight: e.groupWeight,
-        order: e.order,
-        depth: e.depth,
-      }));
-      wb.addEntries(converted);
+      wb.addEntries(convertWorldBookDefsToEntries(worldBookEntries));
     }
   }
 }
-
-/**
- * 将世界启用的模块注入为世界书条目
- * 使用管线生成的世界书条目（world.worldBookEntries）
- */
-export function applyModules(wb: WorldBookManager, world: WorldDef) {
-  if (!world.modules || world.modules.length === 0) return;
-  applyModulesV2(wb, world);
-}
-

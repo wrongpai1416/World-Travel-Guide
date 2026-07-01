@@ -29,6 +29,7 @@ import {
   TALENT_UPDATE_RULES,
 } from './prompts';
 import { waitForRateLimit } from '../api/rateLimiter';
+import { buildSpecialConfig } from './normalizeModule';
 
 export interface PipelineConfig {
   /** AI 调用函数（由外部注入，解耦API层） */
@@ -61,8 +62,8 @@ export async function executeBuildPipeline(
   if (hasModule('stat')) {
     onProgress?.('阶段1', '提取世界主题与属性命名...');
     const themePrompt = buildStatThemePrompt(ctx.description);
-    const themeRaw = await callAI([{ role: 'user', content: themePrompt }]);
     try {
+      const themeRaw = await callAI([{ role: 'user', content: themePrompt }]);
       const themeData = JSON.parse(extractJSON(themeRaw));
       ctx.theme = {
         theme: themeData.theme || '',
@@ -77,7 +78,8 @@ export async function executeBuildPipeline(
         dim5Name: themeData.dim5Name || '魅力',
         dim6Name: themeData.dim6Name || '幸运',
       };
-    } catch {
+    } catch (err: unknown) {
+      console.warn('[BuildPipeline] 主题提取失败，使用默认命名:', err instanceof Error ? err.message : String(err));
       // JSON解析失败，使用默认命名
       ctx.theme = {
         theme: '通用',
@@ -96,6 +98,7 @@ export async function executeBuildPipeline(
 
   // 2a. 生成属性系统（如果选了）
   if (hasModule('stat') && ctx.theme) {
+    await waitForRateLimit();
     onProgress?.('阶段2', '生成属性系统...');
     const statPrompt = buildStatGenPrompt({
       theme: ctx.theme.theme,
@@ -108,15 +111,17 @@ export async function executeBuildPipeline(
       dim5Name: ctx.theme.dim5Name,
       dim6Name: ctx.theme.dim6Name,
     });
-    const statRaw = await callAI([{ role: 'user', content: statPrompt }]);
     try {
+      const statRaw = await callAI([{ role: 'user', content: statPrompt }]);
       ctx.statData = JSON.parse(extractJSON(statRaw)) as StatModuleSchema;
-      // 分离配置和状态
       if (ctx.statData) {
         ctx.statConfig = extractStatConfig(ctx.statData);
         ctx.statState = extractStatState(ctx.statData);
       }
-    } catch { /* 解析失败则不设置 */ }
+    } catch (err: unknown) {
+      console.error('[BuildPipeline] 属性系统生成失败:', err instanceof Error ? err.message : String(err));
+      onProgress?.('阶段2', '⚠ 属性系统生成失败，将使用默认值');
+    }
   }
 
   // 2b. 生成成长体系（如果选了，依赖属性数据）
@@ -128,14 +133,16 @@ export async function executeBuildPipeline(
       tone: ctx.theme.tone,
       era: ctx.theme.era,
     });
-    const progRaw = await callAI([{ role: 'user', content: progPrompt }]);
     try {
+      const progRaw = await callAI([{ role: 'user', content: progPrompt }]);
       ctx.progressionData = JSON.parse(extractJSON(progRaw)) as ProgressionModuleSchema;
-      // 分离配置（状态在变量系统中，不在这里）
       if (ctx.progressionData) {
         ctx.progressionConfig = extractProgressionConfig(ctx.progressionData);
       }
-    } catch { /* 解析失败则不设置 */ }
+    } catch (err: unknown) {
+      console.error('[BuildPipeline] 成长体系生成失败:', err instanceof Error ? err.message : String(err));
+      onProgress?.('阶段2', '⚠ 成长体系生成失败，将使用默认值');
+    }
   }
 
   // 2c. 生成生存资源系统
@@ -146,13 +153,15 @@ export async function executeBuildPipeline(
     const survivalTone = ctx.theme?.tone || '中等';
     const userDesc = ctx.survivalUserDesc ? `\n\n用户对生存资源的具体要求：${ctx.survivalUserDesc}` : '';
     const survPrompt = buildSurvivalGenPrompt({ theme: survivalTheme, tone: survivalTone }) + userDesc;
-    const survRaw = await callAI([{ role: 'user', content: survPrompt }]);
     try {
+      const survRaw = await callAI([{ role: 'user', content: survPrompt }]);
       ctx.survivalData = JSON.parse(extractJSON(survRaw)) as SurvivalModuleSchema;
       if (ctx.survivalData) {
         ctx.survivalConfig = extractSurvivalConfig(ctx.survivalData);
       }
-    } catch { /* 解析失败则不设置 */ }
+    } catch (err: unknown) {
+      console.error('[BuildPipeline] 生存资源系统生成失败:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   // 2d. 生成经营资产系统
@@ -162,13 +171,15 @@ export async function executeBuildPipeline(
     const businessTheme = ctx.theme?.theme || ctx.description.substring(0, 100);
     const businessTone = ctx.theme?.tone || '中等';
     const bizPrompt = buildBusinessGenPrompt({ theme: businessTheme, tone: businessTone, userDesc: ctx.businessUserDesc });
-    const bizRaw = await callAI([{ role: 'user', content: bizPrompt }]);
     try {
+      const bizRaw = await callAI([{ role: 'user', content: bizPrompt }]);
       ctx.businessData = JSON.parse(extractJSON(bizRaw)) as BusinessModuleSchema;
       if (ctx.businessData) {
         ctx.businessConfig = extractBusinessConfig(ctx.businessData);
       }
-    } catch { /* 解析失败则不设置 */ }
+    } catch (err: unknown) {
+      console.error('[BuildPipeline] 经营资产系统生成失败:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   // 2e. 生成天赋体系
@@ -185,10 +196,12 @@ export async function executeBuildPipeline(
       existingCategories: [],
       count: 5,
     });
-    const talentRaw = await callAI([{ role: 'user', content: talentPrompt }]);
     try {
+      const talentRaw = await callAI([{ role: 'user', content: talentPrompt }]);
       ctx.talentData = JSON.parse(extractJSON(talentRaw)) as TalentModuleSchema;
-    } catch { /* 解析失败则不设置 */ }
+    } catch (err: unknown) {
+      console.error('[BuildPipeline] 天赋体系生成失败:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   // ─── 阶段3：生成世界书条目（蓝灯/绿灯） ───
@@ -204,13 +217,23 @@ export async function executeBuildPipeline(
 
 /** 从AI回复中提取JSON字符串 */
 function extractJSON(text: string): string {
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = codeBlockMatch ? codeBlockMatch[1].trim() : (text.match(/(\{[\s\S]*\})/)?.[1]?.trim() ?? text.trim());
   // 修复中文引号（某些 API 会返回全角引号）
-  return raw.replace(/[“”‘’]/g, (ch) => {
-    if (ch === '“' || ch === '”') return '"';
-    return "'";
-  });
+  const fixed = text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+
+  // 1. 优先匹配 markdown code block
+  const codeBlockMatch = fixed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) return codeBlockMatch[1].trim();
+
+  // 2. 匹配最外层的 { ... } 对象（支持嵌套）
+  const firstBrace = fixed.indexOf('{');
+  const lastBrace = fixed.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    return fixed.slice(firstBrace, lastBrace + 1).trim();
+  }
+
+  // 3. 兜底：返回原始文本
+  console.warn('[extractJSON] 未找到有效 JSON，返回原始文本前200字符:', fixed.slice(0, 200));
+  return fixed.trim();
 }
 
 /** 安全数值转换，防止 NaN 传播 */
@@ -241,12 +264,7 @@ function extractStatConfig(statData: StatModuleSchema): StatConfig {
     dim4: dims[3] ? { name: dims[3].name, range: dims[3].range } : dimDefaults[3],
     dim5: dims[4] ? { name: dims[4].name, range: dims[4].range } : dimDefaults[4],
     dim6: dims[5] ? { name: dims[5].name, range: dims[5].range } : dimDefaults[5],
-    special: Array.isArray(statData.special) ? statData.special.map(s => ({
-      id: s.id || '',
-      name: s.name || '',
-      range: Array.isArray(s.range) && s.range.length >= 2 ? s.range : [0, 100],
-      description: s.description || '',
-    })) : [],
+    special: buildSpecialConfig(statData.special),
   };
 }
 
@@ -438,9 +456,8 @@ export function generateWorldBookEntries(ctx: BuildContext): WorldBookEntryDef[]
 
     // 把 AI 生成的属性名称写入内容
     const dimNames = dims.filter(Boolean).map(d => d!.name).join('、');
-    const specialNames = Array.isArray(statData.special)
-      ? statData.special.filter(s => s?.name).map(s => `${s.name}（${s.description || ''}）`).join('、')
-      : '';
+    const specialNames = buildSpecialConfig(statData.special)
+      .map(s => `${s.name}（${s.description || ''}）`).join('、');
     const statContent = `${STAT_UPDATE_RULES}\n\n─── 属性体系 ───\n生命类：${statData.attrA?.name || '生命'}（上限${statData.attrA?.max || 100}）\n能量类：${statData.attrB?.name || '能量'}（上限${statData.attrB?.max || 100}）\n六维属性：${dimNames}${specialNames ? `\n特色属性：${specialNames}` : ''}`;
 
     entries.push({

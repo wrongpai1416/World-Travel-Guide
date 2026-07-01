@@ -68,8 +68,5 @@ export { createBuildContext } from './buildContext';
 export type { PipelineConfig } from './buildPipeline';
 export { executeBuildPipeline } from './buildPipeline';
 
-// 注入器
-export { applyModulesV2 } from './injector';
-
 // 运行时
 export { extractWorldSystemData, getProgressionDisplay, getStatColor } from './runtime';

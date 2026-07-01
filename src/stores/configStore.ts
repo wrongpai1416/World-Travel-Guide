@@ -174,8 +174,6 @@ interface ConfigState {
   settings: UISettings;
   // API 配置
   apiConfig: ApiConfig | null;
-  // 初始化标记
-  _initialized: boolean;
   // Actions
   updateSettings: <K extends keyof UISettings>(key: K, value: UISettings[K]) => void;
   setApiConfig: (config: ApiConfig) => void;
@@ -187,7 +185,6 @@ interface ConfigState {
 export const useConfigStore = create<ConfigState>((set, get) => ({
   settings: loadUISettings(),
   apiConfig: loadApiConfig(),
-  _initialized: false,
 
   updateSettings: (key, value) => {
     set(state => {
@@ -211,6 +208,5 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   initialize: () => {
     const { settings } = get();
     applySettings(settings);
-    set({ _initialized: true });
   },
 }));

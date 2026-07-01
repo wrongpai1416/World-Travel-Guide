@@ -82,27 +82,6 @@ export const useSaveStore = create<SaveState>((set, get) => ({
       const saveData = await loadGameFromDb(saveId);
       if (!saveData) return null;
 
-      // ── 临时迁移：旧存档 content → rawText（可于 2026-07 后删除） ──
-      if (saveData.messages?.length) {
-        let migrated = 0;
-        for (const msg of saveData.messages) {
-          if ((msg as any).content && !msg.rawText) {
-            msg.rawText = (msg as any).content;
-            delete (msg as any).content;
-            delete (msg as any).thinking;
-            delete (msg as any).actionOptions;
-            migrated++;
-          }
-        }
-        if (migrated > 0) {
-          console.log(`[存档迁移] ${migrated} 条旧消息已从 content 转为 rawText`);
-          // 异步回写迁移后的数据（不阻塞加载）
-          const { performSave } = get();
-          performSave(saveData).catch(() => {});
-        }
-      }
-      // ── 迁移结束 ──
-
       localStorage.setItem(ACTIVE_SAVE_KEY, saveId);
       set({ currentSaveId: saveId, currentSaveName: saveData.name });
 

@@ -121,8 +121,8 @@ interface SaveMeta {
 
 // ─── DB 常量 ──────────────────────────────────────────
 
-const DB_NAME = 'chuanyue-simulator';
-const DB_VERSION = 2;
+const DB_NAME = 'world-travel-guide';
+const DB_VERSION = 3;
 const SAVES_STORE = 'saves';
 const GLOBAL_STORE = 'global';
 
@@ -135,7 +135,6 @@ function getDB() {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion) {
-        // v1 → v2: 新增 global store
         if (!db.objectStoreNames.contains(SAVES_STORE)) {
           const store = db.createObjectStore(SAVES_STORE, { keyPath: 'id' });
           store.createIndex('timestamp', 'timestamp');
@@ -146,6 +145,7 @@ function getDB() {
       },
     });
   }
+
   return dbPromise;
 }
 
@@ -328,7 +328,7 @@ export async function exportSave(saveId: string): Promise<Blob> {
   if (!save) throw new Error('存档不存在');
 
   const exportData = {
-    type: 'chuanyue-save',
+    type: 'world-travel-guide-save',
     version: '2.0',
     exportedAt: Date.now(),
     save: {

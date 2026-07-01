@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Play, FolderOpen, Settings } from 'lucide-react';
 import type { SaveMeta } from '../../storage/db';
+import BackgroundMusic from '../BackgroundMusic';
 
 interface MainMenuViewProps {
   allSaves: SaveMeta[];
@@ -154,8 +155,9 @@ export default function MainMenuView({
         transition: 'opacity 1s ease 1.2s',
         letterSpacing: '0.05em',
       }}>
-        v1.9.5
+        v1.9.6
       </div>
+      <BackgroundMusic />
     </div>
   );
 }
