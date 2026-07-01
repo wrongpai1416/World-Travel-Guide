@@ -176,6 +176,7 @@ export default function WorldBookPanel({ worldId, engine }: Props) {
     {/* 编辑器覆盖层（仅在 engine 存在时可用） */}
     {engine && editorOpen && (
       <InGameWorldBookEditor
+        key={worldId}
         engine={engine}
         worldId={worldId}
         onClose={() => setEditorOpen(false)}

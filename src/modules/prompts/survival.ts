@@ -104,32 +104,35 @@ export function buildRecipeGenPrompt(params: {
   playerRequest: string;
   worldTheme: string;
 }): string {
-  const resList = params.currentResources.map(r => `${r.name}(${r.id}): ${r.amount}/${r.max}`).join('、');
+  const resList = params.currentResources.map(r => `${r.name}(${r.id}): ${r.amount}/${r.max}`).join('\n');
+  const idList = params.currentResources.map(r => r.id).join(', ');
 
   return `你是生存世界的配方生成系统。玩家想要制作一样东西，你需要生成一个合理的配方。
 
 【当前世界】${params.worldTheme}
 
-【玩家已有的资源】
+【已有资源（名称(id): 当前/上限）】
 ${resList}
+
+【可用资源 id 列表】${idList}
 
 【玩家需求】
 ${params.playerRequest}
 
 【规则】
-- inputs 是消耗的材料及其数量（从玩家已有资源中选择）
+- inputs 的 key 必须从【可用资源 id 列表】中选择，严禁使用未列出的 id
 - output 是制作出来的产品
-- 产品可以是已有资源（如把 raw_meat 变成 cooked_meat），也可以是新物品
-- 如果是新物品，resourceId 用英文小写下划线命名
+- 如果产品是对已有资源的加工（如：木材→木板），output.resourceId 也必须使用已有资源的 id
+- 如果产品是新物品，resourceId 用英文小写下划线命名（如：stone_axe, purified_water）
 - amount 必须是正数
 - 材料消耗要合理（不能太贵也不能太便宜）
 - 如果玩家需求不合理，可以生成一个近似的合理配方
 
-输出JSON（单个配方对象）：
+输出JSON（单个配方对象，只输出 JSON，不要其他解释）：
 {
   "id": "recipe_英文标识",
-  "name": "配方名称（如：石斧、熟肉、净化水）",
-  "inputs": {"材料id": 数量, "材料id2": 数量2},
+  "name": "配方名称",
+  "inputs": {"已有资源id": 数量},
   "output": {"resourceId": "产品id", "amount": 产品数量},
   "description": "制作说明（一句话）"
 }`;
