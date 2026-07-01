@@ -11,6 +11,7 @@ import type { GameSave, PlayerProfile } from '../../storage/db';
 import type { ChatMessage } from '../../engine/types';
 import type { GameState } from '../../schema/variables';
 import { createDefaultGameState } from '../../schema/variables';
+import { resetSimulationEngine } from '../../simulation/SimulationApi';
 
 import { v4 as uuid } from 'uuid';
 
@@ -178,6 +179,8 @@ export function useStartScreen() {
   const handleStartGame = async () => {
     // 重置存档模块级变量，防止旧存档数据污染新存档
     resetForNewGame();
+    // 重置世界推演引擎，防止旧存档的模拟数据串到新存档
+    resetSimulationEngine();
     markNewGameStarted();
     // 开始游戏时清除缓存，下次进向导从头开始
     clearSegmentsCache();

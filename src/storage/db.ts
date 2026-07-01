@@ -4,6 +4,7 @@ import type { ChatMessage } from '../engine/types';
 import type { GameState } from '../schema/variables';
 import { STORAGE_KEYS } from '@/config/storageKeys';
 import { slimMemoryRuntimeForSave } from '@/memory/memoryStore';
+import type { SimulationState } from '@/simulation/types';
 
 // ─── 类型定义 ─────────────────────────────────────────
 
@@ -106,6 +107,8 @@ interface GameSave {
   variableConfig?: { apiPresetId?: string };
   /** 自建世界完整定义（仅自建世界时保存，确保导出可移植） */
   customWorld?: Record<string, unknown>;
+  /** 世界推演模拟状态（每个存档独立，解决串存档问题） */
+  simulationState?: SimulationState;
 }
 
 /** 轻量元数据（写入 global store，运行时缓存用于列表展示） */
@@ -341,6 +344,7 @@ export async function exportSave(saveId: string): Promise<Blob> {
       memoryConfig: save.memoryConfig,
       vectorMemory: save.vectorMemory,
       customWorld: save.customWorld,
+      simulationState: save.simulationState,
     },
   };
 
@@ -398,6 +402,7 @@ export async function importSaveFromData(rawData: any): Promise<SaveMeta> {
     vectorMemory: Array.isArray(save.vectorMemory) ? save.vectorMemory : undefined,
     variableConfig: save.variableConfig || undefined,
     customWorld: save.customWorld || undefined,
+    simulationState: save.simulationState || undefined,
   };
 
   // 如果导入的存档包含自建世界，注册到 localStorage 以便 findWorldDef 能找到

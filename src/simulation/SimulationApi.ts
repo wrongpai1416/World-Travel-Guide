@@ -17,11 +17,17 @@ import { WorldSimulationEngine } from './engine';
 import type { SimWorldContext, SimulationState } from './types';
 import type { ApiConfig } from '../api/types';
 import { createEmptySimState } from './types';
+import { useSimulationStore } from '../stores/simulationStore';
 
 // ─── 模块级单例 ───
 
 let _engine: WorldSimulationEngine | null = null;
 let _worldContext: SimWorldContext | null = null;
+
+/** 同步引擎状态到 Zustand UI store */
+function syncEngineToStore(engine: WorldSimulationEngine) {
+  useSimulationStore.getState().syncFromEngine(engine.state);
+}
 
 /**
  * 获取推演引擎单例
@@ -30,6 +36,7 @@ let _worldContext: SimWorldContext | null = null;
 export function getSimulationEngine(): WorldSimulationEngine {
   if (!_engine) {
     _engine = new WorldSimulationEngine(WorldSimulationEngine.loadState());
+    _engine.onStateChange = () => syncEngineToStore(_engine!);
   }
   return _engine;
 }
@@ -40,6 +47,7 @@ export function getSimulationEngine(): WorldSimulationEngine {
  */
 export function resetSimulationEngine(): WorldSimulationEngine {
   _engine = new WorldSimulationEngine(createEmptySimState());
+  _engine.onStateChange = () => syncEngineToStore(_engine!);
   _engine.saveState();
   _worldContext = null;
   return _engine;
@@ -69,6 +77,8 @@ export function getWorldContext(): SimWorldContext | null {
 export function restoreEngineState(state: SimulationState): void {
   const engine = getSimulationEngine();
   engine.replaceState(state);
+  // 同步到 Zustand UI store
+  syncEngineToStore(engine);
 }
 
 /**

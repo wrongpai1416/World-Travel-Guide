@@ -1,6 +1,7 @@
-# Claude Code (不提交)
+# Claude Code / WorkBuddy (不提交)
 .claude/
 CLAUDE.md
+.workbuddy/
 
 # Dev tools (不提交)
 dev-size-tool.tsx
