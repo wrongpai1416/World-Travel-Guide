@@ -15,6 +15,8 @@ interface Props {
   onSurvivalDeleteRecipe?: (recipeId: string) => void;
   /** 是否正在生成配方 */
   isGeneratingRecipe?: boolean;
+  /** 运行时配方（AI 生成，不持久化到世界定义） */
+  runtimeRecipes?: SurvivalRecipe[];
   /** 经营资产：打开覆盖层 */
   onOpenBusinessOverlay?: () => void;
 }
@@ -47,7 +49,7 @@ function GaugeBar({ label, value, max, color, icon }: { label: string; value: nu
   );
 }
 
-export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecipe, onSurvivalCraft, onSurvivalDeleteRecipe, isGeneratingRecipe, onOpenBusinessOverlay }: Props) {
+export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecipe, onSurvivalCraft, onSurvivalDeleteRecipe, isGeneratingRecipe, runtimeRecipes, onOpenBusinessOverlay }: Props) {
   const world = gameState.世界;
   const player = gameState.玩家;
   const notebook = player.记事本;
@@ -72,7 +74,14 @@ export default function RightPanel({ gameState, worldId, onSurvivalGenerateRecip
       if (!mod.enabled) continue;
       const key = keyMap[mod.moduleId];
       if (key && mod.moduleConfig) {
-        (worldSystem as any)[key] = mod.moduleConfig;
+        if (mod.moduleId === 'survival' && runtimeRecipes?.length) {
+          // 合并运行时配方（AI 生成）与静态配方（世界定义）
+          const survData = mod.moduleConfig as SurvivalModuleSchema;
+          const staticRecipes = Array.isArray(survData.recipes) ? survData.recipes : [];
+          (worldSystem as any)[key] = { ...survData, recipes: [...staticRecipes, ...runtimeRecipes] };
+        } else {
+          (worldSystem as any)[key] = mod.moduleConfig;
+        }
         if (mod.name) moduleNames[key] = mod.name;
       }
     }
