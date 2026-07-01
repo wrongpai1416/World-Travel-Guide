@@ -16,7 +16,7 @@ import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
 import { findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
-import { getSimulationEngine } from '../simulation/SimulationApi';
+import { getSimulationEngine, restoreEngineState } from '../simulation/SimulationApi';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
@@ -359,6 +359,13 @@ export function useGameEngine(
     // 恢复变量提取 API 配置
     if (save.variableConfig?.apiPresetId) {
       localStorage.setItem('world_travel_guide_variable_api_preset', save.variableConfig.apiPresetId);
+    }
+    // 恢复世界推演模拟状态（解决串存档问题）
+    if (save.simulationState) {
+      restoreEngineState(save.simulationState);
+    } else {
+      // 旧存档没有 simulationState，需要重置引擎状态避免串档
+      getSimulationEngine().reset();
     }
   }, []);
 

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import {
   Globe, Zap, ChevronDown, ChevronRight, AlertTriangle,
   Users, Building2, Coins, PersonStanding, Sparkles,
-  Target, Clock, MessageSquare, Radio,
+  Target, Clock, MessageSquare, Radio, Trash2, X,
 } from 'lucide-react';
 import { useSimulationStore } from '../../../stores/simulationStore';
 import type { SimEvent, PlayerHook, EventLevel, NpcProactiveInteraction, SimConfig } from '../../../simulation/types';
@@ -62,6 +62,11 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
   const staleTicks = tickCount != null ? tickCount - (event.lastUpdatedTick ?? 0) : 0;
   const isStale = staleTicks > 5;
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getSimulationEngine().removeEvent(event.id);
+  };
+
   return (
     <div style={{
       marginBottom: '8px',
@@ -109,6 +114,19 @@ function EventCard({ event, depth = 0, tickCount }: { event: SimEvent; depth?: n
             沉寂
           </span>
         )}
+        <button
+          onClick={handleDelete}
+          title="删除此事件"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+            color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+            opacity: 0.5, transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+        >
+          <X size={12} />
+        </button>
       </div>
 
       {/* 展开内容 */}
@@ -194,6 +212,11 @@ function StorylineEntry({ npcId, npcName }: { npcId: string; npcName: string }) 
   const storyline = state.storylines[npcId];
   const [expanded, setExpanded] = useState(false);
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getSimulationEngine().removeStoryline(npcId);
+  };
+
   if (!storyline || storyline.beats.length === 0) return null;
 
   const recentBeats = storyline.beats.filter(b => !b.merged).slice(-5);
@@ -221,6 +244,19 @@ function StorylineEntry({ npcId, npcName }: { npcId: string; npcName: string }) 
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
           {recentBeats.length} 个新进展
         </span>
+        <button
+          onClick={handleDelete}
+          title="删除此暗线"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+            color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+            opacity: 0.5, transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+        >
+          <X size={12} />
+        </button>
       </div>
 
       {expanded && (
@@ -267,6 +303,11 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
     : interaction.priority <= 300 ? '重要'
     : interaction.priority <= 600 ? '一般' : '低';
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getSimulationEngine().removeInteraction(interaction.id);
+  };
+
   return (
     <div style={{
       marginBottom: '8px',
@@ -293,6 +334,19 @@ function NpcInteractionCard({ interaction }: { interaction: NpcProactiveInteract
         }}>
           {priorityLabel}
         </span>
+        <button
+          onClick={handleDelete}
+          title="移除此交互"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+            color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+            opacity: 0.5, transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+        >
+          <X size={12} />
+        </button>
       </div>
 
       {expanded && (
@@ -457,9 +511,23 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
             {activeEvents.length === 0 ? (
               <EmptyState />
             ) : (
-              activeEvents.map(evt => (
-                <EventCard key={evt.id} event={evt} tickCount={simState.tickCount} />
-              ))
+              <>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                  <button
+                    onClick={() => {
+                      getSimulationEngine().clearAllEvents();
+                    }}
+                    className="btn-ghost btn-xs"
+                    style={{ color: 'var(--danger)', fontSize: 'var(--font-size-xs)' }}
+                  >
+                    <Trash2 size={10} style={{ marginRight: '4px' }} />
+                    全部清除
+                  </button>
+                </div>
+                {activeEvents.map(evt => (
+                  <EventCard key={evt.id} event={evt} tickCount={simState.tickCount} />
+                ))}
+              </>
             )}
 
             {/* 手动推演按钮 */}
@@ -478,7 +546,19 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
 
         {activeTab === 'storylines' && (
           <>
-            {offscreenNpcs.length === 0 ? (
+            {Object.keys(simState.storylines ?? {}).length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <button
+                  onClick={() => getSimulationEngine().clearAllStorylines()}
+                  className="btn-ghost btn-xs"
+                  style={{ color: 'var(--danger)', fontSize: 'var(--font-size-xs)' }}
+                >
+                  <Trash2 size={10} style={{ marginRight: '4px' }} />
+                  全部清除
+                </button>
+              </div>
+            )}
+            {offscreenNpcs.length === 0 && Object.keys(simState.storylines ?? {}).length === 0 ? (
               <EmptyState />
             ) : (
               offscreenNpcs.map(([npcId, npc]) => (
@@ -496,6 +576,18 @@ export default function WorldDynamicsPanel({ gameState, onManualTick, isSimulati
 
         {activeTab === 'interactions' && (
           <>
+            {(simState.pendingInteractions ?? []).length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <button
+                  onClick={() => getSimulationEngine().clearAllInteractions()}
+                  className="btn-ghost btn-xs"
+                  style={{ color: 'var(--danger)', fontSize: 'var(--font-size-xs)' }}
+                >
+                  <Trash2 size={10} style={{ marginRight: '4px' }} />
+                  全部清除
+                </button>
+              </div>
+            )}
             {(simState.pendingInteractions ?? []).length === 0 ? (
               <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -664,6 +756,27 @@ function SimSettings() {
         <div>暗线角色: {Object.keys(simState.storylines ?? {}).length}</div>
         <div>待处理交互: {(simState.pendingInteractions ?? []).length}</div>
       </div>
+
+      {/* 重置推演 */}
+      <button
+        onClick={() => {
+          if (confirm('确定要重置所有世界推演状态吗？这将清除所有事件、暗线和交互。')) {
+            getSimulationEngine().reset();
+          }
+        }}
+        className="btn-ghost btn-sm"
+        style={{
+          color: 'var(--danger)',
+          borderColor: 'var(--danger)',
+          width: '100%',
+        }}
+      >
+        <Trash2 size={14} style={{ marginRight: '6px' }} />
+        重置世界推演
+      </button>
+      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
+        清除所有推演数据（事件、暗线、交互），但保留存档中已保存的状态
+      </span>
     </div>
   );
 }

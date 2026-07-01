@@ -6,6 +6,7 @@ import { loadGame as loadGameFromDb, optimizeSnapshots, ACTIVE_SAVE_KEY } from '
 import { useSaveStore, setAutoSaveBuilder } from '../stores/saveStore';
 import { useConfigStore } from '../stores/configStore';
 import { useMemoryStore } from '../memory/memoryStore';
+import { getEngineState } from '../simulation/SimulationApi';
 
 /** 创建带默认值的 PlayerProfile（旧存档缺失字段时兜底） */
 function withProfileDefaults(raw: Partial<PlayerProfile> | null | undefined): PlayerProfile | null {
@@ -150,6 +151,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           apiPresetId: localStorage.getItem('world_travel_guide_variable_api_preset') || undefined,
         },
         customWorld,
+        simulationState: getEngineState(),
       };
     });
   }, []);
