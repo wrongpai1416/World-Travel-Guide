@@ -2,6 +2,7 @@ import { useStartScreen } from './useStartScreen';
 import MainMenuView from './MainMenuView';
 import SavesView from './SavesView';
 import WizardShell from './WizardShell';
+import BackgroundMusic from '../BackgroundMusic';
 
 export default function StartScreen() {
   const h = useStartScreen();
@@ -68,6 +69,7 @@ export default function StartScreen() {
   return (
     <>
       {content}
+      <BackgroundMusic />
       {h.DialogUI}
     </>
   );

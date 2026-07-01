@@ -199,7 +199,7 @@ ${selectionSummary}
     name: data.name || '未命名世界',
     description: data.description || '',
     icon: data.icon || 'Globe',
-    tags: data.tags || [],
+    tags: Array.isArray(data.tags) ? data.tags : [],
     difficulty: data.difficulty || 'medium',
   };
 
@@ -294,7 +294,7 @@ ${selectionSummary}
       meta: {
         powerSystem: data.rules.powerSystem,
         socialStructure: data.rules.socialStructure,
-        specialRules: data.rules.specialRules,
+        specialRules: Array.isArray(data.rules?.specialRules) ? data.rules.specialRules : [],
       },
     });
   }

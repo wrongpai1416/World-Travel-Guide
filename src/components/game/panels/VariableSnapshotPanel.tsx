@@ -280,11 +280,8 @@ export default function VariableSnapshotPanel({
               <select
                 value={varApiPresetId}
                 onChange={e => { setVarApiPresetId(e.target.value); }}
-                style={{
-                  padding: '4px 8px', fontSize: 'var(--font-size-sm)',
-                  background: 'var(--bg-primary)', border: '1px solid var(--border)',
-                  borderRadius: '6px', color: 'var(--text-primary)', width: '160px',
-                }}
+                className="input-field"
+                style={{ width: '160px' }}
               >
                 <option value="">跟随主 API</option>
                 {apiPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -292,12 +289,8 @@ export default function VariableSnapshotPanel({
             </div>
             <button
               onClick={handleSaveApiSettings}
-              style={{
-                padding: '6px 16px', fontSize: 'var(--font-size-sm)',
-                border: 'none', borderRadius: '6px',
-                background: 'var(--accent)', color: '#fff',
-                cursor: 'pointer', fontWeight: '600', alignSelf: 'flex-end',
-              }}
+              className="btn-primary btn-sm"
+              style={{ alignSelf: 'flex-end' }}
             >
               保存设置
             </button>
@@ -364,14 +357,7 @@ export default function VariableSnapshotPanel({
                   {/* 层头 */}
                   <div
                     onClick={() => toggleLayer(layer.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 14px',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary, rgba(255,255,255,0.03))'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    className="wb-entry-toggle"
                   >
                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
 
@@ -401,7 +387,7 @@ export default function VariableSnapshotPanel({
                       <span style={{
                         padding: '2px 8px', borderRadius: 'var(--radius-sm)',
                         fontSize: 'var(--font-size-sm)', fontWeight: '600',
-                        background: 'var(--accent)', color: '#fff',
+                        background: 'var(--accent)', color: 'var(--color-on-accent)',
                       }}>最新</span>
                     )}
 
@@ -409,7 +395,7 @@ export default function VariableSnapshotPanel({
                       <span style={{
                         padding: '2px 8px', borderRadius: 'var(--radius-sm)',
                         fontSize: 'var(--font-size-sm)', fontWeight: '600',
-                        background: '#f0883e', color: '#fff',
+                        background: 'var(--warning)', color: 'var(--color-on-accent)',
                       }}>已修改</span>
                     )}
 
@@ -466,16 +452,7 @@ export default function VariableSnapshotPanel({
                         <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
                           <button
                             onClick={() => handleLoadLatest(layer)}
-                            style={{
-                              padding: '6px 16px',
-                              border: 'none',
-                              borderRadius: 'var(--radius-sm)',
-                              background: 'var(--accent)',
-                              color: '#fff',
-                              fontSize: 'var(--font-size-sm)',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                            }}
+                            className="btn-primary btn-sm"
                           >
                             应用编辑
                           </button>
@@ -519,21 +496,13 @@ export default function VariableSnapshotPanel({
                   "{confirmRollback.content.slice(0, 50)}..."
                 </span>
               )}
-              <span style={{ display: 'block', marginTop: 8, color: '#f0883e', fontSize: 'var(--font-size-sm)' }}>
+              <span style={{ display: 'block', marginTop: 8, color: 'var(--warning)', fontSize: 'var(--font-size-sm)' }}>
                 ⚠️ 此操作将覆盖当前变量状态
               </span>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setConfirmRollback(null)} style={{
-                padding: '8px 20px', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)',
-                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 'var(--font-size-base)',
-              }}>取消</button>
-              <button onClick={() => handleRollback(confirmRollback)} style={{
-                padding: '8px 20px', border: 'none',
-                borderRadius: 'var(--radius-md)', background: '#da3633',
-                color: '#fff', cursor: 'pointer', fontSize: 'var(--font-size-base)', fontWeight: '600',
-              }}>确认回滚</button>
+              <button onClick={() => setConfirmRollback(null)} className="btn-secondary">取消</button>
+              <button onClick={() => handleRollback(confirmRollback)} className="btn-danger">确认回滚</button>
             </div>
           </div>
         </div>
@@ -557,27 +526,8 @@ function ToolBtn({ onClick, title, disabled, children }: {
       onClick={onClick}
       title={title}
       disabled={disabled}
-      style={{
-        width: 34, height: 34,
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm, 4px)',
-        background: 'var(--bg-secondary)',
-        color: disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.15s',
-      }}
-      onMouseEnter={e => {
-        if (!disabled) {
-          e.currentTarget.style.borderColor = 'var(--accent)';
-          e.currentTarget.style.color = 'var(--accent)';
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = 'var(--border)';
-        e.currentTarget.style.color = disabled ? 'var(--text-muted)' : 'var(--text-secondary)';
-      }}
+      className="btn-ghost btn-icon"
+      style={{ width: 34, height: 34 }}
     >
       {children}
     </button>

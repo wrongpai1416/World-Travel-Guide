@@ -25,6 +25,8 @@ import {
 } from '@/api/imageGenTypes';
 import { ImageIcon, Key, Cpu, Globe, Wand2, Users, Zap } from 'lucide-react';
 
+import ComfyWorkflowEditor from './ComfyWorkflowEditor';
+
 export default function ImageGenSettingsTab() {
   const config = useImageStore((s) => s.config);
   const updateConfig = useImageStore((s) => s.updateConfig);
@@ -313,6 +315,11 @@ export default function ImageGenSettingsTab() {
                   </Button>
                 </div>
               </Field>
+            </div>
+
+            {/* ─── 自定义工作流 ─── */}
+            <div style={{ padding: '0', borderBottom: '1px solid var(--border)' }}>
+              <ComfyWorkflowEditor />
             </div>
           </>
         )}

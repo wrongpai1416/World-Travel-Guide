@@ -59,6 +59,8 @@ export interface AssemblerContext {
   macroEngine: MacroEngine;
   /** 编译后的记忆上下文（来自记忆系统） */
   compiledMemoryContext?: string;
+  /** 世界模拟简报（世界动态 + 角色暗线摘要，来自 WorldSimulationEngine） */
+  simulationBrief?: string;
   /** 世界书 atDepth 条目（需要插入到聊天历史中的指定深度） */
   atDepthEntries?: Array<{ depth: number; content: string }>;
 }
@@ -70,7 +72,9 @@ export interface AssemblerContext {
  * 1. 世界书注入 (wbInjection)
  * 2. 玩家档案 (playerProfileBlock)
  * 3. 角色认知防火墙 (firewall)
- * 4. 预设提示词条目（按 order 排序，过滤 enabled + 触发模式）
+ * 4. 编译后的记忆上下文 (compiledMemoryContext)
+ * 5. 世界模拟简报 (simulationBrief) — 后台推演引擎产出的世界动态
+ * 6. 预设提示词条目（按 order 排序，过滤 enabled + 触发模式）
  *
  * 每个条目的 content 在拼接前通过 macroEngine.resolve() 解析宏
  */
@@ -121,6 +125,11 @@ export function assembleSystemPrompt(
   // 注入记忆上下文（如果有）
   if (ctx.compiledMemoryContext) {
     parts.push(ctx.compiledMemoryContext);
+  }
+
+  // 注入世界模拟简报（世界动态 + 角色暗线摘要）
+  if (ctx.simulationBrief) {
+    parts.push(ctx.simulationBrief);
   }
 
   parts.push(presetBody);

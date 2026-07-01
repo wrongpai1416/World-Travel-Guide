@@ -261,7 +261,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
             {worldId} · {entries.length} 条
           </span>
           <div style={{ flex: 1 }} />
-          <button onClick={onClose} style={iconBtnStyle} title="关闭">
+          <button onClick={onClose} className="btn-ghost btn-icon-sm" title="关闭">
             <X size={20} />
           </button>
         </div>
@@ -273,10 +273,10 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
         }}>
-          <span style={badgeStyle('#f59e0b20', '#f59e0b')}>
+          <span style={badgeStyle('color-mix(in srgb, var(--warning) 12%, transparent)', 'var(--warning)')}>
             <Lock size={12} /> 全局 {globalCount}（只读，需导出编辑后重新导入）
           </span>
-          <span style={badgeStyle('#10b98120', '#10b981')}>
+          <span style={badgeStyle('color-mix(in srgb, var(--success) 12%, transparent)', 'var(--success)')}>
             <Pencil size={12} /> 触发 {triggerCount}（可编辑）
           </span>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
@@ -304,8 +304,10 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
           <div style={{
             margin: '0 20px 8px', padding: '8px 12px', borderRadius: 'var(--radius-sm)',
             fontSize: 'var(--font-size-sm)',
-            background: importMsg.startsWith('导入完成') ? '#10b98115' : '#f59e0b15',
-            color: importMsg.startsWith('导入完成') ? '#10b981' : '#f59e0b',
+            background: importMsg.startsWith('导入完成')
+              ? 'color-mix(in srgb, var(--success) 8%, transparent)'
+              : 'color-mix(in srgb, var(--warning) 8%, transparent)',
+            color: importMsg.startsWith('导入完成') ? 'var(--success)' : 'var(--warning)',
             display: 'flex', alignItems: 'center', gap: '6px',
           }}>
             <AlertCircle size={14} /> {importMsg}
@@ -495,7 +497,7 @@ const panelStyle: React.CSSProperties = {
   margin: '20px auto',
   display: 'flex', flexDirection: 'column',
   background: 'var(--bg-primary)',
-  borderRadius: '12px',
+  borderRadius: 'var(--radius-lg)',
   border: '1px solid var(--border)',
   overflow: 'hidden',
   boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
@@ -509,14 +511,10 @@ const toolbarStyle: React.CSSProperties = {
   padding: '10px 20px', borderBottom: '1px solid var(--border)',
   flexWrap: 'wrap',
 };
-const iconBtnStyle: React.CSSProperties = {
-  border: 'none', background: 'none', cursor: 'pointer',
-  color: 'var(--text-muted)', padding: '4px',
-};
 function badgeStyle(bg: string, fg: string): React.CSSProperties {
   return {
     display: 'inline-flex', alignItems: 'center', gap: '4px',
-    fontSize: 'var(--font-size-xs)', padding: '2px 8px', borderRadius: '4px',
+    fontSize: 'var(--font-size-xs)', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
     background: bg, color: fg, fontWeight: 500,
   };
 }

@@ -92,16 +92,7 @@ export default function WorldBookPanel({ worldId, engine }: Props) {
           <button
             onClick={() => setEditorOpen(true)}
             title="编辑世界书条目"
-            style={{
-              border: '1px solid var(--border)',
-              background: 'var(--bg-secondary)',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: 'var(--font-size-sm)',
-            }}
+            className="btn-secondary btn-sm"
           >
             <Pencil size={14} /> 编辑
           </button>
@@ -124,17 +115,13 @@ export default function WorldBookPanel({ worldId, engine }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="搜索条目..."
-            style={{ width: '100%', padding: '6px 10px 6px 28px', fontSize: 'var(--font-size-sm)' }}
+            style={{ width: '100%', paddingLeft: '28px' }}
           />
         </div>
         <button
           onClick={() => setShowDisabled(v => !v)}
           title={showDisabled ? '隐藏已禁用' : '显示已禁用'}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: showDisabled ? 'var(--text-secondary)' : 'var(--text-muted)',
-            padding: '4px',
-          }}
+          className="btn-ghost btn-icon-sm"
         >
           {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
         </button>
@@ -256,7 +243,7 @@ function EntryCard({
 }) {
   return (
     <div style={{
-      border: `1px solid ${entry.enabled ? 'var(--border)' : 'var(--border-dim, #333)'}`,
+      border: '1px solid var(--border)',
       borderRadius: 'var(--radius-sm)',
       overflow: 'hidden',
       opacity: entry.enabled ? 1 : 0.5,
@@ -264,14 +251,9 @@ function EntryCard({
       {/* 标题行 */}
       <button
         onClick={onToggle}
+        className="wb-entry-toggle"
         style={{
-          width: '100%',
-          display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '8px 10px',
           background: expanded ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-          border: 'none', cursor: 'pointer',
-          textAlign: 'left',
-          transition: 'background 0.15s',
         }}
       >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -290,13 +272,13 @@ function EntryCard({
         <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
           {entry.constant && (
             <span style={{
-              fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
+              fontSize: 'var(--font-size-xs)', padding: '1px 5px', borderRadius: 'var(--radius-sm)',
               background: 'var(--accent-dim)', color: 'var(--accent)',
             }}>常驻</span>
           )}
           {entry.keys.length > 0 && (
             <span style={{
-              fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
+              fontSize: 'var(--font-size-xs)', padding: '1px 5px', borderRadius: 'var(--radius-sm)',
               background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
             }}>{entry.keys.length} 词</span>
           )}
@@ -319,7 +301,7 @@ function EntryCard({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {entry.keys.map((k, i) => (
                   <span key={i} style={{
-                    padding: '2px 8px', borderRadius: '4px',
+                    padding: '2px 8px', borderRadius: 'var(--radius-sm)',
                     fontSize: 'var(--font-size-xs)',
                     background: 'var(--bg-tertiary)',
                     color: 'var(--text-secondary)',

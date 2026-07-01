@@ -16,6 +16,7 @@ import { optimizeSnapshots } from '../storage/db';
 import { loadWorldBook, applyWorld, applyModules } from './worldPersonality';
 import { findWorldDef } from '../data/worldLoader';
 import type { WorldDef } from '../data/worlds-schema';
+import { getSimulationEngine } from '../simulation/SimulationApi';
 import { createDefaultSurvivalModule, createDefaultBusinessModule, createDefaultDiceModule, createDefaultTalentModule } from '../modules/defaults';
 import { PipelineExecutor } from './pipelineExecutor';
 import { loadPipelineConfig, type PipelineStatus, type PipelineTaskId } from './pipelineTypes';
@@ -515,6 +516,19 @@ ${perspectiveInstruction}
           // 获取上一次编译的记忆上下文（如果有）
           const compiledMemoryContext = memStore.lastCompiledContext?.fullText || '';
 
+          // 获取世界模拟简报（后台推演引擎产出的世界动态 + 角色暗线）
+          const simEngine = getSimulationEngine();
+          let simulationBrief = '';
+          try {
+            const newsBrief = simEngine.getWorldNewsBrief();
+            const storylineSummary = simEngine.getAllStorylineSummaries();
+            if (newsBrief || storylineSummary) {
+              simulationBrief = [newsBrief, storylineSummary].filter(Boolean).join('\n\n');
+            }
+          } catch {
+            // 模拟引擎未初始化或不启用时静默降级
+          }
+
           // 使用结构化预设 + 宏引擎组装系统提示
           // 优先使用用户自定义预设/已保存的内置预设，否则用内置默认
           const { activePresetId, userPresets } = usePresetStore.getState();
@@ -555,6 +569,7 @@ ${perspectiveInstruction}
             round,
             macroEngine,
             compiledMemoryContext,  // ← 注入记忆上下文
+            simulationBrief,  // ← 注入世界模拟简报
           });
 
           // 正文生图：在系统提示末尾追加格式提醒（提高 Gemini 等模型的遵循率）

@@ -531,7 +531,7 @@ function applyIngestToRuntime(runtime: NarrativeMemoryRuntime, parsed: Record<st
     runtime.sceneAnchor = {
       timeLabel: scenePatch.timeLabel ?? existing?.timeLabel ?? '',
       locationLabel: scenePatch.locationLabel ?? existing?.locationLabel ?? '',
-      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities : existing?.presentEntities) ?? [],
+      presentEntities: (Array.isArray(scenePatch.presentEntities) ? scenePatch.presentEntities : Array.isArray(existing?.presentEntities) ? existing.presentEntities : []) ?? [],
       immediateGoal: scenePatch.immediateGoal ?? existing?.immediateGoal ?? '',
       immediateRisk: scenePatch.immediateRisk ?? existing?.immediateRisk ?? '',
       conversationFocus: scenePatch.conversationFocus ?? existing?.conversationFocus ?? '',
@@ -562,6 +562,12 @@ function applyIngestToRuntime(runtime: NarrativeMemoryRuntime, parsed: Record<st
   const entityPatches = parsed.entityPatches as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(entityPatches)) {
     for (const patch of entityPatches) {
+      // 防御：currentStatus/aliases/stableFacts/affiliations 应为数组，AI 可能返回字符串
+      for (const arrField of ['currentStatus', 'aliases', 'stableFacts', 'affiliations', 'relatedThreads', 'relatedEvents']) {
+        if (patch[arrField] && !Array.isArray(patch[arrField])) {
+          patch[arrField] = [patch[arrField]];
+        }
+      }
       const idx = runtime.entityCards.findIndex(c => c.id === patch.id || c.name === patch.name);
       if (idx >= 0) runtime.entityCards[idx] = { ...runtime.entityCards[idx], ...patch, updatedAt: Date.now() } as typeof runtime.entityCards[number];
       else runtime.entityCards.push({ ...patch, createdAt: Date.now(), updatedAt: Date.now() } as typeof runtime.entityCards[number]);
@@ -631,13 +637,13 @@ export function collectAllMemoriesFromRuntime(runtime: NarrativeMemoryRuntime) {
     if (!record.summaryData) continue;
     const floor = record.sourceStartIndex ?? 0;
     for (const item of record.summaryData.playerMemories ?? []) {
-      memories.push({ id: item.id || `pm_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'player', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `pm_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'player', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
     for (const item of record.summaryData.otherCharacterMemories ?? []) {
-      memories.push({ id: item.id || `oc_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'otherCharacter', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `oc_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'otherCharacter', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
     for (const item of record.summaryData.itemMemories ?? []) {
-      memories.push({ id: item.id || `im_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: item.keywords ?? [], type: 'item', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
+      memories.push({ id: item.id || `im_${floor}_${memories.length}`, title: item.title, summary: item.summary, keywords: Array.isArray(item.keywords) ? item.keywords : [], type: 'item', sourceFloor: floor, savedAt: item.savedAt ?? record.savedAt });
     }
   }
   return memories;

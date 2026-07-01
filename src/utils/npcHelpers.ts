@@ -486,15 +486,21 @@ export function formatSnapshotForMainAI(state: GameState): string {
     }
   }
 
-  // 信息层级（只取最重要的）
+  // 信息层级
   const info = world.信息层级;
   if (info && typeof info === 'object') {
     const global = (info as any).全局重大事件 ?? '';
     const faction = (info as any).势力动态 ?? '';
-    if (global || faction) {
+    const region = (info as any).区域事件 ?? '';
+    const local = (info as any).本地消息 ?? '';
+    const rumor = (info as any).圈内传闻 ?? '';
+    if (global || faction || region || local || rumor) {
       lines.push(`### 【信息层级】`);
-      if (global) lines.push(`> 全局重大事件: ${global}`);
-      if (faction) lines.push(`> 势力动态: ${faction}`);
+      if (global) lines.push(`> 全局: ${global}`);
+      if (faction) lines.push(`> 势力: ${faction}`);
+      if (region) lines.push(`> 区域: ${region}`);
+      if (local) lines.push(`> 本地: ${local}`);
+      if (rumor) lines.push(`> 传闻: ${rumor}`);
     }
   }
 
@@ -554,17 +560,47 @@ export function formatSnapshotForMainAI(state: GameState): string {
     }
   }
 
-  // 物品栏
+  // 物品栏 — Record<string, InventoryItem>（对象格式，不是数组）
   const inventory = player.物品栏;
-  if (Array.isArray(inventory) && inventory.length > 0) {
-    lines.push(`### 【物品栏】`);
-    for (const item of inventory) {
-      if (!item || typeof item !== 'object') continue;
-      const it = item as any;
-      const name = it.名称 ?? it.name ?? '';
-      const qty = it.数量 ?? 1;
-      const desc = it.描述 ?? '';
-      if (name) lines.push(`> ${name}${qty > 1 ? `×${qty}` : ''}${desc ? `：${desc}` : ''}`);
+  if (inventory && typeof inventory === 'object' && !Array.isArray(inventory)) {
+    const invEntries = Object.entries(inventory as Record<string, { 数量?: number; 类型?: string; 品质?: string; 备注?: string; 特殊属性?: string; 有效期?: string }>);
+    if (invEntries.length > 0) {
+      lines.push(`### 【物品栏】`);
+      for (const [name, it] of invEntries) {
+        if (!it || typeof it !== 'object') continue;
+        const qty = it.数量 ?? 1;
+        const quality = it.品质 ?? '';
+        const type = it.类型 ?? '';
+        const note = it.备注 ?? '';
+        const extra = [quality, type, note].filter(Boolean).join('·');
+        const suffix = extra ? `（${extra}）` : '';
+        lines.push(`> ${name}${qty > 1 ? ` ×${qty}` : ''}${suffix}`);
+      }
+    }
+  }
+
+  // 成长体系（段位/经验/属性点，启用成长模块时填充）
+  const growthParts: string[] = [];
+  if (player.当前段位索引 != null) growthParts.push(`段位:Lv.${player.当前段位索引}`);
+  if (player.当前经验值 != null) growthParts.push(`经验:${player.当前经验值}`);
+  if (player.可用属性点 != null) growthParts.push(`自由属性点:${player.可用属性点}`);
+  if (growthParts.length > 0) {
+    lines.push(`### 【成长体系】`);
+    lines.push(`> ${growthParts.join(' | ')}`);
+  }
+
+  // 生存资源（食物/水/材料等，启用生存模块时填充）
+  const resources = player.生存资源;
+  if (resources && typeof resources === 'object' && !Array.isArray(resources)) {
+    const resEntries = Object.entries(resources as Record<string, { 数量?: number; 最大值?: number }>);
+    if (resEntries.length > 0) {
+      lines.push(`### 【生存资源】`);
+      const parts = resEntries.map(([k, v]) => {
+        if (!v || typeof v !== 'object') return `${k}:${v}`;
+        const maxStr = (v as any).最大值 != null ? `/${(v as any).最大值}` : '';
+        return `${k}:${(v as any).数量 ?? '?'}${maxStr}`;
+      });
+      lines.push(`> ${parts.join(' | ')}`);
     }
   }
 

@@ -9,15 +9,28 @@ export default function BackgroundMusic() {
   const [muted, setMuted] = useState(() => {
     return localStorage.getItem(STORAGE_KEY) === 'true';
   });
-  const [interacted, setInteracted] = useState(false);
 
-  // 创建 Audio 元素
+  // 创建 Audio 元素并尝试自动播放
   useEffect(() => {
     const audio = new Audio(MUSIC_SRC);
     audio.loop = true;
     audio.volume = 0.4;
     audio.muted = muted;
     audioRef.current = audio;
+
+    // 尝试自动播放，失败则等待首次交互
+    if (!muted) {
+      audio.play().catch(() => {
+        const tryPlay = () => {
+          audio.play().catch(() => {});
+          document.removeEventListener('click', tryPlay);
+          document.removeEventListener('keydown', tryPlay);
+        };
+        document.addEventListener('click', tryPlay, { once: true });
+        document.addEventListener('keydown', tryPlay, { once: true });
+      });
+    }
+
     return () => { audio.pause(); audio.src = ''; };
   }, []);
 
@@ -26,23 +39,6 @@ export default function BackgroundMusic() {
     if (audioRef.current) audioRef.current.muted = muted;
     localStorage.setItem(STORAGE_KEY, String(muted));
   }, [muted]);
-
-  // 首次交互后自动播放
-  useEffect(() => {
-    if (interacted || !audioRef.current) return;
-    const tryPlay = () => {
-      setInteracted(true);
-      audioRef.current?.play().catch(() => {});
-      document.removeEventListener('click', tryPlay);
-      document.removeEventListener('keydown', tryPlay);
-    };
-    document.addEventListener('click', tryPlay, { once: true });
-    document.addEventListener('keydown', tryPlay, { once: true });
-    return () => {
-      document.removeEventListener('click', tryPlay);
-      document.removeEventListener('keydown', tryPlay);
-    };
-  }, [interacted]);
 
   const toggle = () => {
     const next = !muted;

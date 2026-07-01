@@ -4,6 +4,10 @@ import type {
   ImageGenConfig,
   ImageGenResult,
   ComfyUIData,
+  ComfyWorkflowPreset,
+  WorkflowParamMapping,
+  WorkflowValidation,
+  DetectedNode,
 } from './imageGenTypes';
 import {
   DEFAULT_NEGATIVE_PROMPT,
@@ -347,9 +351,231 @@ function buildDefaultComfyExecutionPayload(prompt: string, options: Record<strin
   };
 }
 
+// ─── ComfyUI 自定义工作流 ───
+
+/**
+ * 验证工作流中的所有节点是否在本地 ComfyUI 中可用。
+ * 需要传入已获取的 objectInfo（通过 fetchComfyUIData）。
+ */
+export function validateWorkflow(
+  workflow: Record<string, Record<string, unknown>>,
+  objectInfo: Record<string, unknown>,
+): WorkflowValidation {
+  const nodeTypes: string[] = [];
+  const availableNodes = Object.keys(objectInfo);
+  const missing: string[] = [];
+  const modelWarnings: string[] = [];
+  const fatalErrors: string[] = [];
+
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (typeof node !== 'object' || !node) continue;
+    const classType = typeof node.class_type === 'string' ? node.class_type : '';
+    if (!classType) continue;
+    nodeTypes.push(classType);
+
+    if (!availableNodes.includes(classType)) {
+      missing.push(`节点 ${nodeId}: ${classType}`);
+    }
+  }
+
+  // 检查是否有输出节点（SaveImage / PreviewImage / VHS_VideoCombine 等）
+  const outputNodeTypes = ['SaveImage', 'PreviewImage', 'VHS_VideoCombine', 'SaveImageWebsocket'];
+  const hasOutput = nodeTypes.some((t) => outputNodeTypes.includes(t));
+  if (!hasOutput) {
+    fatalErrors.push('工作流中未找到输出节点（SaveImage / PreviewImage 等）');
+  }
+
+  const valid = missing.length === 0 && fatalErrors.length === 0;
+
+  return {
+    nodeTypes,
+    available: availableNodes,
+    missing,
+    modelWarnings,
+    fatalErrors,
+    valid,
+  };
+}
+
+/** 检测的节点类型 → 建议映射角色 */
+const NODE_ROLE_HINTS: Record<string, string[]> = {
+  'CLIPTextEncode': ['positive_prompt', 'negative_prompt'],
+  'CLIPTextEncodeSDXL': ['positive_prompt', 'negative_prompt'],
+  'CLIPTextEncodeFlux': ['positive_prompt'],
+  'CLIPTextEncodeHunyuanDiT': ['positive_prompt'],
+  'KSampler': ['seed', 'steps', 'cfg', 'sampler', 'scheduler', 'denoise'],
+  'KSamplerAdvanced': ['seed', 'steps', 'cfg', 'sampler', 'scheduler', 'denoise'],
+  'KSamplerSelect': ['sampler'],
+  'EmptyLatentImage': ['width', 'height', 'batch_size'],
+  'EmptySD3LatentImage': ['width', 'height', 'batch_size'],
+  'EmptyFluxLatentImage': ['width', 'height', 'batch_size'],
+  'RandomNoise': ['seed'],
+};
+
+/**
+ * 自动检测工作流中可以映射参数注入的节点。
+ * 返回检测到的节点列表，每个节点包含建议的映射角色。
+ */
+export function detectWorkflowNodes(
+  workflow: Record<string, Record<string, unknown>>,
+): DetectedNode[] {
+  const detected: DetectedNode[] = [];
+
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (typeof node !== 'object' || !node) continue;
+    const classType = typeof node.class_type === 'string' ? node.class_type : '';
+    if (!classType) continue;
+
+    const inputs = node.inputs && typeof node.inputs === 'object'
+      ? Object.keys(node.inputs as Record<string, unknown>)
+      : [];
+    const hints = NODE_ROLE_HINTS[classType] || [];
+    const suggestedRole = hints.length > 0 ? hints[0] : null;
+
+    detected.push({ nodeId, classType, inputs, suggestedRole });
+  }
+
+  return detected;
+}
+
+/**
+ * 应用参数映射到工作流 JSON，生成可提交的 payload。
+ * 返回深拷贝后的工作流（不修改原始数据）。
+ */
+export function injectParamsIntoWorkflow(
+  workflow: Record<string, Record<string, unknown>>,
+  mapping: WorkflowParamMapping,
+  params: {
+    positivePrompt: string;
+    negativePrompt: string;
+    width: number;
+    height: number;
+    seed: number;
+    steps: number;
+    cfgScale: number;
+    sampler?: string;
+    scheduler?: string;
+    denoise?: number;
+    batchSize?: number;
+  },
+): Record<string, Record<string, unknown>> {
+  // 深拷贝
+  const cloned: Record<string, Record<string, unknown>> = {};
+  for (const [id, node] of Object.entries(workflow)) {
+    cloned[id] = { ...node, inputs: node.inputs ? { ...(node.inputs as Record<string, unknown>) } : {} };
+  }
+
+  const inject = (point: { nodeId: string; inputKey: string } | undefined, value: unknown) => {
+    if (!point || !cloned[point.nodeId]) return;
+    const inputs = cloned[point.nodeId].inputs as Record<string, unknown>;
+    if (inputs && point.inputKey in inputs) {
+      inputs[point.inputKey] = value;
+    }
+  };
+
+  inject(mapping.positivePrompt, params.positivePrompt);
+  inject(mapping.negativePrompt, params.negativePrompt);
+  inject(mapping.width, params.width);
+  inject(mapping.height, params.height);
+  inject(mapping.seed, params.seed);
+  inject(mapping.steps, params.steps);
+  inject(mapping.cfg, params.cfgScale);
+  inject(mapping.batchSize, params.batchSize ?? 1);
+
+  if (params.sampler !== undefined) inject(mapping.sampler, params.sampler);
+  if (params.scheduler !== undefined) inject(mapping.scheduler, params.scheduler);
+  if (params.denoise !== undefined) inject(mapping.denoise, params.denoise);
+
+  // 自定义注入
+  for (const [key, value] of Object.entries(mapping.custom)) {
+    const dotIdx = key.indexOf('.');
+    if (dotIdx < 0) continue;
+    const nodeId = key.slice(0, dotIdx);
+    const inputKey = key.slice(dotIdx + 1);
+    inject({ nodeId, inputKey }, value);
+  }
+
+  return cloned;
+}
+
+/**
+ * 使用自定义工作流构建 ComfyUI 执行 payload。
+ * 内部调用 injectParamsIntoWorkflow 做参数注入。
+ */
+export function buildCustomWorkflowPayload(
+  preset: ComfyWorkflowPreset,
+  prompt: string,
+  options: Record<string, unknown>,
+  imageConfig: Partial<ImageGenConfig>,
+) {
+  const { positivePrompt, negativePrompt } = resolveComfyMergedPrompts(prompt, options, imageConfig);
+  const requestedSize = resolveRequestedImageSize(imageConfig, options);
+  const width = (options.width as number) || requestedSize.width;
+  const height = (options.height as number) || requestedSize.height;
+  const seed = (options.seed as number) || imageConfig.seed || Math.floor(Math.random() * 4294967295);
+  const steps = imageConfig.steps || 20;
+  const cfgScale = imageConfig.scale || 7;
+  const sampler_name = imageConfig.comfySampler || 'euler';
+  const scheduler = imageConfig.comfyScheduler || 'normal';
+  const model = imageConfig.comfyModel || '';
+
+  const promptPayload = injectParamsIntoWorkflow(preset.workflow, preset.paramMapping, {
+    positivePrompt,
+    negativePrompt,
+    width,
+    height,
+    seed,
+    steps,
+    cfgScale,
+    sampler: sampler_name,
+    scheduler,
+    denoise: 1,
+    batchSize: 1,
+  });
+
+  return {
+    promptPayload,
+    positivePrompt,
+    negativePrompt,
+    width,
+    height,
+    seed,
+    steps,
+    cfgScale,
+    sampler_name,
+    scheduler,
+    model,
+    vae: '',
+    resultModelLabel: `ComfyUI [${preset.name}]: ${model}`,
+    resultSamplerLabel: sampler_name,
+  };
+}
+
+/** 判断是否应该使用自定义工作流 */
+export function resolveComfyWorkflow(
+  config: Partial<ImageGenConfig>,
+): ComfyWorkflowPreset | null {
+  if (!config.comfyUseCustomWorkflow || !config.comfyActiveWorkflowId) return null;
+  return config.comfyWorkflowPresets?.find((p) => p.id === config.comfyActiveWorkflowId) || null;
+}
+
 export async function generateComfyUIImage(prompt: string, config: Partial<ImageGenConfig>): Promise<ImageGenResult> {
   const apiUrl = (config.comfyUrl || 'http://localhost:8188').replace(/\/$/, '');
-  const execution = buildDefaultComfyExecutionPayload(prompt, {}, config);
+
+  // 优先使用自定义工作流
+  const customWorkflow = resolveComfyWorkflow(config);
+  let execution: ReturnType<typeof buildDefaultComfyExecutionPayload | typeof buildCustomWorkflowPayload>;
+
+  if (customWorkflow) {
+    try {
+      execution = buildCustomWorkflowPayload(customWorkflow, prompt, {}, config);
+    } catch (e) {
+      console.warn('[ComfyUI] 自定义工作流构建失败，回退到默认流:', e);
+      execution = buildDefaultComfyExecutionPayload(prompt, {}, config);
+    }
+  } else {
+    execution = buildDefaultComfyExecutionPayload(prompt, {}, config);
+  }
 
   const res = await fetch(`${apiUrl}/prompt`, {
     method: 'POST',

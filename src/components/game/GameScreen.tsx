@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain, Maximize2, Minimize2, BookMarked } from 'lucide-react';
+import { Home, User, Users, BookOpen, Settings, X, ChevronLeft, ChevronRight, Menu, PanelRightOpen, Layers, Brain, Maximize2, Minimize2, BookMarked, Globe } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { useUISettings } from '../../context/UISettingsContext';
@@ -15,11 +15,15 @@ import RightPanel from './panels/RightPanel';
 import MobileOverlay from './MobileOverlay';
 import BusinessOverlay from './panels/BusinessOverlay';
 import { MemorySettingsOverlay } from '../settings/memory/MemorySettingsOverlay';
+import WorldDynamicsPanel from './panels/WorldDynamicsPanel';
+import { useSimulationStore } from '../../stores/simulationStore';
+import { getSimulationEngine, setWorldContext } from '../../simulation/SimulationApi';
+import { extractWorldContext } from '../../simulation/worldContext';
 import type { WorldSystemData, DiceRoll, SurvivalRecipe, BusinessModuleSchema } from '../../modules/schema';
 
 import { eventBus, EVENTS } from '../../engine/eventBus';
 import { findWorldDef } from '../../data/worldLoader';
-type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'variables' | 'worldbook' | 'memory';
+type OverlayPanel = null | 'profile' | 'notebook' | 'characters' | 'variables' | 'worldbook' | 'memory' | 'dynamics';
 
 interface NavButton {
   id: OverlayPanel | 'home';
@@ -34,6 +38,7 @@ const navButtons: NavButton[] = [
   { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook' },
   { id: 'variables', icon: Layers, labelKey: 'nav.variables' },
   { id: 'worldbook', icon: BookMarked, labelKey: 'nav.worldbook' },
+  { id: 'dynamics', icon: Globe, labelKey: 'nav.dynamics' },
   { id: 'memory', icon: Brain, labelKey: 'nav.memory' },
 ];
 
@@ -140,7 +145,7 @@ export default function GameScreen() {
   // 移动端状态
   const [showLeftOverlay, setShowLeftOverlay] = useState(false);
   const [showRightOverlay, setShowRightOverlay] = useState(false);
-  const [mobileActivePanel, setMobileActivePanel] = useState<'profile' | 'characters' | 'notebook' | 'variables' | 'worldbook' | 'memory' | null>(null);
+  const [mobileActivePanel, setMobileActivePanel] = useState<'profile' | 'characters' | 'notebook' | 'variables' | 'worldbook' | 'memory' | 'dynamics' | null>(null);
 
   const [stateVersion, setStateVersion] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
@@ -209,6 +214,87 @@ export default function GameScreen() {
   }, []);
 
   const apiConfig = useConfigStore(s => s.apiConfig);
+
+  // ── 后台世界推演引擎（模块级单例，与组件生命周期解耦）──
+  const simEngine = getSimulationEngine();
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // 当世界变化时，提取世界书语义上下文并注入引擎
+  useEffect(() => {
+    if (!worldDef) return;
+    const ctx = extractWorldContext(
+      worldDef.worldBookEntries,
+      worldDef.name,
+      worldDef.description ?? '',
+    );
+    setWorldContext(ctx);
+  }, [worldDef?.id]); // 只在世界发生变化时重新提取
+
+  // 当主 API 配置变更时更新引擎（推演有独立预设时优先用预设）
+  useEffect(() => {
+    if (apiConfig) simEngine.setApiConfig(apiConfig);
+  }, [apiConfig]);
+
+  // 自动推演：变量更新后检查是否需要 tick
+  useEffect(() => {
+    const handler = async () => {
+      // 同步 store 配置到引擎（UI toggle 只改 store，引擎不感知）
+      simEngine.state.config = { ...useSimulationStore.getState().simState.config };
+
+      const gs = engine.variableManager.getState();
+      const gameTime = {
+        era: gs.世界?.时间系统?.纪元名称 ?? '',
+        current: gs.世界?.时间系统?.当前时间 ?? '',
+      };
+      const round = engine.messages.length;
+
+      if (!simEngine.shouldTick(gameTime, round)) return;
+      if (!simEngine.effectiveApiConfig) return;
+
+      setIsSimulating(true);
+      try {
+        const worldDesc = worldDef?.description ?? worldDef?.name ?? '未知世界';
+        await simEngine.tick(gs, gameTime, round, worldDesc);
+        // 同步到 Zustand store
+        useSimulationStore.getState().setSimState(simEngine.state);
+      } catch (err) {
+        console.warn('[WorldSim] 自动推演失败:', err);
+      } finally {
+        setIsSimulating(false);
+      }
+    };
+
+    eventBus.on(EVENTS.VARIABLE_UPDATE_ENDED, handler);
+    return () => { eventBus.off(EVENTS.VARIABLE_UPDATE_ENDED, handler); };
+  }, [engine, apiConfig, simEngine, worldDef]);
+
+  // 手动推演
+  const handleManualTick = useCallback(async () => {
+    if (!simEngine.effectiveApiConfig || isSimulating) return;
+    setIsSimulating(true);
+    try {
+      // 同步 store 配置到引擎
+      simEngine.state.config = { ...useSimulationStore.getState().simState.config };
+
+      const gs = engine.variableManager.getState();
+      const gameTime = {
+        era: gs.世界?.时间系统?.纪元名称 ?? '',
+        current: gs.世界?.时间系统?.当前时间 ?? '',
+      };
+      const round = engine.messages.length;
+      const worldDesc = worldDef?.description ?? worldDef?.name ?? '未知世界';
+
+      // 强制 tick（跳过 shouldTick 检查）
+      simEngine.state.config.lastSimulatedTime = '';
+      simEngine.state.config.lastAutoTickRound = 0;
+      await simEngine.tick(gs, gameTime, round, worldDesc);
+      useSimulationStore.getState().setSimState(simEngine.state);
+    } catch (err) {
+      console.warn('[WorldSim] 手动推演失败:', err);
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [isSimulating, engine, simEngine, worldDef]);
 
   // ── 生存资源：制作逻辑 ──
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
@@ -409,6 +495,7 @@ export default function GameScreen() {
       case 'variables': return <VariableSnapshotPanel messages={engine.messages} varMgr={engine.variableManager} onRestoreSnapshot={(snapshot) => { engine.variableManager.restoreSnapshot(snapshot); setStateVersion(v => v + 1); }} onSave={() => setStateVersion(v => v + 1)} />;
       case 'worldbook': return <WorldBookPanel worldId={state.selectedWorld} engine={engine} />;
       case 'memory': return <MemorySettingsOverlay visible={true} onClose={() => setOverlay(null)} onSave={() => {}} mode="inline" />;
+      case 'dynamics': return <WorldDynamicsPanel gameState={gameState} onManualTick={handleManualTick} isSimulating={isSimulating} />;
       default: return null;
     }
   };
@@ -421,6 +508,7 @@ export default function GameScreen() {
     { id: 'notebook', icon: BookOpen, labelKey: 'nav.notebook', action: () => { setShowLeftOverlay(false); setMobileActivePanel('notebook'); } },
     { id: 'variables', icon: Layers, labelKey: 'nav.variables', action: () => { setShowLeftOverlay(false); setMobileActivePanel('variables'); } },
     { id: 'worldbook', icon: BookMarked, labelKey: 'nav.worldbook', action: () => { setShowLeftOverlay(false); setMobileActivePanel('worldbook'); } },
+    { id: 'dynamics', icon: Globe, labelKey: 'nav.dynamics', action: () => { setShowLeftOverlay(false); setMobileActivePanel('dynamics'); } },
     { id: 'memory', icon: Brain, labelKey: 'nav.memory', action: () => { setShowLeftOverlay(false); setMobileActivePanel('memory'); } },
     { id: 'settings', icon: Settings, labelKey: 'nav.settings', action: () => { setShowLeftOverlay(false); navigate('settings'); } },
   ];
@@ -440,6 +528,8 @@ export default function GameScreen() {
         return <WorldBookPanel worldId={state.selectedWorld} engine={engine} />;
       case 'memory':
         return <MemorySettingsOverlay visible={true} onClose={() => setMobileActivePanel(null)} onSave={() => {}} mode="inline" />;
+      case 'dynamics':
+        return <WorldDynamicsPanel gameState={gameState} onManualTick={handleManualTick} isSimulating={isSimulating} />;
       default:
         return null;
     }
@@ -454,6 +544,7 @@ export default function GameScreen() {
       case 'variables': return t('nav.variables');
       case 'worldbook': return t('nav.worldbook');
       case 'memory': return t('nav.memory');
+      case 'dynamics': return t('nav.dynamics');
       default: return '导航';
     }
   };
