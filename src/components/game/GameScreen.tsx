@@ -298,6 +298,7 @@ export default function GameScreen() {
 
   // ── 生存资源：制作逻辑 ──
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
+  const [runtimeRecipes, setRuntimeRecipes] = useState<SurvivalRecipe[]>([]);
 
   const handleSurvivalCraft = useCallback((recipe: SurvivalRecipe) => {
     const state = engine.variableManager.getState();
@@ -338,8 +339,20 @@ export default function GameScreen() {
       const { buildRecipeGenPrompt } = await import('../../modules/prompts');
       const state = engine.variableManager.getState();
       const resources = state.玩家?.生存资源 || {};
+
+      // 从世界定义获取资源名称映射（id → 中文名）
+      const survivalMod = worldDef?.modules?.find(m => m.moduleId === 'survival' && m.enabled)?.moduleConfig as
+        | { resources?: Array<{ id: string; name?: string; symbol?: string }> }
+        | undefined;
+      const nameMap = new Map<string, string>();
+      if (survivalMod?.resources) {
+        for (const r of survivalMod.resources) {
+          nameMap.set(r.id, r.name || r.id);
+        }
+      }
+
       const currentResources = Object.entries(resources).map(([id, r]) => ({
-        id, name: id, amount: r.数量, max: r.最大值 ?? 9999,
+        id, name: nameMap.get(id) || id, amount: r.数量, max: r.最大值 ?? 9999,
       }));
       const worldTheme = state.世界?.社会环境?.社会氛围 || '生存世界';
 
@@ -350,24 +363,55 @@ export default function GameScreen() {
       ], { signal: new AbortController().signal, onDelta: () => {} });
 
       const jsonMatch = result.text.match(/```(?:json)?\s*([\s\S]*?)```/) || result.text.match(/(\{[\s\S]*\})/);
-      if (jsonMatch) {
-        const fixed = jsonMatch[1].trim().replace(/[""]/g, '"').replace(/['']/g, "'");
-        const recipe = JSON.parse(fixed);
-
-        // 配方数据在世界定义中，此处仅刷新UI展示
-        engine.variableManager.setState(state);
-        setStateVersion(v => v + 1);
+      if (!jsonMatch) {
+        setNotification('配方生成失败：AI 未返回有效 JSON');
+        return;
       }
+
+      const { normalizeRecipeInputs, normalizeRecipeOutput } = await import('../../utils/formatNormalize');
+      const fixed = jsonMatch[1].trim()
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/\u3001/g, ',');
+      const raw = JSON.parse(fixed);
+
+      const recipe: SurvivalRecipe = {
+        id: String(raw.id || `recipe_${Date.now()}`),
+        name: String(raw.name || '未知配方'),
+        inputs: normalizeRecipeInputs(raw.inputs),
+        output: normalizeRecipeOutput(raw.output),
+        description: String(raw.description || ''),
+      };
+
+      if (!recipe.output.resourceId || recipe.output.amount <= 0) {
+        setNotification('配方生成失败：输出格式无效');
+        return;
+      }
+
+      // 校验 inputs 是否引用了模块中存在的资源
+      const validIds = new Set<string>();
+      if (survivalMod?.resources) {
+        for (const r of survivalMod.resources) validIds.add(r.id);
+      }
+      const unknownInputs = Object.keys(recipe.inputs).filter(k => !validIds.has(k));
+      if (unknownInputs.length > 0) {
+        setNotification(`配方生成失败：AI 使用了不存在的材料「${unknownInputs.join('、')}」，请重试`);
+        return;
+      }
+
+      setRuntimeRecipes(prev => [...prev, recipe]);
+      setNotification(`配方「${recipe.name}」已创建`);
     } catch (err) {
       console.warn('[配方生成] 失败:', err);
+      setNotification(`配方生成失败：${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setIsGeneratingRecipe(false);
     }
-  }, [engine, apiConfig]);
+  }, [engine, apiConfig, worldDef]);
 
-  // ── 生存资源：删除配方（配方数据在世界定义中，此处仅刷新UI） ──
-  const handleSurvivalDeleteRecipe = useCallback((_recipeId: string) => {
-    setStateVersion(v => v + 1);
+  // ── 生存资源：删除配方 ──
+  const handleSurvivalDeleteRecipe = useCallback((recipeId: string) => {
+    setRuntimeRecipes(prev => prev.filter(r => r.id !== recipeId));
   }, []);
 
   // ── 经营资产：自动结算（每轮变量更新后，纯机械计算） ──
@@ -673,6 +717,7 @@ export default function GameScreen() {
               onSurvivalCraft={handleSurvivalCraft}
               onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
               isGeneratingRecipe={isGeneratingRecipe}
+              runtimeRecipes={runtimeRecipes}
               onOpenBusinessOverlay={() => setBusinessOverlayOpen(true)}
             />}
           </div>
@@ -779,6 +824,7 @@ export default function GameScreen() {
             onSurvivalCraft={handleSurvivalCraft}
             onSurvivalDeleteRecipe={handleSurvivalDeleteRecipe}
             isGeneratingRecipe={isGeneratingRecipe}
+            runtimeRecipes={runtimeRecipes}
             onOpenBusinessOverlay={() => setBusinessOverlayOpen(true)}
           />
         </MobileOverlay>

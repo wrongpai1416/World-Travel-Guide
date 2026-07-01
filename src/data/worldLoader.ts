@@ -36,18 +36,19 @@ export function getWorldById(id: string): WorldDef | undefined {
   return WORLDS.find(w => w.id === id);
 }
 
-/** 按 id 查找世界（内置 + 自建） */
+/** 按 id 查找世界（自建优先 + 内置兜底） */
 export function findWorldDef(worldId: string): WorldDef | undefined {
-  const builtIn = WORLDS.find(w => w.id === worldId);
-  if (builtIn) return builtIn;
+  // 先查 localStorage 中的自建/修改世界（优先级最高，确保修改后的内置世界不被原版覆盖）
   try {
     const custom: WorldDef[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
     const found = custom.find((w: WorldDef) => w.id === worldId);
-    if (found && found.modules) {
-      found.modules = normalizeModules(found.modules);
+    if (found) {
+      if (found.modules) found.modules = normalizeModules(found.modules);
+      return found;
     }
-    return found;
-  } catch { return undefined; }
+  } catch { /* ignore */ }
+  // 兜底：内置世界
+  return WORLDS.find(w => w.id === worldId);
 }
 
 /** 获取指定世界的嵌入式世界书条目（修复 entryId: null 问题） */

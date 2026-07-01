@@ -4,6 +4,7 @@ import {
   ChevronDown, ChevronUp, ExternalLink, AlertCircle,
 } from 'lucide-react';
 import type { WorldDef, WorldBookEntryDef } from '../../data/worlds-schema';
+import { parseKeywordInput } from '../../utils/formatNormalize';
 
 interface Props {
   world: WorldDef;
@@ -18,6 +19,7 @@ export default function WorldBookEditor({ world, onSave }: Props) {
   );
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [importMsg, setImportMsg] = useState('');
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextUidRef = useRef(Date.now());
 
@@ -124,6 +126,8 @@ export default function WorldBookEditor({ world, onSave }: Props) {
   const handleSave = () => {
     const clean = entries.map(({ _dirty, ...rest }) => rest);
     onSave({ ...world, worldBookEntries: clean });
+    setSaveMsg('保存成功');
+    setTimeout(() => setSaveMsg(null), 2000);
   };
 
   const globalCount = entries.filter(e => e.constant).length;
@@ -158,6 +162,12 @@ export default function WorldBookEditor({ world, onSave }: Props) {
       {importMsg && (
         <div className={`wbe-import-msg${importMsg.startsWith('导入完成') ? '' : ' wbe-import-msg-error'}`}>
           <AlertCircle size={14} /> {importMsg}
+        </div>
+      )}
+
+      {saveMsg && (
+        <div className="wbe-import-msg">
+          <AlertCircle size={14} /> {saveMsg}
         </div>
       )}
 
@@ -234,7 +244,7 @@ export default function WorldBookEditor({ world, onSave }: Props) {
                         className="wbe-input"
                         value={entry.key?.join(', ') ?? ''}
                         onChange={e => updateEntry(entry.uid, {
-                          key: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                          key: parseKeywordInput(e.target.value),
                         })}
                         disabled={isGlobal}
                         placeholder={isGlobal ? '全局条目始终生效' : '输入触发关键词...'}

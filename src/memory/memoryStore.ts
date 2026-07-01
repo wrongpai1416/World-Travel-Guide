@@ -32,6 +32,11 @@ import {
   createDefaultMemorySystemConfig,
   normalizeMemorySystemConfig,
 } from './memoryConfig';
+import {
+  normalizeThread,
+  normalizeEventCard,
+  normalizeEntityCard,
+} from './normalize';
 import { STORAGE_KEYS } from '@/config/storageKeys';
 
 // ─── Loading 引用计数（防止并行任务提前关闭 loading 状态） ───
@@ -223,14 +228,19 @@ function normalizeMemoryRuntime(raw: unknown): NarrativeMemoryRuntime {
     sceneAnchor: safe.sceneAnchor && typeof safe.sceneAnchor === 'object'
       ? safe.sceneAnchor as SceneAnchor
       : null,
-    activeThreads: normalizeArray(safe.activeThreads).slice(-30) as NarrativeThread[],
+    activeThreads: normalizeArray(safe.activeThreads)
+      .map((t: unknown) => t && typeof t === 'object' ? normalizeThread(t as Record<string, unknown>) : t)
+      .slice(-30) as NarrativeThread[],
     stateSlots: normalizeArray(safe.stateSlots).slice(-30) as NarrativeStateSlot[],
     relationEdges: normalizeArray(safe.relationEdges).slice(-50) as NarrativeRelationEdge[],
     relationNetwork: normalizeArray(safe.relationNetwork).slice(-50) as NarrativeRelationNetworkItem[],
-    eventCards: (normalizeArray(safe.eventCards) as NarrativeEventCard[])
-      .sort((a, b) => (Number(b.importance || 0) - Number(a.importance || 0)) || (Number(b.updatedAt || 0) - Number(a.updatedAt || 0)))
-      .slice(0, 50),
-    entityCards: normalizeArray(safe.entityCards).slice(-30) as NarrativeEntityCard[],
+    eventCards: (normalizeArray(safe.eventCards) as unknown[])
+      .map((c: unknown) => c && typeof c === 'object' ? normalizeEventCard(c as Record<string, unknown>) : c)
+      .sort((a: any, b: any) => (Number(b.importance || 0) - Number(a.importance || 0)) || (Number(b.updatedAt || 0) - Number(a.updatedAt || 0)))
+      .slice(0, 50) as NarrativeEventCard[],
+    entityCards: normalizeArray(safe.entityCards)
+      .map((c: unknown) => c && typeof c === 'object' ? normalizeEntityCard(c as Record<string, unknown>) : c)
+      .slice(-30) as NarrativeEntityCard[],
     archiveCards: normalizeArray(safe.archiveCards).slice(-30) as NarrativeArchiveCard[],
     mutationLog: normalizeArray(safe.mutationLog).slice(-50) as NarrativeMutation[],
     checkpoints: normalizeArray(safe.checkpoints).slice(-5) as NarrativeCheckpoint[],

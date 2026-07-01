@@ -67,7 +67,13 @@ export function useWizard({ initialWorld = 'default', initialPersonalInfo }: Use
       return worlds;
     } catch { return []; }
   });
-  const allWorlds = useMemo(() => [...WORLDS, ...createdWorlds], [createdWorlds]);
+  // createdWorlds 优先去重：过滤掉 WORLDS 中已存在于 createdWorlds 的同 ID 世界
+  // 确保修改后的内置世界不被原版覆盖
+  const allWorlds = useMemo(() => {
+    const customIds = new Set(createdWorlds.map(w => w.id));
+    const builtinFiltered = WORLDS.filter(w => !customIds.has(w.id));
+    return [...builtinFiltered, ...createdWorlds];
+  }, [createdWorlds]);
 
   // ─── 世界编辑器 ───
   const [worldEditorOpen, setWorldEditorOpen] = useState(false);

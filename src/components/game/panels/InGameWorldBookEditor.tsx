@@ -9,7 +9,9 @@ import {
 import type { GameEngine } from '../../../engine/types';
 import type { WorldBookEntry } from '../../../worldbook/index';
 import { findWorldDef } from '../../../data/worldLoader';
-import type { WorldBookEntryDef } from '../../../data/worlds-schema';
+import type { WorldBookEntryDef, WorldDef } from '../../../data/worlds-schema';
+import { STORAGE_KEYS } from '../../../config/storageKeys';
+import { parseKeywordInput } from '../../../utils/formatNormalize';
 
 interface Props {
   engine: GameEngine;
@@ -42,6 +44,48 @@ function defsToEntries(defs: WorldBookEntryDef[]): WorldBookEntry[] {
   }));
 }
 
+/** 将 WorldBookEntry 转回 WorldBookEntryDef 格式（持久化用） */
+function entriesToDefs(entries: WorldBookEntry[]): WorldBookEntryDef[] {
+  return entries.map((e, idx) => ({
+    uid: e.id < 0 ? e.id : -(idx + 1),
+    key: e.keys ?? [],
+    keysecondary: e.secondaryKeys ?? [],
+    comment: e.comment,
+    content: e.content,
+    constant: e.constant,
+    disable: !e.enabled,
+    order: e.order ?? e.insertionOrder ?? idx + 1,
+    position: e.position ?? 'after_char',
+    depth: e.depth,
+    probability: e.probability,
+    useProbability: e.useProbability,
+    excludeRecursion: e.excludeRecursion,
+    preventRecursion: e.preventRecursion,
+    group: e.group,
+    selectiveLogic: e.selectiveLogic,
+    scanDepth: e.scanDepth,
+    caseSensitive: e.caseSensitive,
+    matchWholeWords: e.matchWholeWords,
+  }));
+}
+
+/** 持久化世界到 localStorage（CUSTOM_WORLDS） */
+function persistWorldToStorage(updatedWorld: WorldDef) {
+  try {
+    const stored: WorldDef[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_WORLDS) || '[]');
+    const idx = stored.findIndex(w => w.id === updatedWorld.id);
+    if (idx >= 0) {
+      stored[idx] = updatedWorld;
+    } else {
+      stored.push(updatedWorld);
+    }
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_WORLDS, JSON.stringify(stored));
+  } catch (err) {
+    console.error('[世界书] 持久化失败:', err);
+    throw err;
+  }
+}
+
 export default function InGameWorldBookEditor({ engine, worldId, onClose }: Props) {
   const [entries, setEntries] = useState<EditEntry[]>(() => {
     // 优先从引擎的运行时 WorldBookManager 读取
@@ -58,6 +102,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
   });
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [importMsg, setImportMsg] = useState('');
+  const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextIdRef = useRef(Date.now());
 
@@ -153,22 +198,52 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
   };
 
   const handleSave = () => {
-    if (!engine.worldBook) return;
+    if (!engine.worldBook) {
+      setSaveMsg({ type: 'error', text: '世界书引擎未初始化' });
+      setTimeout(() => setSaveMsg(null), 3000);
+      return;
+    }
     const clean = entries.map(({ _dirty, ...rest }) => rest);
-    // 如果管理器中没有 constant 条目（例如从 WorldDef 兜底加载的场景），
-    // 先把所有条目注入管理器，再替换 non-constant 部分
+
+    // ── Step 1: 两步保存到运行时引擎 ──
+    const nonConstant = clean.filter(e => !e.constant);
+    const allConstant = clean.filter(e => e.constant);
+
     const wbEntries = engine.worldBook.getAllEntries();
     const hasConstantInManager = wbEntries.some(e => e.constant);
+    const existingConstantIds = new Set(wbEntries.filter(e => e.constant).map(e => e.id));
+
     if (!hasConstantInManager) {
-      // 管理器为空或无 constant → 先注入全部（含 constant）
+      // 管理器无 constant → 注入全部
       engine.worldBook.addEntries(clean);
     } else {
-      // 正常场景：只替换 non-constant 条目
-      engine.worldBook.replaceNonConstantEntries(
-        clean.filter(e => !e.constant),
-      );
+      // 替换非全局条目
+      engine.worldBook.replaceNonConstantEntries(nonConstant);
+      // 只添加管理器中不存在的 constant 条目（避免重复）
+      const trulyNewConstant = allConstant.filter(e => !existingConstantIds.has(e.id));
+      if (trulyNewConstant.length > 0) {
+        engine.worldBook.addEntries(trulyNewConstant);
+      }
     }
-    onClose();
+
+    // ── Step 2: 持久化到 localStorage ──
+    try {
+      const world = findWorldDef(worldId);
+      if (world) {
+        const defs = entriesToDefs(clean);
+        const updatedWorld: WorldDef = { ...world, worldBookEntries: defs };
+        persistWorldToStorage(updatedWorld);
+        setSaveMsg({ type: 'success', text: '保存成功，已持久化到世界预设' });
+        setTimeout(() => { setSaveMsg(null); onClose(); }, 800);
+      } else {
+        setSaveMsg({ type: 'error', text: `未找到世界定义: ${worldId}` });
+        setTimeout(() => setSaveMsg(null), 3000);
+      }
+    } catch (err) {
+      console.error('[世界书保存] 持久化失败:', err);
+      setSaveMsg({ type: 'error', text: '运行时已更新，但持久化失败' });
+      setTimeout(() => setSaveMsg(null), 3000);
+    }
   };
 
   const globalCount = entries.filter(e => e.constant).length;
@@ -205,7 +280,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
             <Pencil size={12} /> 触发 {triggerCount}（可编辑）
           </span>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
-            修改立即生效于当前游戏，不会持久化到预设世界
+            保存后立即生效于当前游戏，并持久化到世界预设
           </span>
         </div>
 
@@ -236,6 +311,20 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
             display: 'flex', alignItems: 'center', gap: '6px',
           }}>
             <AlertCircle size={14} /> {importMsg}
+          </div>
+        )}
+
+        {saveMsg && (
+          <div style={{
+            margin: '0 20px 8px', padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+            fontSize: 'var(--font-size-sm)',
+            background: saveMsg.type === 'success'
+              ? 'color-mix(in srgb, var(--success) 8%, transparent)'
+              : 'color-mix(in srgb, var(--danger) 8%, transparent)',
+            color: saveMsg.type === 'success' ? 'var(--success)' : 'var(--danger)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}>
+            <AlertCircle size={14} /> {saveMsg.text}
           </div>
         )}
 
@@ -314,7 +403,7 @@ export default function InGameWorldBookEditor({ engine, worldId, onClose }: Prop
                           className="wbe-input"
                           value={entry.keys?.join(', ') ?? ''}
                           onChange={e => updateEntry(entry.id, {
-                            keys: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean),
+                            keys: parseKeywordInput(e.target.value),
                           })}
                           disabled={isGlobal}
                           placeholder={isGlobal ? '全局条目始终生效' : '输入触发关键词...'}
